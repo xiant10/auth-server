@@ -29,6 +29,7 @@ services:
       AUTH_SETUP_TENANT_NAME: Acme
       LIVEKIT_AGENT_SECRET: "${AUTH_LIVEKIT_AGENT_SECRET:-dev-only-t10-livekit-agent-secret-change-me}"
       AGENT_PI_SECRET: "${AUTH_AGENT_PI_SECRET:-dev-only-agent-pi-service-secret-change-me}"
+      AGENT_SALES_SECRET: "${AUTH_AGENT_SALES_SECRET:-dev-only-agent-sales-service-secret-change-me}"
       T10_COLLAB_SECRET: "${AUTH_T10_COLLAB_SECRET:-dev-only-t10-collab-service-secret-change-me}"
     depends_on:
       postgres:

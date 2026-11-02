@@ -35,7 +35,10 @@ runtimes:
     # A call's grant is the parent of agent-pi's, so it has to hold whatever a
     # tool needs, or the tool disappears on calls.
     actions: [agent:use, work:read, work:write]
-    audiences: [agent-pi, t10-collab]
+    audiences: [agent-pi, agent-sales, t10-collab]
   - name: agent-pi
     actions: [agent:use, work:read, work:write]
     audiences: [agent-pi, t10-collab]
+  - name: agent-sales
+    actions: [agent:use, work:read, work:write]
+    audiences: [agent-sales, t10-collab]

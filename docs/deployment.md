@@ -68,6 +68,7 @@ kubectl -n t10 create secret generic auth-server-setup \
   --from-literal=AUTH_SETUP_TENANT_NAME='Example' \
   --from-literal=LIVEKIT_AGENT_SECRET="$(openssl rand -base64 32)" \
   --from-literal=AGENT_PI_SECRET="$(openssl rand -base64 32)" \
+  --from-literal=AGENT_SALES_SECRET="$(openssl rand -base64 32)" \
   --from-literal=T10_COLLAB_SECRET="$(openssl rand -base64 32)"
 ```
 

@@ -11,6 +11,7 @@ authctl bootstrap --if-empty \
 	--tenant-name="$AUTH_SETUP_TENANT_NAME"
 AUTHCTL_SERVICE_SECRET="$LIVEKIT_AGENT_SECRET" authctl service-add --if-missing --name=t10-livekit-agent
 AUTHCTL_SERVICE_SECRET="$AGENT_PI_SECRET" authctl service-add --if-missing --name=agent-pi
+AUTHCTL_SERVICE_SECRET="$AGENT_SALES_SECRET" authctl service-add --if-missing --name=agent-sales
 if [ -n "${T10_COLLAB_SECRET:-}" ]; then
 	AUTHCTL_SERVICE_SECRET="$T10_COLLAB_SECRET" authctl service-add --if-missing --name=t10-collab
 fi

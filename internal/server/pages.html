@@ -1,0 +1,342 @@
+{{define "theme"}}<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f5f8fc; --panel: #fff; --sunken: #eff4fb; --text: #0f172a; --muted: #556277; --line: #e1e8f2;
+  --accent: #0066e6; --accent-soft: #e8f1ff; --on-accent: #fff; --danger: #c02626; --danger-soft: #fdecec; --ok: #12784a; --ok-soft: #e4f6ec;
+  --platform: #92500a; --platform-soft: #fdf1df; --tenant: #0052cc; --tenant-soft: #e3efff;
+  --shadow: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 16px rgb(15 23 42 / 5%);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c1017; --panel: #151b26; --sunken: #1c2433; --text: #eaf0f8; --muted: #9aa7bc; --line: #273142;
+    --accent: #5ca8ff; --accent-soft: #172b47; --on-accent: #091321; --danger: #fca5a5; --danger-soft: #3a1c20; --ok: #86efac; --ok-soft: #16322a;
+    --platform: #fbbf72; --platform-soft: #33261a; --tenant: #7bb9ff; --tenant-soft: #152742;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+a { color: var(--accent); text-underline-offset: 2px; }
+h1 { font-size: 1.6rem; line-height: 1.25; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; }
+h2 { font-size: 1rem; line-height: 1.4; margin: 0 0 .5rem; }
+code, .mono { font: .85em/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem; }
+input, select { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; min-height: 2.6rem; max-width: 100%; }
+input::placeholder { color: var(--muted); }
+button { font: inherit; font-weight: 600; min-height: 2.6rem; padding: .45rem 1rem; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); cursor: pointer; transition: filter .12s; }
+button:hover { filter: brightness(1.1); }
+button.quiet { background: var(--panel); color: var(--text); border-color: var(--line); }
+button.quiet:hover { background: var(--sunken); filter: none; }
+button.danger { background: var(--danger); border-color: var(--danger); color: var(--panel); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mark { display: inline-block; width: 2rem; height: 2rem; object-fit: contain; flex: none; vertical-align: middle; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.15rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+.hint { color: var(--muted); font-size: .875rem; }
+summary { cursor: pointer; }
+.lang { display: grid; grid-template-columns: auto auto; gap: 2px; margin: 0; padding: 2px; background: var(--sunken); border-radius: 8px; }
+form.lang > button { width: auto; min-height: 1.75rem; margin: 0; padding: 0 .5rem; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: .8125rem; font-weight: 600; }
+form.lang > button:hover { background: none; color: var(--text); filter: none; }
+form.lang > button[aria-pressed=true] { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>{{end}}
+
+{{define "head"}}<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="{{logo}}">
+<title>{{.Title}} · t10</title>
+{{template "theme"}}
+<style>
+body { min-height: 100vh; }
+main.card { max-width: 25rem; margin: 3rem auto; padding: 2rem; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+main.wide { max-width: 44rem; margin: 0 auto; padding: 1.75rem 1rem 3rem; }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: .55rem; font-weight: 700; margin: 0 0 1.25rem; }
+main.card h1 { margin-bottom: 1rem; }
+main.wide h1 { margin-bottom: 1.25rem; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .6rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); }
+.bar .home { display: flex; align-items: center; gap: .55rem; margin-right: auto; font-weight: 700; color: inherit; text-decoration: none; }
+.bar form { margin: 0; }
+.bar form:not(.lang) > button { width: auto; min-height: 2.25rem; margin: 0; padding: .25rem .8rem; }
+form > label { margin-top: .9rem; }
+form > input:not([type=hidden]) { width: 100%; }
+form > button { width: 100%; margin-top: 1.15rem; }
+.error, .notice { border-radius: 8px; padding: .6rem .8rem; font-size: .9rem; }
+.error { background: var(--danger-soft); color: var(--danger); }
+.notice { background: var(--ok-soft); color: var(--ok); }
+.tag { color: var(--muted); font-size: .8rem; }
+:lang(zh-Hans) h1 { letter-spacing: 0; }
+.links { font-size: .875rem; margin: 1rem 0 0; text-align: center; }
+.qr { text-align: center; }
+.qr h2 { margin-bottom: .75rem; }
+.qr img { display: block; margin: 0 auto; background: #fff; border-radius: 8px; max-width: 100%; height: auto; }
+#qr { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+#qr-status { color: var(--muted); font-size: .85rem; margin: .5rem 0 0; }
+@media (min-width: 760px) {
+  main.split:has(#qr:not([hidden])) { max-width: 44rem; display: grid; grid-template-columns: minmax(0, 1fr) 15.5rem; column-gap: 2rem; }
+  main.split:has(#qr:not([hidden])) > * { grid-column: 1; }
+  main.split:has(#qr:not([hidden])) > .brand { grid-column: 1 / -1; }
+  main.split:has(#qr:not([hidden])) > #qr { grid-column: 2; grid-row: 2 / span 9; align-self: center; margin: 0; padding: 0 0 0 2rem; border-top: 0; border-left: 1px solid var(--line); }
+}
+ul.codes { list-style: none; padding: .75rem; margin: 0 0 1rem; background: var(--sunken); border-radius: 8px; columns: 2; }
+ul.items { list-style: none; padding: 0; margin: 0 0 .5rem; }
+ul.items > li { padding: .5rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+ul.items > li:last-child { border-bottom: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; }
+.head p { margin: 0; color: var(--muted); }
+details { margin-top: .35rem; }
+summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2rem 0; }
+.stack { display: flex; flex-wrap: wrap; gap: .5rem; }
+.stack form { margin: 0; }
+@media (max-width: 480px) { main.card { margin: 0; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; padding: 1.5rem 1rem; } }
+</style>
+</head>
+<body>
+{{if .Wide}}<header class="bar">
+<a class="home" href="/v1/account"><img class="mark" src="{{logo}}" alt="t10"> {{t "Account"}}</a>
+{{if .Admin}}<a href="/admin">{{t "Administration"}}</a>{{end}}
+{{if .Here}}{{template "lang_switch" .Here}}{{end}}
+<form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form>
+</header>
+<main class="wide">
+{{else}}<main class="card{{if .Nonce}} split{{end}}">
+<div class="brand"><img class="mark" src="{{logo}}" alt="t10">{{if .Here}}{{template "lang_switch" .Here}}{{end}}</div>{{end}}
+<h1>{{.Title}}</h1>
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+{{if .Notice}}<p class="notice" role="status">{{.Notice}}</p>{{end}}
+{{end}}
+
+{{define "lang_switch"}}<form class="lang" method="post" action="/v1/language" role="group" aria-label="{{t "Language"}}">
+<input type="hidden" name="next" value="{{.}}">
+<button class="quiet" name="lang" value="en" lang="en" aria-pressed="{{if eq lang "en"}}true{{else}}false{{end}}">English</button>
+<button class="quiet" name="lang" value="zh-Hans" lang="zh-Hans" aria-pressed="{{if eq lang "zh-Hans"}}true{{else}}false{{end}}">中文</button>
+</form>{{end}}
+
+{{define "foot"}}</main></body></html>{{end}}
+
+{{define "reauth"}}
+<label for="{{.}}-password">{{t "Current password"}}</label>
+<input id="{{.}}-password" name="password" type="password" autocomplete="current-password" required>
+<label for="{{.}}-code">{{t "Authenticator code (if enabled)"}}</label>
+<input id="{{.}}-code" name="code" inputmode="numeric" autocomplete="one-time-code">
+{{end}}
+
+{{define "signin"}}{{template "head" .}}
+<form method="post" action="/v1/signin">
+<input type="hidden" name="next" value="{{.Next}}">
+<label for="name">{{t "Username, phone or email"}}</label>
+<input id="name" name="name" autocomplete="username" required autofocus>
+<label for="password">{{t "Password"}}</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required>
+<label for="code">{{t "Authenticator code (if enabled)"}}</label>
+<input id="code" name="code" inputmode="numeric" autocomplete="one-time-code">
+<button>{{t "Sign in"}}</button>
+</form>
+<p class="links"><a href="/v1/register?next={{.Next}}">{{t "Create an account"}}</a> · <a href="/v1/recover">{{t "Lost your password?"}}</a></p>
+<section id="qr" class="qr" hidden data-next="{{.Next}}">
+<h2>{{t "Or scan with the t10 app"}}</h2>
+<img id="qr-image" alt="{{t "QR code to sign in with the t10 app"}}" width="220" height="220">
+<p id="qr-status">{{t "Check the request in the app before you approve it."}}</p>
+</section>
+<script nonce="{{.Nonce}}">
+(function () {
+  var box = document.getElementById("qr");
+  var image = document.getElementById("qr-image");
+  var status = document.getElementById("qr-status");
+  var timer;
+  function post(path, body) {
+    return fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)})
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+  }
+  function start() {
+    post("/v1/signin/qr", {next: box.dataset.next}).then(function (qr) {
+      image.src = qr.image;
+      box.hidden = false;
+      status.textContent = {{t "Check the request in the app before you approve it."}};
+      clearTimeout(timer);
+      timer = setTimeout(poll, 2000);
+    }).catch(function () { box.hidden = true; });
+  }
+  function poll() {
+    post("/v1/signin/qr/poll", {}).then(function (result) {
+      if (result.status === "approved") { location.assign(box.dataset.next); return; }
+      if (result.status === "denied" || result.status === "expired") { start(); return; }
+      if (result.status === "claimed") { status.textContent = {{t "Approve the sign-in in the app."}}; }
+      timer = setTimeout(poll, 2000);
+    }).catch(function () { timer = setTimeout(start, 5000); });
+  }
+  start();
+})();
+</script>
+{{template "foot"}}{{end}}
+
+{{define "register"}}{{template "head" .}}
+{{if .Open}}
+<form method="post" action="/v1/register">
+<input type="hidden" name="next" value="{{.Next}}">
+<input type="hidden" name="invite" value="{{.Invite}}">
+<label for="display-name">{{t "Your name, as teammates will see it"}}</label>
+<input id="display-name" name="display_name" autocomplete="name" maxlength="100" required autofocus>
+<label for="name">{{t "Username, phone or email"}}</label>
+<input id="name" name="name" autocomplete="username" required>
+<label for="password">{{t "Password (10 characters or more)"}}</label>
+<input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+<button>{{t "Create account"}}</button>
+</form>
+<p class="hint">{{t "Sign-in names are not verified, and we never use them to contact you. Keep the recovery codes shown next: they are how you get back in."}}</p>
+{{if .Invite}}<p class="links"><a href="/v1/join?invite={{.Invite}}">{{t "Already have an account?"}}</a></p>{{end}}
+{{else}}<p>{{t "Registration is by invitation. Ask your tenant admin for a link."}}</p>{{end}}
+{{template "foot"}}{{end}}
+
+{{define "codes"}}{{template "head" .}}
+<p>{{t "Save these recovery codes now. They are shown once, and each works once."}}</p>
+<ul class="codes">{{range .Codes}}<li><code>{{.}}</code></li>{{end}}</ul>
+<p><a href="{{.Next}}">{{t "I have saved them"}}</a></p>
+{{template "foot"}}{{end}}
+
+{{define "recover"}}{{template "head" .}}
+<form method="post" action="/v1/recover">
+<label for="name">{{t "Username, phone or email"}}</label>
+<input id="name" name="name" autocomplete="username" required autofocus>
+<label for="recovery">{{t "Recovery code"}}</label>
+<input id="recovery" name="recovery_code" autocomplete="off" required>
+<label for="code">{{t "Authenticator code, if enabled"}}</label>
+<input id="code" name="code" inputmode="numeric" autocomplete="one-time-code">
+<label for="second">{{t "Or a second recovery code, if you lost your authenticator"}}</label>
+<input id="second" name="second_code" autocomplete="off">
+<label for="password">{{t "New password"}}</label>
+<input id="password" name="new_password" type="password" autocomplete="new-password" minlength="10" required>
+<button>{{t "Reset password"}}</button>
+</form>
+<p class="hint">{{t "Resetting signs you out everywhere."}}</p>
+{{template "foot"}}{{end}}
+
+{{define "reset"}}{{template "head" .}}
+<form method="post" action="/v1/reset">
+<input type="hidden" name="token" value="{{.Token}}">
+<label for="password">{{t "New password"}}</label>
+<input id="password" name="new_password" type="password" autocomplete="new-password" minlength="10" required>
+<button>{{t "Set password"}}</button>
+</form>
+{{template "foot"}}{{end}}
+
+{{define "join"}}{{template "head" .}}
+<form method="post" action="/v1/join">
+<input type="hidden" name="invite" value="{{.Invite}}">
+<p>{{t "Join the tenant this invitation is for?"}}</p>
+<button>{{t "Join"}}</button>
+</form>
+{{template "foot"}}{{end}}
+
+{{define "done"}}{{template "head" .}}
+<p><a href="/v1/signin">{{t "Sign in"}}</a></p>
+{{template "foot"}}{{end}}
+
+{{define "problem"}}{{template "head" .}}{{template "foot"}}{{end}}
+
+{{define "totp"}}{{template "head" .}}
+<p>{{t "Scan this with your authenticator app, then enter the code it shows."}}</p>
+<div class="qr"><img src="{{.TOTPImage}}" alt="{{t "QR code for your authenticator app"}}" width="220" height="220"></div>
+<details><summary>{{t "Can't scan it?"}}</summary>
+<p>{{t "Enter this secret by hand:"}}</p>
+<p><code>{{.Enrollment.Secret}}</code></p>
+<p><a href="{{.TOTPLink}}">{{t "Open in an authenticator app"}}</a></p>
+</details>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="totp_confirm">
+<label for="confirm-code">{{t "Code"}}</label>
+<input id="confirm-code" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus>
+<button>{{t "Turn on"}}</button>
+</form>
+{{template "foot"}}{{end}}
+
+{{define "account"}}{{template "head" .}}
+{{template "account_panels" .}}
+{{template "foot"}}{{end}}
+
+{{define "account_panels"}}<section class="panel">
+<h2>{{t "Your name"}}</h2>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="display_name">
+<label for="display-name">{{t "Name teammates see"}}</label>
+<input id="display-name" name="display_name" value="{{.Account.DisplayName}}" maxlength="100" required>
+<button>{{t "Save"}}</button>
+</form>
+</section>
+<section class="panel">
+<h2>{{t "Sign-in names"}}</h2>
+<ul class="items">{{range .Account.Names}}<li>{{.Value}} <span class="tag">{{t "%s, unverified" (t .Kind)}}</span></li>{{end}}</ul>
+<details><summary>{{t "Add a name"}}</summary>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="name_add">
+<label for="new-name">{{t "New name"}}</label>
+<input id="new-name" name="name" required>
+{{template "reauth" "add"}}
+<button>{{t "Add name"}}</button>
+</form>
+</details>
+<details><summary>{{t "Remove a name"}}</summary>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="name_remove">
+<label for="old-name">{{t "Name to remove"}}</label>
+<input id="old-name" name="name" required>
+{{template "reauth" "rm"}}
+<button class="danger">{{t "Remove name"}}</button>
+</form>
+</details>
+</section>
+<section class="panel">
+<h2>{{t "Password"}}</h2>
+<details><summary>{{t "Change your password"}}</summary>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="password">
+{{template "reauth" "pw"}}
+<label for="new-password">{{t "New password"}}</label>
+<input id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="10" required>
+<button>{{t "Change password"}}</button>
+</form>
+</details>
+</section>
+<section class="panel">
+<div class="head"><h2>{{t "Authenticator"}}</h2><p>{{if .Account.TOTP}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</p></div>
+<details><summary>{{if .Account.TOTP}}{{t "Turn off"}}{{else}}{{t "Set up an authenticator"}}{{end}}</summary>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="{{if .Account.TOTP}}totp_disable{{else}}totp_start{{end}}">
+{{template "reauth" "totp"}}
+<button{{if .Account.TOTP}} class="danger"{{end}}>{{if .Account.TOTP}}{{t "Turn off"}}{{else}}{{t "Continue"}}{{end}}</button>
+</form>
+</details>
+</section>
+<section class="panel">
+<h2>{{t "Devices"}}</h2>
+{{if .Account.Devices}}<ul class="items">{{range .Account.Devices}}<li>{{.Name}} <span class="tag">{{.Platform}}</span>
+<details><summary>{{t "Remove this device"}}</summary>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="device_revoke">
+<input type="hidden" name="device_id" value="{{.ID}}">
+{{template "reauth" .ID}}
+<button class="danger">{{t "Remove device"}}</button>
+</form>
+</details></li>{{end}}</ul>
+{{else}}<p class="hint">{{t "No app enrolled."}}</p>{{end}}
+</section>
+<section class="panel">
+<div class="head"><h2>{{t "Recovery codes"}}</h2><p>{{t "%d left" .Account.RecoveryCodes}}</p></div>
+<details><summary>{{t "Replace all codes"}}</summary>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="codes">
+{{template "reauth" "rc"}}
+<button>{{t "Replace all codes"}}</button>
+</form>
+</details>
+</section>
+<section class="panel">
+<h2>{{t "Sessions"}}</h2>
+<p class="hint">{{t "Signs you out here and on your other browsers and clients."}}</p>
+<form method="post" action="/v1/account">
+<input type="hidden" name="action" value="signout_all">
+<button class="quiet">{{t "Sign out everywhere"}}</button>
+</form>
+</section>{{end}}

@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-server-setup
+  labels:
+    app.kubernetes.io/name: auth-server
+    app.kubernetes.io/component: setup
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  # Gone after an hour, because a finished Job can't be applied again.
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth-server
+        app.kubernetes.io/component: setup
+    spec:
+      serviceAccountName: auth-server
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: setup
+          image: t10/auth-server
+          imagePullPolicy: IfNotPresent
+          command: ["auth-setup"]
+          envFrom:
+            # Holds the first admin's password. Delete it once setup is done.
+            - secretRef:
+                name: auth-server-setup
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-server
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

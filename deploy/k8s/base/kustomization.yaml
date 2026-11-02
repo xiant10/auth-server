@@ -1,0 +1,21 @@
+# Everything that doesn't change between clusters. An overlay adds the image,
+# the host and the public settings.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: t10
+
+resources:
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - poddisruptionbudget.yaml
+  - networkpolicy.yaml
+
+configMapGenerator:
+  - name: auth-server
+    literals:
+      - AUTH_DEV_MODE=false
+      - AUTH_LISTEN_ADDR=:8081
+      - AUTH_TRUST_PROXY=true

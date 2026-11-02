@@ -1,0 +1,35 @@
+# Covers the server and the setup job. Only the ingress controller and pods that
+# opt in can connect, and the only way out is DNS and Postgres. This needs a CNI
+# that enforces NetworkPolicy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-server
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: auth-server
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        # Label the controller's namespace with this.
+        - namespaceSelector:
+            matchLabels:
+              t10.dev/ingress: "true"
+        # Label a t10 service's pods with this, in any namespace labelled t10.dev/auth-client.
+        - namespaceSelector:
+            matchLabels:
+              t10.dev/auth-client: "true"
+          podSelector:
+            matchLabels:
+              t10.dev/auth-client: "true"
+      ports:
+        - port: 8081
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - ports:
+        - port: 5432

@@ -1,0 +1,628 @@
+openapi: 3.0.3
+info:
+  title: t10 auth mobile API
+  version: 1.0.0
+  description: >
+    The API the t10 mobile app uses. docs/mobile-api.md explains the flows and
+    exactly what to sign. Errors are always an `Error` body, and clients branch
+    on `error`, never on `error_description`.
+servers:
+  - url: http://localhost:8081
+security: []
+paths:
+  /v1/challenges:
+    post:
+      summary: Get a single-use challenge to sign
+      operationId: createChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose]
+              additionalProperties: false
+              properties:
+                purpose:
+                  type: string
+                  enum: [login, register, pair, refresh, approve, reauth]
+      responses:
+        "200":
+          description: Challenge, valid for one signature
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [challenge, expires_in]
+                properties:
+                  challenge: {type: string}
+                  expires_in: {type: integer, description: Seconds}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/login:
+    post:
+      summary: Sign in with a password and enroll or return this device
+      description: >
+        Signed by the session key, purpose `login`. Returns tokens, or
+        `status: mfa_required` with an `mfa_token`. New keys on an account that
+        already has a device fail with `device_approval_required` unless a TOTP
+        code is proved; use /v1/login/pair instead.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/DeviceEnrollment"
+                - type: object
+                  required: [name, password]
+                  properties:
+                    name: {type: string, description: Username, phone or email}
+                    password: {type: string}
+                    tenant: {type: string, description: Optional active tenant}
+      responses:
+        "200":
+          description: Tokens, or a second factor is owed
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/DeviceSession"
+                  - $ref: "#/components/schemas/MFAPending"
+        default: {$ref: "#/components/responses/Error"}
+  /v1/login/mfa:
+    post:
+      summary: Finish a login with a TOTP code
+      operationId: loginMFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfa_token, code]
+              additionalProperties: false
+              properties:
+                mfa_token: {type: string}
+                code: {type: string}
+      responses:
+        "200": {$ref: "#/components/responses/DeviceSession"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/login/register:
+    post:
+      summary: Create an account and enroll this device
+      description: >
+        Signed by the session key, purpose `register`. Outside dev mode an
+        `invite` is required. The response carries recovery codes, shown once.
+        `tenant` is empty if the invited tenant requires a second factor, until
+        one is enrolled and a refresh picks the tenant.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/DeviceEnrollment"
+                - type: object
+                  required: [name, password]
+                  properties:
+                    name: {type: string}
+                    display_name: {type: string, maxLength: 100, description: The name teammates see}
+                    password: {type: string, minLength: 10}
+                    invite: {type: string, description: Token from an invitation link}
+      responses:
+        "200":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/DeviceSession"
+                  - type: object
+                    required: [recovery_codes]
+                    properties:
+                      recovery_codes: {type: array, items: {type: string}}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/login/recover:
+    post:
+      summary: Reset a password with recovery codes
+      description: >
+        An account with TOTP also needs `code`, which keeps the factor, or
+        `second_code`, which removes it. Every session ends; devices stay.
+      operationId: recover
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, recovery_code, new_password]
+              additionalProperties: false
+              properties:
+                name: {type: string}
+                recovery_code: {type: string}
+                second_code: {type: string}
+                code: {type: string}
+                new_password: {type: string, minLength: 10}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/login/pair:
+    post:
+      summary: Ask an enrolled device to approve this new one
+      description: >
+        Signed by the new device's session key, purpose `pair`. Show
+        `qr_payload` as a QR code, then poll with `poll_token`.
+      operationId: pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DeviceEnrollment"}
+      responses:
+        "200":
+          description: Waiting for approval
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [qr_payload, poll_token, expires_in]
+                properties:
+                  qr_payload: {type: string}
+                  poll_token: {type: string, description: Secret; never show it}
+                  expires_in: {type: integer}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/login/pair/poll:
+    post:
+      summary: Collect a pairing result
+      description: Poll about every 2 seconds. An approval is collected once.
+      operationId: pairPoll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [poll_token]
+              additionalProperties: false
+              properties:
+                poll_token: {type: string}
+                tenant: {type: string}
+      responses:
+        "200":
+          description: Tokens, or the current state
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/DeviceSession"
+                  - type: object
+                    required: [status]
+                    properties:
+                      status: {type: string, enum: [pending, claimed, denied, expired]}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/token:
+    post:
+      summary: Refresh a device session
+      description: >
+        `grant_type=device_refresh`, signed by the session key, purpose
+        `refresh`. Passing `tenant` switches the active tenant. The call is
+        form-encoded. Nothing rotates, so after a lost response just retry.
+      operationId: deviceRefresh
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id, session_id, challenge, signature]
+              properties:
+                grant_type: {type: string, enum: [device_refresh]}
+                client_id: {type: string}
+                session_id: {type: string}
+                challenge: {type: string}
+                signature: {type: string}
+                tenant: {type: string}
+      responses:
+        "200": {$ref: "#/components/responses/DeviceSession"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/logout:
+    post:
+      summary: End this session; the device stays enrolled
+      operationId: logout
+      security: [{bearer: []}]
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me:
+    get:
+      summary: The signed-in user, tenants and devices
+      operationId: me
+      security: [{bearer: []}]
+      responses:
+        "200":
+          description: Account summary
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Me"}
+        default: {$ref: "#/components/responses/Error"}
+    patch:
+      summary: Change the name teammates see
+      operationId: updateMe
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_name]
+              properties:
+                display_name: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        "204": {description: Saved}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/password:
+    post:
+      summary: Change the password after a biometric check
+      description: Proof action `password`. Other sessions end.
+      operationId: changePassword
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Proof"
+                - type: object
+                  required: [new_password]
+                  properties:
+                    new_password: {type: string, minLength: 10}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/names:
+    post:
+      summary: Add a sign-in name
+      description: Proof action `name_add`.
+      operationId: addName
+      security: [{bearer: []}]
+      requestBody: {$ref: "#/components/requestBodies/NameProof"}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/names/remove:
+    post:
+      summary: Remove a sign-in name, keeping at least one
+      description: Proof action `name_remove`.
+      operationId: removeName
+      security: [{bearer: []}]
+      requestBody: {$ref: "#/components/requestBodies/NameProof"}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/totp/start:
+    post:
+      summary: Begin TOTP setup
+      description: Proof action `totp_start`.
+      operationId: totpStart
+      security: [{bearer: []}]
+      requestBody: {$ref: "#/components/requestBodies/Proof"}
+      responses:
+        "200":
+          description: Secret for an authenticator app
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, otpauth_url]
+                properties:
+                  secret: {type: string}
+                  otpauth_url: {type: string}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/totp/confirm:
+    post:
+      summary: Turn TOTP on with a code from the authenticator
+      description: Other sessions end.
+      operationId: totpConfirm
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              additionalProperties: false
+              properties:
+                code: {type: string}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/totp/disable:
+    post:
+      summary: Turn TOTP off, unless a role or tenant requires it
+      description: Proof action `totp_disable`.
+      operationId: totpDisable
+      security: [{bearer: []}]
+      requestBody: {$ref: "#/components/requestBodies/Proof"}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/recovery-codes:
+    post:
+      summary: Replace all recovery codes
+      description: Proof action `recovery_codes`.
+      operationId: recoveryCodes
+      security: [{bearer: []}]
+      requestBody: {$ref: "#/components/requestBodies/Proof"}
+      responses:
+        "200":
+          description: New codes, shown once
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recovery_codes]
+                properties:
+                  recovery_codes: {type: array, items: {type: string}}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/signout-all:
+    post:
+      summary: End every session of this user
+      operationId: signOutAll
+      security: [{bearer: []}]
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/me/invitations/accept:
+    post:
+      summary: Join a tenant from an invitation token
+      operationId: acceptInvitation
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite]
+              additionalProperties: false
+              properties:
+                invite: {type: string}
+      responses:
+        "200":
+          description: Joined. Refresh with `tenant` to switch to it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, tenant]
+                properties:
+                  status: {type: string}
+                  tenant: {type: string}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/devices/{id}/revoke:
+    post:
+      summary: Remove an enrolled device
+      description: >
+        Proof action `device_revoke:<id>`. Its sessions end and its keys can
+        never enroll again.
+      operationId: revokeDevice
+      security: [{bearer: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody: {$ref: "#/components/requestBodies/Proof"}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/qr/{id}/claim:
+    post:
+      summary: Take a scanned request and read what to show the user
+      description: >
+        `id` is the last path segment of the scanned URL. Check the URL's origin
+        is your auth server first. One device can claim a request, once.
+      operationId: qrClaim
+      security: [{bearer: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: The request to confirm with the user
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/QRRequest"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/qr/{id}/approve:
+    post:
+      summary: Approve a claimed request
+      description: >
+        Signed by the approval key, purpose `approve`, binding `id`. Show the
+        request to the user and get their consent first.
+      operationId: qrApprove
+      security: [{bearer: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody: {$ref: "#/components/requestBodies/Proof"}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+  /v1/qr/{id}/deny:
+    post:
+      summary: Refuse a claimed request
+      operationId: qrDeny
+      security: [{bearer: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {$ref: "#/components/responses/Status"}
+        default: {$ref: "#/components/responses/Error"}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  requestBodies:
+    Proof:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Proof"}
+    NameProof:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Proof"
+              - type: object
+                required: [name]
+                properties:
+                  name: {type: string}
+  responses:
+    Error:
+      description: A failure. See ErrorCode for the values of `error`
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Status:
+      description: Done
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: {type: string}
+    DeviceSession:
+      description: A device session
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/DeviceSession"}
+  schemas:
+    Device:
+      type: object
+      required: [name, platform, approval_public_key, session_public_key]
+      additionalProperties: false
+      properties:
+        name: {type: string, maxLength: 100}
+        platform: {type: string, enum: [ios, android]}
+        approval_public_key: {type: string, description: "Base64url P-256 key: SPKI DER or uncompressed X9.63"}
+        session_public_key: {type: string, description: "Base64url P-256 key: SPKI DER or uncompressed X9.63"}
+    DeviceEnrollment:
+      type: object
+      required: [client_id, device, challenge, signature]
+      properties:
+        client_id: {type: string, example: t10-mobile}
+        device: {$ref: "#/components/schemas/Device"}
+        challenge: {type: string}
+        signature: {type: string, description: Base64url ASN.1 DER ECDSA signature}
+    Proof:
+      type: object
+      required: [challenge, signature]
+      properties:
+        challenge: {type: string, description: Issued for purpose `reauth`, or `approve` on QR approval}
+        signature: {type: string, description: "By the approval key, so the OS asks for biometrics"}
+    DeviceSession:
+      type: object
+      required: [status, access_token, token_type, expires_in, session_id, device_id, tenant]
+      properties:
+        status: {type: string, enum: [ok]}
+        access_token: {type: string}
+        token_type: {type: string, enum: [Bearer]}
+        expires_in: {type: integer}
+        session_id: {type: string}
+        device_id: {type: string}
+        tenant: {type: string, description: Empty if the user has several tenants and has not picked one}
+    MFAPending:
+      type: object
+      required: [status, mfa_token, expires_in]
+      properties:
+        status: {type: string, enum: [mfa_required]}
+        mfa_token: {type: string}
+        expires_in: {type: integer}
+    Me:
+      type: object
+      required: [user_id, display_name, active_tenant, tenants, names, totp_enabled, recovery_codes_left, devices]
+      properties:
+        user_id: {type: string}
+        display_name: {type: string}
+        active_tenant: {type: string}
+        tenants:
+          type: array
+          items:
+            type: object
+            required: [id, name, role]
+            properties:
+              id: {type: string}
+              name: {type: string}
+              role: {type: string, enum: [member, admin]}
+        names:
+          type: array
+          items:
+            type: object
+            required: [kind, value, verified]
+            properties:
+              kind: {type: string, enum: [username, phone, email]}
+              value: {type: string}
+              verified: {type: boolean, description: Always false in v1}
+        totp_enabled: {type: boolean}
+        recovery_codes_left: {type: integer}
+        devices:
+          type: array
+          items:
+            type: object
+            required: [id, name, platform, created_at, current]
+            properties:
+              id: {type: string}
+              name: {type: string}
+              platform: {type: string}
+              last_used_at: {type: string, format: date-time, nullable: true}
+              created_at: {type: string, format: date-time}
+              current: {type: boolean}
+    QRRequest:
+      type: object
+      required: [kind, client_id, client_name, requester_ip, user_agent, device_name, expires_in]
+      properties:
+        kind: {type: string, enum: [login, device], description: "`device` means a new device wants to enroll"}
+        client_id: {type: string}
+        client_name: {type: string}
+        requester_ip: {type: string}
+        user_agent: {type: string}
+        device_name: {type: string, description: Set when kind is device}
+        expires_in: {type: integer}
+    Error:
+      type: object
+      required: [error, error_description]
+      properties:
+        error: {$ref: "#/components/schemas/ErrorCode"}
+        error_description: {type: string}
+    ErrorCode:
+      type: string
+      enum:
+        - already_member
+        - device_approval_required
+        - device_revoked
+        - forbidden
+        - invalid_challenge
+        - invalid_client
+        - invalid_credentials
+        - invalid_device
+        - invalid_display_name
+        - invalid_grant
+        - invalid_name
+        - invalid_request
+        - invalid_token
+        - invitation_invalid
+        - last_name
+        - mfa_mandatory
+        - mfa_required
+        - name_taken
+        - qr_invalid
+        - rate_limited
+        - registration_closed
+        - server_error
+        - tenant_denied
+        - totp_enrolled
+        - unsupported_grant_type
+        - weak_password

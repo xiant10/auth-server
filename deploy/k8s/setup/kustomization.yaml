@@ -1,0 +1,9 @@
+# Applied on its own, before the server's first start and when a runtime is
+# added. The server won't start while a runtime in clients.yaml has no account.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: t10
+
+resources:
+  - job.yaml

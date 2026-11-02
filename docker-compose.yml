@@ -1,0 +1,67 @@
+# Local development only: dev mode, a throwaway signing key and seeded users.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: t10-auth-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: "${AUTH_DB_PASSWORD:-auth-dev-password}"
+      POSTGRES_DB: auth
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d auth"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: creates the user from t10-mac-client's README and the runtimes
+  # that clients.yaml lists, then exits. Kubernetes runs the same script.
+  seed:
+    build: .
+    entrypoint: ["auth-setup"]
+    environment:
+      DATABASE_URL: "postgres://auth:${AUTH_DB_PASSWORD:-auth-dev-password}@postgres:5432/auth?sslmode=disable"
+      AUTHCTL_PASSWORD: change-me-enterprise-admin
+      AUTH_SETUP_ADMIN: ada@acme.example
+      AUTH_SETUP_TENANT_ID: ten_acme
+      AUTH_SETUP_TENANT_NAME: Acme
+      LIVEKIT_AGENT_SECRET: "${AUTH_LIVEKIT_AGENT_SECRET:-dev-only-t10-livekit-agent-secret-change-me}"
+      AGENT_PI_SECRET: "${AUTH_AGENT_PI_SECRET:-dev-only-agent-pi-service-secret-change-me}"
+      T10_COLLAB_SECRET: "${AUTH_T10_COLLAB_SECRET:-dev-only-t10-collab-service-secret-change-me}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  auth-server:
+    build: .
+    container_name: t10-auth-server
+    restart: unless-stopped
+    environment:
+      AUTH_DEV_MODE: "true"
+      AUTH_PUBLIC_URL: http://localhost:8081
+      # All zeros, for local use only: it just lets TOTP survive a restart.
+      AUTH_TOTP_KEY: "${AUTH_TOTP_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}"
+      DATABASE_URL: "postgres://auth:${AUTH_DB_PASSWORD:-auth-dev-password}@postgres:5432/auth?sslmode=disable"
+      # Returned to clients, so this is the host-side LiveKit port published by
+      # t10-livekit-agent's compose file, and these match its dev defaults.
+      LIVEKIT_URL: "${LIVEKIT_URL:-ws://localhost:8890}"
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-change-me-to-a-32-plus-character-secret}"
+    volumes:
+      # Overrides the image's copy, so an edit needs a restart and no rebuild.
+      - ./clients.yaml:/etc/t10-auth/clients.yaml:ro
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8081/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:

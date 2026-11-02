@@ -1,0 +1,117 @@
+# t10 auth server
+
+The only JWT issuer for t10: accounts, tenants, memberships and room admission. See [docs/design.md](docs/design.md).
+
+**Status:** rollout steps 1 to 3 and 5 to 8 are built, with these still to do: step 4's external review, and in step 6 the services that don't exist yet and closing public access at an ingress. [docs/security-review.md](docs/security-review.md) is the reviewers' brief. See [docs/mobile-api.md](docs/mobile-api.md) and [docs/openapi.yaml](docs/openapi.yaml) to integrate an app, and [docs/service-api.md](docs/service-api.md) for a runtime or microservice. Outside dev mode, registration needs an invitation, because public registration waits on the security review and a CAPTCHA.
+
+## Run locally
+
+```sh
+docker compose up --build
+```
+
+This starts Postgres, seeds `ada@acme.example` as a platform admin and admin of `ten_acme`, registers the runtimes in `clients.yaml` with dev secrets, and serves on `:8081`.
+
+**The LiveKit secret must match.** Room tokens are signed with `LIVEKIT_API_SECRET`, which defaults to the example value. If `t10-livekit-agent/.env` sets a real one, put the same value in this repo's `.env`, or LiveKit answers every room token with 401.
+
+Point the Mac client at it, with LiveKit running from `t10-livekit-agent`:
+
+```sh
+go run ./cmd/client -auth-url http://localhost:8081 -room voice-agent-demo
+```
+
+It opens a browser. Sign in as `ada@acme.example` with `change-me-enterprise-admin`, or register a new account there. Later runs reuse the session in the Keychain. Adding `-username` and `-password` still works, in dev mode only.
+
+**The agent must join the namespaced room.** Admission puts the client in `ten_acme__voice-agent-demo`, so start the agent with `-room ten_acme__voice-agent-demo`. With its default room name, the two never meet.
+
+To run `agent-pi` against it, with per-user calls and agent grants:
+
+```sh
+AUTH_KIND=jwt
+JWT_ALGORITHMS=ES256
+JWT_JWKS_URL=http://localhost:8081/.well-known/jwks.json
+JWT_ISSUER=http://localhost:8081
+JWT_AUDIENCE=t10,agent-pi
+JWT_REQUIRED_SCOPES=agent:use
+JWT_TENANT_CLAIM=tid
+AUTH_URL=http://localhost:8081
+AUTH_CLIENT_ID=agent-pi
+AUTH_CLIENT_SECRET=dev-only-agent-pi-service-secret-change-me
+```
+
+In a container, use `http://host.docker.internal:8081` for `JWT_JWKS_URL` and `AUTH_URL`, but keep `JWT_ISSUER` as it is.
+
+`t10-livekit-agent` with `LLM_PROVIDER=agent_pi` needs `AUTH_URL=http://localhost:8081`, `AUTH_CLIENT_ID=t10-livekit-agent` and `AUTH_CLIENT_SECRET=dev-only-t10-livekit-agent-secret-change-me`. `AGENT_PI_TOKEN` is gone.
+
+## Deploy
+
+Production runs on Kubernetes from `deploy/k8s/`, using the same image as Compose. See [docs/deployment.md](docs/deployment.md).
+
+## Admin UI
+
+Sign in at `/admin`. Tenant admins manage members, invitations, reset links and their MFA policy, build the org tree, set each member's manager and unit, and can stop any running agent. Platform admins also get every tenant, every user, tenant and user suspension, the platform role, name release and the platform audit log. A banner on every page shows whether a change is platform-wide or which tenant it applies to. Every web page, signed in or out, is in English and Simplified Chinese: it follows the browser's language until someone picks one with the switch, which a cookie remembers. New text needs an entry in `zhText` in `internal/server/i18n.go`, or a test fails. In the local stack, `ada@acme.example` can open everything.
+
+## API
+
+| Route | Access |
+| --- | --- |
+| `GET /healthz`, `GET /readyz`, `GET /.well-known/jwks.json` | Public |
+| `POST /v1/token` (`authorization_code`, `refresh_token`, `client_credentials`, `agent_grant`; `password` in dev mode only), `POST /v1/revoke` | Public |
+| `GET /v1/authorize`, `/v1/signin`, `/v1/register`, `/v1/recover`, `/v1/reset`, `POST /v1/signout` | Pages; writes need a same-origin request |
+| `/v1/account`, `/v1/join` | Signed-in browser |
+| `POST /v1/rooms/admission`, `GET /v1/me`, `POST /v1/logout` | Any user |
+| `/v1/challenges`, `/v1/login/*` | Public; the mobile app's sign-in |
+| `/v1/me/*`, `/v1/qr/{id}/*`, `POST /v1/devices/{id}/revoke` | Mobile app session |
+| `/v1/grants`, `/v1/grants/{id}/*`, `/v1/org/*` | Service token. See [docs/service-api.md](docs/service-api.md) |
+| `GET /admin` | Admin UI home, for any signed-in browser. It redirects or refuses by role |
+| `/admin/tenants/{id}` pages | Signed-in admin of that tenant, with a second factor if the tenant requires one, or platform admin |
+| Other `/admin/*` pages | Signed-in platform admin with a second factor proved in the last 15 minutes. A stale one is sent to sign in again |
+| `POST /v1/tenants`, `.../suspend`, `.../activate`, `POST /v1/tenants/{id}/members`, `POST /v1/identifiers/release` | Platform admin with a second factor proved in the last 15 minutes |
+| `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
+| `GET` and `PATCH /v1/tenants/{id}`, `GET /v1/tenants/{id}/members`, `PATCH .../members/{user}`, `POST .../members/{user}/reset-link`, `POST .../invitations` | Tenant admin active in that tenant, or platform admin |
+| `GET` and `POST /v1/tenants/{id}/units`, `PUT` and `DELETE .../units/{unit}`, `GET` and `PUT .../members/{user}/placement` | Tenant admin active in that tenant, or platform admin |
+
+**Org writes:** a unit body has `name`, `kind` (`department` or `team`) and an optional `parent_id`. A placement body has optional `manager_user_id` and `org_unit_id`. `PUT` replaces the whole value, so a field left out is cleared. Errors are `not_found`, `invalid_request`, `cycle` and `unit_in_use`.
+
+**Suspending a user** blocks sign-in everywhere, ends their sessions and stops their agents. Reactivating lets them sign in again, but brings back neither. A platform admin must lose the role before being suspended, and the last platform admin can't lose it.
+
+**Reset links:** a tenant admin can only reset a plain member whose account belongs to that tenant alone. Anyone else needs a platform admin, because a reset reaches every tenant the account holds.
+
+**Recovery:** an account with TOTP resets with one recovery code plus a TOTP code, which keeps the factor, or two recovery codes, which remove it. An admin reset link keeps the factor, so an admin who issues one still cannot sign in as the user.
+
+Routes and their access live in one table in `internal/server/server.go`. A route with no access panics at startup and fails a test.
+
+## Operator commands
+
+`authctl` reads `DATABASE_URL`, and takes passwords from `AUTHCTL_PASSWORD` or one line of stdin.
+
+```sh
+authctl gen-key
+authctl gen-totp-key
+authctl bootstrap --username root --tenant-id ten_acme --tenant-name Acme
+authctl add-user --username grace --tenant-id ten_acme --role member
+authctl service-add --name agent-pi
+```
+
+`bootstrap` only creates the first platform admin. Later ones are added from the Users page. `service-rotate`, `service-finish`, `service-disable` and `service-enable` manage a service's secret and status. `clients.yaml` lists what each runtime may request, and the server refuses to start if a listed runtime has no account.
+
+## Sample accounts
+
+For local testing, the running stack can add one account of each kind:
+
+```sh
+docker compose exec auth-server authctl samples-add
+docker compose exec auth-server authctl samples-remove
+```
+
+They share the password `t10-sample-password`, so both commands refuse to run outside dev mode. [docs/test-users.md](docs/test-users.md) lists them, and explains how each kind of user is maintained.
+
+## Test
+
+Postgres-backed tests skip unless `TEST_DATABASE_URL` is set. They drop and rebuild the `auth` schema, so never point it at a real database.
+
+```sh
+docker run -d --rm --name auth-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=auth_test -p 55432:5432 postgres:17-alpine
+TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/auth_test?sslmode=disable' go test -p 1 ./...
+node --test verifier/ts/verifier.test.ts
+```

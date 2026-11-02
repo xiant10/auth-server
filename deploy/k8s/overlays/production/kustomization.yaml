@@ -1,0 +1,36 @@
+# Replace every example value here before the first deploy.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: t10/auth-server
+    newName: registry.example.com/t10/auth-server
+    newTag: 0.1.0
+
+configMapGenerator:
+  - name: auth-server
+    behavior: merge
+    literals:
+      # Must be the https form of the host below. It is also the JWT issuer.
+      - AUTH_PUBLIC_URL=https://auth.example.com
+      - AUTH_DEFAULT_REGION=CN
+      - LIVEKIT_URL=wss://livekit.example.com
+      - LIVEKIT_API_KEY=example-key
+
+patches:
+  - target:
+      kind: Ingress
+      name: auth-server
+    patch: |-
+      - op: add
+        path: /spec/ingressClassName
+        value: example-class
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: auth.example.com
+      - op: replace
+        path: /spec/rules/0/host
+        value: auth.example.com

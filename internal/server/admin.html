@@ -1,0 +1,624 @@
+{{define "icon"}}<svg class="i" aria-hidden="true"><use href="#i-{{.}}"/></svg>{{end}}
+
+{{define "admin_head"}}<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="{{logo}}">
+<title>{{.Title}} · {{t "t10 admin"}}</title>
+{{template "theme"}}
+{{template "admin_style"}}
+</head>
+<body>
+<svg class="sprite">
+<symbol id="i-home" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+<symbol id="i-tenants" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 10h3a2 2 0 0 1 2 2v9"/><path d="M2 21h20M8 8h3M8 12h3M8 16h3"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4.3a4 4 0 0 1 0 7.4M18.5 15a7 7 0 0 1 3.5 6"/></symbol>
+<symbol id="i-names" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></symbol>
+<symbol id="i-audit" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+<symbol id="i-org" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/></symbol>
+<symbol id="i-agents" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2.5"/><path d="M12 8V4M9 13v2M15 13v2M2 13v3M22 13v3"/></symbol>
+<symbol id="i-invite" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/></symbol>
+<symbol id="i-security" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+<symbol id="i-account" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.2-1.7l2-1.5-2-3.5-2.3 1a7 7 0 0 0-3-1.7L13 2.2H11l-.5 2.5a7 7 0 0 0-3 1.7l-2.3-1-2 3.5 2 1.5a7 7 0 0 0 0 3.4l-2 1.5 2 3.5 2.3-1a7 7 0 0 0 3 1.7l.5 2.5h2l.5-2.5a7 7 0 0 0 3-1.7l2.3 1 2-3.5-2-1.5c.1-.6.2-1.1.2-1.7z"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+</svg>
+<input type="checkbox" id="nav-toggle" class="vh" aria-label="{{t "Show the menu"}}">
+<div class="shell">
+<aside class="side">
+<div class="side-top">
+<a class="logo" href="/admin"><img class="mark" src="{{logo}}" alt="t10"> {{t "Admin console"}}</a>
+<label class="menu-btn" for="nav-toggle">{{template "icon" "menu"}}{{t "Menu"}}</label>
+</div>
+<div class="side-body">
+<nav class="nav" aria-label="{{t "Administration"}}">
+<a href="/admin"{{if eq .Nav "home"}} aria-current="page"{{end}}>{{template "icon" "home"}}{{t "Overview"}}</a>
+{{if .PlatformRole}}<p class="nav-label">{{t "Platform"}}</p>
+<a href="/admin/tenants"{{if eq .Nav "tenants"}} aria-current="page"{{end}}>{{template "icon" "tenants"}}{{t "Tenants"}}</a>
+<a href="/admin/users"{{if eq .Nav "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}{{t "Users"}}</a>
+<a href="/admin/names"{{if eq .Nav "names"}} aria-current="page"{{end}}>{{template "icon" "names"}}{{t "Sign-in names"}}</a>
+<a href="/admin/audit"{{if eq .Nav "audit"}} aria-current="page"{{end}}>{{template "icon" "audit"}}{{t "Audit log"}}</a>{{end}}
+{{if .Mine}}<p class="nav-label">{{t "Your tenants"}}</p>
+{{$nav := .Nav}}{{range .Mine}}<a href="/admin/tenants/{{.ID}}"{{if eq $nav .ID}} aria-current="page"{{end}}><span class="chip" aria-hidden="true">{{initial .Name}}</span>{{.Name}}</a>{{end}}{{end}}
+</nav>
+<div class="me">
+{{if not .Nonce}}{{template "lang_switch" .Here}}{{end}}
+<div class="me-row"><span class="avatar" aria-hidden="true">{{initial .User}}</span><span class="me-name">{{.User}}</span></div>
+<div class="me-links"><button type="button" class="link" popovertarget="account">{{template "icon" "account"}}{{t "Your account"}}</button>
+<form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form></div>
+</div>
+</div>
+</aside>
+<div class="content">
+{{if eq .Scope "platform"}}<div class="scope scope-platform"><strong>{{t "Platform-wide"}}</strong><span>{{t "Changes here can affect every tenant."}}</span></div>
+{{else if eq .Scope "tenant"}}<div class="scope scope-tenant"><strong>{{t "Tenant: %s" .Tenant.Name}}</strong><span class="mono">{{.Tenant.ID}}</span><span>{{t "Changes here apply to this tenant only."}}</span></div>{{end}}
+<main>
+{{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+{{if .Notice}}<p class="alert alert-ok" role="status">{{.Notice}}</p>{{end}}
+{{end}}
+
+{{define "admin_foot"}}</main></div></div>
+<div id="account" class="sheet" popover role="dialog" aria-labelledby="account-title">
+<div class="sheet-head"><h2 id="account-title">{{t "Your account"}}</h2><a href="/v1/account">{{t "Open as a full page"}}</a><button type="button" class="quiet" popovertarget="account" popovertargetaction="hide">{{t "Close"}}</button></div>
+{{template "account_panels" .}}
+</div>
+{{if .Nonce}}<script nonce="{{.Nonce}}">
+document.querySelectorAll("[data-copy]").forEach(function (button) {
+  var label = button.textContent;
+  button.hidden = false;
+  button.addEventListener("click", function () {
+    navigator.clipboard.writeText(button.previousElementSibling.textContent).then(function () {
+      button.textContent = button.dataset.copy;
+      setTimeout(function () { button.textContent = label; }, 2000);
+    });
+  });
+});
+</script>{{end}}
+</body></html>{{end}}
+
+{{define "admin_style"}}<style>
+:root {
+  --bg: #f5f8fc; --sunken: #eff4fb; --line: #e1e8f2;
+  --shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  --radius: 12px; --radius-sm: 8px; --control: 2.25rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0e14; --panel: #121721; --sunken: #19202e; --line: #242e3f;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root { interpolate-size: allow-keywords; }
+  details::details-content { block-size: 0; overflow: clip; transition: block-size .16s ease, content-visibility .16s allow-discrete; }
+  details[open]::details-content { block-size: auto; }
+  .sheet:popover-open { animation: sheet-in .14s ease-out; }
+  @keyframes sheet-in { from { opacity: 0; translate: 0 .5rem; } }
+}
+html { scrollbar-gutter: stable; }
+body { font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+:lang(zh-Hans) { font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+:lang(zh-Hans) h1, :lang(zh-Hans) h2 { letter-spacing: 0; }
+h1 { font-size: 1.5rem; font-weight: 650; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font-size: .95rem; font-weight: 650; margin: 0 0 .25rem; }
+a { text-decoration: none; }
+a:hover { text-decoration: underline; }
+.i { flex: none; width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.sprite { display: none; }
+.sheet { width: min(40rem, calc(100% - 2rem)); max-height: min(86dvh, 54rem); margin: auto; padding: 0 1.25rem 1.25rem; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--text); box-shadow: 0 16px 48px rgb(0 0 0 / 22%); overflow-y: auto; }
+.sheet::backdrop { background: rgb(10 12 20 / 45%); }
+.sheet-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: .75rem; margin: 0 -1.25rem .75rem; padding: .75rem 1.25rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+.sheet-head h2 { margin: 0 auto 0 0; font-size: 1.05rem; }
+.sheet-head a { font-size: .8125rem; }
+.sheet .panel { margin-bottom: .75rem; }
+.sheet .panel:last-child { margin-bottom: 0; }
+.sheet .head { justify-content: space-between; align-items: baseline; margin: 0; }
+.sheet .head p { margin: 0; color: var(--muted); }
+.sheet ul.items { list-style: none; padding: 0; margin: 0 0 .5rem; }
+.sheet ul.items > li { padding: .4rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.sheet ul.items > li:last-child { border-bottom: 0; }
+.sheet .tag { color: var(--muted); font-size: .8rem; }
+.sheet details { margin-top: .3rem; }
+.sheet summary { color: var(--accent); font-size: .875rem; font-weight: 550; padding: .15rem 0; }
+.sheet form > label { margin-top: .75rem; }
+.sheet form > input:not([type=hidden]) { width: 100%; }
+.sheet form > button { margin-top: .9rem; }
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+label { font-size: .8125rem; font-weight: 550; color: var(--muted); }
+input, select { min-height: var(--control); padding: .3rem .6rem; border-radius: var(--radius-sm); transition: border-color .12s, box-shadow .12s; }
+input:hover, select:hover { border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
+input:focus-visible, select:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+button { min-height: var(--control); padding: .3rem .85rem; border-radius: var(--radius-sm); font-size: .875rem; font-weight: 550; white-space: nowrap; }
+button:active { transform: translateY(.5px); }
+.shell { min-height: 100dvh; }
+.content { min-width: 0; }
+.side { background: var(--panel); border-bottom: 1px solid var(--line); }
+.side-top { display: flex; align-items: center; justify-content: space-between; padding: .6rem 1rem; }
+.logo { display: flex; align-items: center; gap: .55rem; font-weight: 650; color: inherit; }
+.logo:hover { text-decoration: none; }
+.mark { width: 1.75rem; height: 1.75rem; }
+.menu-btn { display: flex; align-items: center; gap: .4rem; margin: 0; padding: .3rem .7rem; color: inherit; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; }
+.side-body { display: none; padding: 0 .75rem .75rem; }
+#nav-toggle:checked ~ .shell .side-body { display: block; }
+#nav-toggle:focus-visible ~ .shell .menu-btn { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav-label { margin: 1.1rem .6rem .3rem; font-size: .75rem; font-weight: 550; color: var(--muted); }
+.nav a { display: flex; align-items: center; gap: .6rem; padding: .4rem .6rem; margin-bottom: 1px; border-radius: var(--radius-sm); color: var(--muted); font-weight: 500; overflow-wrap: anywhere; transition: background .12s, color .12s; }
+.nav a:hover { background: var(--sunken); color: var(--text); text-decoration: none; }
+.nav a[aria-current] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chip { flex: none; display: grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: 5px; background: var(--sunken); color: var(--muted); font-size: .68rem; font-weight: 650; }
+.nav a[aria-current] .chip { background: var(--accent); color: var(--on-accent); }
+.me { display: grid; gap: .65rem; margin-top: 1.25rem; padding-top: .75rem; border-top: 1px solid var(--line); }
+.lang { grid-template-columns: 1fr 1fr; }
+.me-row { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.me-name { font-size: .8125rem; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.me-links { display: flex; gap: .5rem; align-items: center; justify-content: space-between; }
+.me-links .link { display: inline-flex; align-items: center; gap: .35rem; min-height: 0; padding: 0; border: 0; background: none; color: var(--muted); font-size: .8125rem; font-weight: 500; }
+.me-links .link:hover { color: var(--text); filter: none; }
+.me-links form { margin: 0; }
+.me-links button { min-height: 1.9rem; padding: 0 .6rem; font-size: .8125rem; }
+.avatar { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 650; font-size: .8125rem; }
+.scope { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: .1rem .65rem; padding: .5rem clamp(1rem, 2.2vw, 2rem); font-size: .8125rem; border-bottom: 1px solid var(--scope-line); overflow-wrap: anywhere; backdrop-filter: blur(10px); }
+.scope::before { content: ""; flex: none; width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; }
+.scope .mono { opacity: .75; }
+.scope-platform { --scope-line: color-mix(in srgb, var(--platform) 22%, var(--line)); background: color-mix(in srgb, var(--platform-soft) 88%, transparent); color: var(--platform); }
+.scope-tenant { --scope-line: color-mix(in srgb, var(--tenant) 18%, var(--line)); background: color-mix(in srgb, var(--tenant-soft) 88%, transparent); color: var(--tenant); }
+main { padding: 1.5rem clamp(1rem, 2.2vw, 2rem) 3rem; }
+.crumb { margin: 0 0 .2rem; font-size: .8125rem; color: var(--muted); }
+.head { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; margin-bottom: 1.25rem; }
+.tabs { display: flex; gap: .15rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tabs a { display: flex; align-items: center; gap: .4rem; padding: .5rem .75rem; color: var(--muted); font-weight: 550; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .12s; }
+.tabs a:hover { color: var(--text); text-decoration: none; }
+.tabs a[aria-current] { color: var(--accent); border-bottom-color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .85rem 1.1rem; box-shadow: var(--shadow); }
+.stat b { display: block; font-size: 1.6rem; font-weight: 650; line-height: 1.25; letter-spacing: -.02em; }
+.stat span { color: var(--muted); font-size: .8125rem; }
+.panel { border-radius: var(--radius); padding: 1.1rem 1.25rem; }
+.panel.flush { padding: 0; overflow: hidden; }
+.panel-head { padding: 1.1rem 1.25rem .75rem; }
+.panel-head .hint, .panel > .hint { max-width: 75ch; margin: 0 0 .75rem; }
+.panel-head .hint { margin: 0; }
+.panel-platform { border-color: color-mix(in srgb, var(--platform) 35%, var(--line)); }
+.kicker { display: block; font-size: .75rem; font-weight: 600; color: var(--platform); margin-bottom: .15rem; }
+.hint { font-size: .8125rem; }
+.split, .with-aside { display: grid; gap: 1rem; align-items: start; }
+.split { grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr)); }
+.split > .panel, .with-aside > * { margin-bottom: 0; }
+.split, .with-aside { margin-bottom: 1rem; }
+.shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .5rem; }
+.shortcuts a { display: flex; align-items: center; gap: .5rem; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: var(--radius-sm); color: inherit; font-weight: 550; transition: border-color .12s, background .12s; }
+.shortcuts a:hover { background: var(--sunken); text-decoration: none; }
+.alert { border-radius: var(--radius-sm); padding: .55rem .8rem; margin: 0 0 1rem; border: 1px solid; }
+.alert-error { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
+.alert-ok { background: var(--ok-soft); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 25%, transparent); }
+.result { border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--line)); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem; background: var(--panel); box-shadow: var(--shadow); }
+.result p { margin: 0 0 .6rem; }
+.result label { margin-top: .6rem; }
+.copy { display: flex; gap: .5rem; align-items: stretch; }
+.copy code { flex: 1; min-width: 0; padding: .45rem .65rem; background: var(--sunken); border-radius: var(--radius-sm); user-select: all; }
+.row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; margin: 0; }
+.row > div { min-width: 0; }
+.grow { flex: 1 1 12rem; }
+.grow input { width: 100%; }
+.fields { display: grid; gap: .75rem; margin: .75rem 0 0; }
+.fields input, .fields select { width: 100%; }
+.fields button { justify-self: start; }
+.search { position: relative; }
+.search .i { position: absolute; left: .6rem; bottom: .55rem; color: var(--muted); pointer-events: none; }
+.search input { padding-left: 2rem; }
+.switch { display: flex; gap: .65rem; align-items: center; color: var(--text); font-weight: 500; font-size: .875rem; margin-bottom: .4rem; cursor: pointer; }
+.switch input { appearance: none; flex: none; width: 2.1rem; height: 1.25rem; min-height: 0; padding: 0; margin: 0; border-radius: 999px; background: var(--line); border: 0; position: relative; cursor: pointer; transition: background .12s; }
+.switch input::after { content: ""; position: absolute; top: .125rem; left: .125rem; width: 1rem; height: 1rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 25%); transition: left .12s; }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { left: .975rem; }
+.table { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: .75rem; color: var(--muted); font-weight: 550; white-space: nowrap; background: var(--sunken); }
+th, td { padding: .55rem 1.25rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tbody tr { transition: background .1s; }
+tbody tr:hover { background: var(--sunken); }
+tbody tr:last-child td { border-bottom: 0; }
+.tenant-name { font-weight: 550; color: inherit; }
+.badge { display: inline-flex; align-items: center; gap: .3rem; font-size: .75rem; font-weight: 550; padding: .05rem .5rem; border-radius: 999px; background: var(--sunken); color: var(--muted); white-space: nowrap; }
+.badge-ok { background: var(--ok-soft); color: var(--ok); }
+.badge-bad { background: var(--danger-soft); color: var(--danger); }
+.badge-ok::before, .badge-bad::before { content: ""; width: .35rem; height: .35rem; border-radius: 50%; background: currentColor; }
+.badge-admin { background: var(--accent-soft); color: var(--accent); }
+.list { container: list / inline-size; }
+.list-head { display: none; }
+.member { margin: 0; border-bottom: 1px solid var(--line); }
+.member:last-child { border-bottom: 0; }
+.member > summary, .grant { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .65rem; padding: .55rem 1.25rem; list-style: none; transition: background .1s; }
+.member > summary::-webkit-details-marker { display: none; }
+.member > summary:hover, .member[open] > summary { background: var(--sunken); }
+.member-who { flex: 1 1 10rem; min-width: 0; font-weight: 550; overflow-wrap: anywhere; }
+.member-who small, .col { color: var(--muted); font-weight: 400; font-size: .8125rem; }
+.member-who small { display: block; }
+.col { display: none; min-width: 0; overflow-wrap: anywhere; }
+.badges { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.member-manage { display: inline-flex; align-items: center; justify-content: flex-end; gap: .2rem; color: var(--accent); font-size: .8125rem; font-weight: 550; }
+.member-manage .i { transition: rotate .16s; }
+.member[open] > summary .member-manage .i { rotate: 180deg; }
+.member-body { display: flex; flex-wrap: wrap; gap: 1rem 2.5rem; align-items: flex-end; padding: 1rem 1.25rem 1.1rem; border-top: 1px solid var(--line); }
+.member-body form { margin: 0; max-width: 100%; }
+.member-body form:has(.grow) { flex: 1 1 24rem; }
+.member-body > details { flex: 1 1 20rem; }
+.member-body select { min-width: 8rem; }
+.member-body > .hint { margin: 0; }
+details.reveal summary { color: var(--accent); font-weight: 550; font-size: .875rem; }
+details.reveal form { margin-top: .5rem; }
+.grant form { margin: 0; }
+.empty { color: var(--muted); margin: 0; padding: 2.25rem 1.25rem; text-align: center; }
+.panel:not(.flush) > .empty { padding: .25rem 0; text-align: left; }
+.nowrap { white-space: nowrap; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .5rem; margin-top: .5rem; }
+.tcard { display: block; padding: .6rem .85rem; border: 1px solid var(--line); border-radius: var(--radius-sm); color: inherit; transition: border-color .12s, background .12s; }
+.tcard:hover { border-color: var(--accent); text-decoration: none; }
+.tcard b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.tcard span { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+@container list (min-width: 52rem) {
+  .list-head, .member > summary, .grant { display: grid; grid-template-columns: var(--cols); gap: .75rem; }
+  .list-head { align-items: center; padding: .5rem 1.25rem; background: var(--sunken); border-bottom: 1px solid var(--line); color: var(--muted); font-size: .75rem; font-weight: 550; white-space: nowrap; }
+  .list-head :first-child { grid-column: var(--name-span, span 2); }
+  .col { display: block; }
+  .member-who small.narrow { display: none; }
+}
+@container list (max-width: 51.99rem) {
+  .members .member > summary, .people .member > summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .members .member-manage, .people .member-manage { grid-area: 1 / 3; }
+  .members .badges, .people .badges { grid-area: 2 / 2 / 2 / 4; }
+  .badges:empty { display: none; }
+}
+.members { --cols: 2rem minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.4fr) 6.5rem minmax(9rem, 1fr) 5rem; }
+.people { --cols: 2rem minmax(0, 2.5fr) 7rem 6.5rem minmax(10rem, 1fr) 5rem; }
+.units { --cols: minmax(0, 3fr) 7rem 7rem 5rem; --name-span: span 1; }
+.grants { --cols: minmax(0, 3fr) 9rem 9rem 11rem; --name-span: span 1; }
+@media (min-width: 880px) {
+  .shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); }
+  .side { position: sticky; top: 0; height: 100dvh; overflow-y: auto; display: flex; flex-direction: column; border-right: 1px solid var(--line); border-bottom: 0; }
+  .side-top { padding: .85rem 1.1rem .5rem; }
+  .menu-btn { display: none; }
+  .side-body { display: flex; flex-direction: column; flex: 1; }
+  .me { margin-top: auto; }
+}
+@media (min-width: 1180px) {
+  .with-aside { grid-template-columns: minmax(0, 1fr) 21rem; }
+}
+@media (max-width: 640px) {
+  .sheet { width: 100%; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
+  .collapse thead { display: none; }
+  .collapse tr { display: block; padding: .65rem 1.25rem; border-bottom: 1px solid var(--line); }
+  .collapse tr:last-child { border-bottom: 0; }
+  .collapse td { display: block; padding: .1rem 0; border: 0; }
+  .collapse td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font: 550 .75rem system-ui, sans-serif; }
+  .scope { position: static; }
+}
+</style>{{end}}
+
+{{define "admin_denied"}}<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="{{logo}}">
+<title>{{.Title}} · {{t "t10 admin"}}</title>
+{{template "theme"}}
+<style>
+main { max-width: 25rem; margin: 15vh auto 0; padding: 2rem; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+:lang(zh-Hans) h1 { letter-spacing: 0; }
+p { color: var(--muted); }
+.actions { display: flex; gap: .75rem; align-items: center; justify-content: space-between; }
+.actions form { margin: 0; }
+@media (max-width: 480px) { main { margin: 0; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; } }
+</style>
+</head>
+<body><main>
+<h1>{{.Title}}</h1>
+<p role="alert">{{.Error}}</p>
+<div class="actions"><a href="/v1/account">{{t "Go to your account"}}</a>
+<form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form></div>
+</main></body></html>{{end}}
+
+{{define "admin_stats"}}{{if .}}<div class="stats">{{range .}}<div class="stat"><b>{{.Value}}</b><span>{{.Label}}</span></div>{{end}}</div>{{end}}{{end}}
+
+{{define "admin_home"}}{{template "admin_head" .}}
+<div class="head"><h1>{{t "Overview"}}</h1></div>
+{{template "admin_stats" .Stats}}
+<div class="split">
+{{if .PlatformRole}}<section class="panel panel-platform">
+<span class="kicker">{{t "Platform"}}</span>
+<h2>{{t "Every tenant"}}</h2>
+<p class="hint">{{t "Manage tenants and users, release sign-in names and read the platform audit log."}}{{if not .CanPlatform}} {{t "You'll be asked to sign in again with your authenticator."}}{{end}}</p>
+<div class="shortcuts">
+<a href="/admin/tenants">{{template "icon" "tenants"}}{{t "Tenants"}}</a>
+<a href="/admin/users">{{template "icon" "users"}}{{t "Users"}}</a>
+<a href="/admin/names">{{template "icon" "names"}}{{t "Sign-in names"}}</a>
+<a href="/admin/audit">{{template "icon" "audit"}}{{t "Audit log"}}</a>
+</div>
+</section>{{end}}
+<section class="panel">
+<h2>{{t "Tenants you administer"}}</h2>
+{{if .Mine}}<div class="cards">{{range .Mine}}<a class="tcard" href="/admin/tenants/{{.ID}}"><b>{{.Name}}</b><span class="mono">{{.ID}}</span></a>{{end}}</div>
+{{else}}<p class="empty">{{t "None."}}</p>{{end}}
+</section>
+</div>
+{{template "admin_foot" .}}{{end}}
+
+{{define "admin_tenants"}}{{template "admin_head" .}}
+<div class="head"><h1>{{t "Tenants"}}</h1></div>
+<div class="with-aside">
+<div>
+<section class="panel">
+<form method="get" action="/admin/tenants" class="row">
+<div class="grow search"><label for="q">{{t "Find a tenant"}}</label>{{template "icon" "search"}}<input id="q" name="q" value="{{.Search}}" placeholder="{{t "Name or ID"}}"></div>
+<button class="quiet">{{t "Search"}}</button>
+</form>
+</section>
+<section class="panel flush">
+{{if .Tenants}}<div class="table"><table class="collapse">
+<thead><tr><th>{{t "Tenant"}}</th><th>{{t "Active members"}}</th><th>{{t "Second factor"}}</th><th>{{t "Status"}}</th></tr></thead>
+<tbody>{{range .Tenants}}<tr>
+<td><a class="tenant-name" href="/admin/tenants/{{.ID}}">{{.Name}}</a><br><span class="mono hint" title="{{.ID}}">{{short .ID}}</span></td>
+<td data-label="{{t "Active members"}}">{{.Members}}</td>
+<td data-label="{{t "Second factor"}}">{{if .RequireMFA}}{{t "Required"}}{{else}}{{t "Optional"}}{{end}}</td>
+<td><span class="badge {{if eq .Status "suspended"}}badge-bad{{else}}badge-ok{{end}}">{{t .Status}}</span></td>
+</tr>{{end}}</tbody>
+</table></div>
+{{else}}<p class="empty">{{if .Search}}{{t "No tenant matches that search."}}{{else}}{{t "No tenants yet."}}{{end}}</p>{{end}}
+</section>
+</div>
+<section class="panel">
+<h2>{{t "Create a tenant"}}</h2>
+<form method="post" action="/admin/tenants" class="fields">
+<div><label for="name">{{t "Name"}}</label><input id="name" name="name" required></div>
+<div><label for="id">{{t "ID (optional)"}}</label><input id="id" name="id" placeholder="ten_example" pattern="ten_[a-z0-9-]+"></div>
+<button>{{t "Create tenant"}}</button>
+</form>
+</section>
+</div>
+{{template "admin_foot" .}}{{end}}
+
+{{define "admin_users"}}{{template "admin_head" .}}
+{{$me := .UserID}}{{$q := .Search}}
+<div class="head"><h1>{{t "Users"}}</h1></div>
+<section class="panel">
+<form method="get" action="/admin/users" class="row">
+<div class="grow search"><label for="q">{{t "Find a user"}}</label>{{template "icon" "search"}}<input id="q" name="q" value="{{.Search}}" autocomplete="off" placeholder="{{t "Sign-in name, or a full user ID"}}"></div>
+<button class="quiet">{{t "Search"}}</button>
+</form>
+</section>
+<section class="panel flush">
+{{if .Users}}<div class="list people">
+<div class="list-head" aria-hidden="true"><span>{{t "User"}}</span><span>{{t "Active tenants"}}</span><span>{{t "Created"}}</span><span>{{t "Status"}}</span><span></span></div>
+{{range .Users}}<details class="member">
+<summary>
+<span class="avatar" aria-hidden="true">{{initial .Name}}</span>
+<span class="member-who">{{if .Name}}{{.Name}}{{else}}<span class="mono">{{short .ID}}</span>{{end}}{{if eq .ID $me}} <span class="badge">{{t "you"}}</span>{{end}}<small class="narrow">{{if eq .Tenants 1}}{{t "1 active tenant · Created %s" (.CreatedAt.UTC.Format "2006-01-02")}}{{else}}{{t "%d active tenants · Created %s" .Tenants (.CreatedAt.UTC.Format "2006-01-02")}}{{end}}</small></span>
+<span class="col"><span class="vh">{{t "Active tenants"}}: </span>{{.Tenants}}</span>
+<span class="col"><span class="vh">{{t "Created"}}: </span>{{.CreatedAt.UTC.Format "2006-01-02"}}</span>
+<span class="badges">{{if .PlatformAdmin}}<span class="badge badge-admin">{{t "platform admin"}}</span>{{end}}{{if eq .Status "suspended"}}<span class="badge badge-bad">{{t "suspended"}}</span>{{end}}</span>
+<span class="member-manage">{{t "Manage"}}{{template "icon" "chevron"}}</span>
+</summary>
+<div class="member-body">
+<p class="mono hint">{{.ID}}</p>
+{{if eq .Status "suspended"}}<form method="post" action="/admin/users/{{.ID}}/activate?q={{$q}}"><button>{{t "Reactivate"}}</button></form>
+{{else if .PlatformAdmin}}<p class="hint">{{t "Remove the platform role before suspending this user."}}</p>
+{{else}}<details class="reveal"><summary>{{t "Suspend this user"}}</summary>
+<p class="hint">{{t "Suspending blocks sign-in in every tenant, ends all sessions and stops their agents. Tokens already issued last up to 5 minutes."}}</p>
+<form method="post" action="/admin/users/{{.ID}}/suspend?q={{$q}}"><button class="danger">{{if .Name}}{{t "Yes, suspend %s" .Name}}{{else}}{{t "Yes, suspend this user"}}{{end}}</button></form>
+</details>{{end}}
+{{if .PlatformAdmin}}<details class="reveal"><summary>{{t "Remove the platform role"}}</summary>
+<form method="post" action="/admin/users/{{.ID}}/platform-admin/remove?q={{$q}}"><button class="danger">{{if eq .ID $me}}{{t "Yes, remove my platform access"}}{{else}}{{t "Yes, remove platform access"}}{{end}}</button></form>
+</details>
+{{else if ne .Status "suspended"}}<details class="reveal"><summary>{{t "Make a platform admin"}}</summary>
+<p class="hint">{{t "This reaches every tenant. They'll need an authenticator before they can use it."}}</p>
+<form method="post" action="/admin/users/{{.ID}}/platform-admin?q={{$q}}"><button class="danger">{{if .Name}}{{t "Yes, make %s a platform admin" .Name}}{{else}}{{t "Yes, make this user a platform admin"}}{{end}}</button></form>
+</details>{{end}}
+</div>
+</details>{{end}}
+</div>
+{{else}}<p class="empty">{{if .Search}}{{t "No user matches that search."}}{{else}}{{t "No users yet."}}{{end}}</p>{{end}}
+</section>
+{{template "admin_foot" .}}{{end}}
+
+{{define "admin_names"}}{{template "admin_head" .}}
+<div class="head"><h1>{{t "Sign-in names"}}</h1></div>
+<section class="panel">
+<h2>{{t "Release a name"}}</h2>
+<p class="hint">{{t "For disputes. The holder keeps their account, but may be left with no name to sign in with."}}</p>
+<form method="post" action="/admin/names/release" class="row">
+<div class="grow"><label for="release">{{t "Username, phone or email"}}</label><input id="release" name="name" autocomplete="off" required></div>
+<button class="danger">{{t "Release name"}}</button>
+</form>
+</section>
+{{template "admin_foot" .}}{{end}}
+
+{{define "admin_audit_table"}}{{if .}}<div class="table"><table class="collapse">
+<thead><tr><th>{{t "Time (UTC)"}}</th><th>{{t "Actor"}}</th><th>{{t "Action"}}</th><th>{{t "Target"}}</th><th>{{t "Outcome"}}</th></tr></thead>
+<tbody>{{range .}}<tr>
+<td class="mono nowrap">{{.At.UTC.Format "2006-01-02 15:04"}}</td>
+<td class="mono nowrap" data-label="{{t "Actor"}}" title="{{.Actor}}">{{short .Actor}}</td>
+<td class="mono" data-label="{{t "Action"}}"><span class="nowrap">{{.Action}}</span></td>
+<td class="mono" data-label="{{t "Target"}}" title="{{.Target}}">{{short .Target}}</td>
+<td><span class="badge{{if eq .Outcome "denied"}} badge-bad{{end}}">{{t .Outcome}}</span></td>
+</tr>{{end}}</tbody>
+</table></div>
+{{else}}<p class="empty">{{t "Nothing recorded yet."}}</p>{{end}}{{end}}
+
+{{define "admin_audit"}}{{template "admin_head" .}}
+<div class="head"><h1>{{t "Audit log"}}</h1></div>
+<section class="panel flush">
+<div class="panel-head"><p class="hint">{{t "The newest 100 platform entries. Each tenant's activity is on its own page."}}</p></div>
+{{template "admin_audit_table" .Audit}}
+</section>
+{{template "admin_foot" .}}{{end}}
+
+{{define "admin_tenant"}}{{template "admin_head" .}}
+{{$tenant := .Tenant}}{{$me := .UserID}}{{$base := printf "/admin/tenants/%s" .Tenant.ID}}
+{{if .PlatformRole}}<p class="crumb"><a href="/admin/tenants">{{t "Tenants"}}</a> / {{.Tenant.Name}}</p>{{end}}
+<div class="head">
+<h1>{{.Tenant.Name}}</h1>
+<span class="badge {{if eq .Tenant.Status "suspended"}}badge-bad{{else}}badge-ok{{end}}">{{t .Tenant.Status}}</span>
+</div>
+<nav class="tabs" aria-label="{{.Tenant.Name}}">
+<a href="{{$base}}"{{if eq .Tab "members"}} aria-current="page"{{end}}>{{template "icon" "users"}}{{t "Members"}}</a>
+<a href="{{$base}}?tab=org"{{if eq .Tab "org"}} aria-current="page"{{end}}>{{template "icon" "org"}}{{t "Organization"}}</a>
+<a href="{{$base}}?tab=agents"{{if eq .Tab "agents"}} aria-current="page"{{end}}>{{template "icon" "agents"}}{{t "Agents"}}</a>
+<a href="{{$base}}?tab=invite"{{if eq .Tab "invite"}} aria-current="page"{{end}}>{{template "icon" "invite"}}{{t "Invite"}}</a>
+<a href="{{$base}}?tab=security"{{if eq .Tab "security"}} aria-current="page"{{end}}>{{template "icon" "security"}}{{t "Security"}}</a>
+<a href="{{$base}}?tab=activity"{{if eq .Tab "activity"}} aria-current="page"{{end}}>{{template "icon" "activity"}}{{t "Activity"}}</a>
+</nav>
+{{if eq .Tab "members"}}
+{{if .Reset}}<section class="result">
+<p><strong>{{if .Reset.Name}}{{t "Reset link for %s." .Reset.Name}}{{else}}{{t "Reset link."}}{{end}}</strong> {{t "Send it to them now. It won't be shown again, works once and expires in 30 minutes. Their authenticator stays on."}}</p>
+<div class="copy"><code>{{.Reset.URL}}</code><button type="button" class="quiet" data-copy="{{t "Copied"}}" hidden>{{t "Copy"}}</button></div>
+</section>{{end}}
+{{template "admin_stats" .Stats}}
+<section class="panel flush">
+{{if .Members}}<div class="list members">
+<div class="list-head" aria-hidden="true"><span>{{t "Member"}}</span><span>{{t "Unit"}}</span><span>{{t "Manager"}}</span><span>{{t "Joined"}}</span><span>{{t "Role"}}</span><span></span></div>
+{{range .Members}}<details class="member">
+<summary>
+<span class="avatar" aria-hidden="true">{{initial .Name}}</span>
+<span class="member-who">{{if .Name}}{{.Name}}{{else}}<span class="mono">{{short .UserID}}</span>{{end}}{{if eq .UserID $me}} <span class="badge">{{t "you"}}</span>{{end}}<small class="narrow">{{if .UnitName}}{{.UnitName}} · {{end}}{{if .ManagerName}}{{t "Reports to %s" .ManagerName}} · {{end}}{{t "Joined %s" (.JoinedAt.Format "2006-01-02")}}</small></span>
+<span class="col"><span class="vh">{{t "Unit"}}: </span>{{if .UnitName}}{{.UnitName}}{{else}}—{{end}}</span>
+<span class="col"><span class="vh">{{t "Manager"}}: </span>{{if .ManagerName}}{{.ManagerName}}{{else}}—{{end}}</span>
+<span class="col"><span class="vh">{{t "Joined"}}: </span>{{.JoinedAt.Format "2006-01-02"}}</span>
+<span class="badges"><span class="badge{{if eq .Role "admin"}} badge-admin{{end}}">{{t .Role}}</span>{{if eq .Status "inactive"}}<span class="badge badge-bad">{{t "inactive"}}</span>{{end}}{{if eq .UserStatus "suspended"}}<span class="badge badge-bad">{{t "suspended"}}</span>{{end}}</span>
+<span class="member-manage">{{t "Manage"}}{{template "icon" "chevron"}}</span>
+</summary>
+<div class="member-body">
+<form method="post" action="{{$base}}/members/{{.UserID}}" class="row">
+<div><label for="role-{{.ID}}">{{t "Role"}}</label><select id="role-{{.ID}}" name="role"><option value="member"{{if eq .Role "member"}} selected{{end}}>{{t "Member"}}</option><option value="admin"{{if eq .Role "admin"}} selected{{end}}>{{t "Admin"}}</option></select></div>
+<div><label for="status-{{.ID}}">{{t "Status"}}</label><select id="status-{{.ID}}" name="status"><option value="active"{{if eq .Status "active"}} selected{{end}}>{{t "Active"}}</option><option value="inactive"{{if eq .Status "inactive"}} selected{{end}}>{{t "Inactive"}}</option></select></div>
+<button>{{t "Save changes"}}</button>
+</form>
+{{$member := .}}<form method="post" action="{{$base}}/members/{{.UserID}}/placement" class="row">
+<div><label for="manager-{{.ID}}">{{t "Manager"}}</label><select id="manager-{{.ID}}" name="manager"><option value="">{{t "None"}}</option>{{if .ManagerUserID}}<option value="{{.ManagerUserID}}" selected>{{if .ManagerName}}{{.ManagerName}}{{else}}{{short .ManagerUserID}}{{end}}</option>{{end}}{{range $.Members}}{{if and (ne .UserID $member.UserID) (ne .UserID $member.ManagerUserID) (eq .Status "active") (eq .UserStatus "active")}}<option value="{{.UserID}}">{{if .Name}}{{.Name}}{{else}}{{short .UserID}}{{end}}</option>{{end}}{{end}}</select></div>
+<div><label for="unit-{{.ID}}">{{t "Unit"}}</label><select id="unit-{{.ID}}" name="unit"><option value="">{{t "None"}}</option>{{range $.Units}}<option value="{{.ID}}"{{if eq .ID $member.UnitID}} selected{{end}}>{{indent .Depth}}{{.Name}}</option>{{end}}</select></div>
+<button class="quiet">{{t "Save placement"}}</button>
+</form>
+<form method="post" action="{{$base}}/members/{{.UserID}}/reset-link">
+<input type="hidden" name="name" value="{{.Name}}">
+<button class="quiet">{{t "Create password reset link"}}</button>
+</form>
+</div>
+</details>{{end}}
+</div>
+{{else}}<p class="empty">{{t "No members yet."}} <a href="{{$base}}?tab=invite">{{t "Invite the first one."}}</a></p>{{end}}
+</section>
+{{if .CanPlatform}}<section class="panel panel-platform">
+<span class="kicker">{{t "Platform action"}}</span>
+<h2>{{t "Add a member by user ID"}}</h2>
+<p class="hint">{{t "Use this when an invitation won't do, such as giving a new tenant its first admin."}}</p>
+<form method="post" action="{{$base}}/members" class="row">
+<div class="grow"><label for="user-id">{{t "User ID"}}</label><input id="user-id" name="user_id" required placeholder="usr_…"></div>
+<div><label for="add-role">{{t "Role"}}</label><select id="add-role" name="role"><option value="member">{{t "Member"}}</option><option value="admin">{{t "Admin"}}</option></select></div>
+<button>{{t "Add member"}}</button>
+</form>
+</section>{{end}}
+{{else if eq .Tab "org"}}
+<div class="with-aside">
+<section class="panel flush">
+<div class="panel-head">
+<h2>{{t "Units"}}</h2>
+<p class="hint">{{t "Services read this tree, and each member's manager, to decide what people can see. Set someone's unit and manager from their row on the Members tab."}}</p>
+</div>
+{{if .Units}}<div class="list units">
+<div class="list-head" aria-hidden="true"><span>{{t "Name"}}</span><span>{{t "Active members"}}</span><span>{{t "Kind"}}</span><span></span></div>
+{{range .Units}}{{$unit := .}}<details class="member">
+<summary>
+<span class="member-who">{{indent .Depth}}{{.Name}}<small class="narrow">{{if eq .Members 1}}{{t "1 active member"}}{{else}}{{t "%d active members" .Members}}{{end}}</small></span>
+<span class="col"><span class="vh">{{t "Active members"}}: </span>{{.Members}}</span>
+<span class="badges"><span class="badge">{{t .Kind}}</span></span>
+<span class="member-manage">{{t "Manage"}}{{template "icon" "chevron"}}</span>
+</summary>
+<div class="member-body">
+<form method="post" action="{{$base}}/units/{{.ID}}" class="row">
+<div class="grow"><label for="name-{{.ID}}">{{t "Name"}}</label><input id="name-{{.ID}}" name="name" value="{{.Name}}" required maxlength="100"></div>
+<div><label for="kind-{{.ID}}">{{t "Kind"}}</label><select id="kind-{{.ID}}" name="kind"><option value="department"{{if eq .Kind "department"}} selected{{end}}>{{t "Department"}}</option><option value="team"{{if eq .Kind "team"}} selected{{end}}>{{t "Team"}}</option></select></div>
+<div><label for="parent-{{.ID}}">{{t "Parent"}}</label><select id="parent-{{.ID}}" name="parent"><option value="">{{t "None"}}</option>{{range $.Units}}{{if ne .ID $unit.ID}}<option value="{{.ID}}"{{if eq .ID $unit.ParentID}} selected{{end}}>{{indent .Depth}}{{.Name}}</option>{{end}}{{end}}</select></div>
+<button>{{t "Save changes"}}</button>
+</form>
+<form method="post" action="{{$base}}/units/{{.ID}}/delete"><button class="quiet">{{t "Remove this unit"}}</button></form>
+</div>
+</details>{{end}}
+</div>
+{{else}}<p class="empty">{{t "No units yet. Add the first one below."}}</p>{{end}}
+</section>
+<section class="panel">
+<h2>{{t "Add a unit"}}</h2>
+<form method="post" action="{{$base}}/units" class="fields">
+<div><label for="unit-name">{{t "Name"}}</label><input id="unit-name" name="name" required maxlength="100" placeholder="{{t "Sales"}}"></div>
+<div><label for="unit-kind">{{t "Kind"}}</label><select id="unit-kind" name="kind"><option value="department">{{t "Department"}}</option><option value="team">{{t "Team"}}</option></select></div>
+<div><label for="unit-parent">{{t "Parent"}}</label><select id="unit-parent" name="parent"><option value="">{{t "None"}}</option>{{range .Units}}<option value="{{.ID}}">{{indent .Depth}}{{.Name}}</option>{{end}}</select></div>
+<button>{{t "Add unit"}}</button>
+</form>
+</section>
+</div>
+{{else if eq .Tab "agents"}}
+<section class="panel flush">
+<div class="panel-head">
+<h2>{{t "Agent access"}}</h2>
+<p class="hint">{{t "Each call or agent run holds its own grant, which stays active until it ends or is stopped, even after the call does. Stopping one also stops every agent it started. Tokens already issued last up to 5 minutes."}}</p>
+</div>
+{{if .Grants}}<div class="list grants">
+<div class="list-head" aria-hidden="true"><span>{{t "User"}}</span><span>{{t "Started (UTC)"}}</span><span>{{t "Ends (UTC)"}}</span><span>{{t "Status"}}</span></div>
+{{range .Grants}}<div class="member">
+<div class="grant">
+<span class="member-who">{{if .Who}}{{.Who}}{{else}}<span class="mono">{{short .UserID}}</span>{{end}}<small>{{.RuntimeID}}{{if .ParentID}} · {{t "started by another agent"}}{{end}} · {{join .Actions}}</small><small class="narrow">{{.CreatedAt.UTC.Format "2006-01-02 15:04"}} – {{.ExpiresAt.UTC.Format "2006-01-02 15:04"}} UTC</small></span>
+<span class="col mono"><span class="vh">{{t "Started (UTC)"}}: </span>{{.CreatedAt.UTC.Format "2006-01-02 15:04"}}</span>
+<span class="col mono"><span class="vh">{{t "Ends (UTC)"}}: </span>{{.ExpiresAt.UTC.Format "2006-01-02 15:04"}}</span>
+<span class="badges">{{if .Running}}<span class="badge badge-ok">{{t "active"}}</span>
+<form method="post" action="{{$base}}/grants/{{.ID}}/revoke"><button class="quiet">{{t "Stop"}}</button></form>
+{{else if .Stopped}}<span class="badge badge-bad">{{t "stopped"}}</span>{{else}}<span class="badge">{{t "ended"}}</span>{{end}}</span>
+</div>
+</div>{{end}}
+</div>
+{{else}}<p class="empty">{{t "No agents have run for this tenant yet."}}</p>{{end}}
+</section>
+{{else if eq .Tab "invite"}}
+{{if .InviteURL}}<section class="result">
+<p><strong>{{t "Invitation ready."}}</strong> {{t "Send one link to one person. It won't be shown again, works once and expires in 7 days."}}</p>
+<label>{{t "For someone new"}}</label><div class="copy"><code>{{.InviteURL}}</code><button type="button" class="quiet" data-copy="{{t "Copied"}}" hidden>{{t "Copy"}}</button></div>
+<label>{{t "For someone with an account"}}</label><div class="copy"><code>{{.JoinURL}}</code><button type="button" class="quiet" data-copy="{{t "Copied"}}" hidden>{{t "Copy"}}</button></div>
+</section>{{end}}
+<section class="panel">
+<h2>{{t "Invite someone"}}</h2>
+<p class="hint">{{t "Create a link and send it yourself. t10 never contacts people for you."}}</p>
+<form method="post" action="{{$base}}/invitations" class="row">
+<div><label for="invite-role">{{t "Role"}}</label><select id="invite-role" name="role"><option value="member">{{t "Member"}}</option><option value="admin">{{t "Admin"}}</option></select></div>
+<button>{{t "Create invitation link"}}</button>
+</form>
+</section>
+{{else if eq .Tab "security"}}
+<div class="split">
+<section class="panel">
+<h2>{{t "Second factor"}}</h2>
+<form method="post" action="{{$base}}/settings">
+<label class="switch"><input type="checkbox" name="require_mfa"{{if .Tenant.RequireMFA}} checked{{end}}> {{t "Require a second factor for this tenant"}}</label>
+<p class="hint">{{t "Members without an authenticator or an MFA-capable device can't get a token for this tenant until they add one."}}</p>
+<button class="quiet">{{t "Save"}}</button>
+</form>
+</section>
+{{if .CanPlatform}}<section class="panel panel-platform">
+<span class="kicker">{{t "Platform action"}}</span>
+<h2>{{t "Tenant status"}}</h2>
+<p class="hint">{{if eq .Tenant.Status "active"}}{{t "Suspending stops new tokens and room admission for every member. Tokens already issued last up to 5 minutes."}}{{else}}{{t "Reactivating lets members get tokens again."}}{{end}}</p>
+{{if eq .Tenant.Status "active"}}<details class="reveal"><summary>{{t "Suspend this tenant"}}</summary>
+<form method="post" action="{{$base}}/suspend"><button class="danger">{{t "Yes, suspend %s" .Tenant.Name}}</button></form>
+</details>
+{{else}}<form method="post" action="{{$base}}/activate"><button>{{t "Reactivate"}}</button></form>{{end}}
+</section>{{end}}
+</div>
+{{else}}
+<section class="panel flush">
+<div class="panel-head"><h2>{{t "Recent activity"}}</h2></div>
+{{template "admin_audit_table" .Audit}}
+</section>
+{{end}}
+{{template "admin_foot" .}}{{end}}

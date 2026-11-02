@@ -1,0 +1,21 @@
+# Standard fields only, so any controller works. The overlay sets the class and
+# the host. docs/deployment.md lists what the controller must do.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-server
+spec:
+  tls:
+    - hosts: [auth.example.com]
+      secretName: auth-server-tls
+  rules:
+    - host: auth.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-server
+                port:
+                  name: http

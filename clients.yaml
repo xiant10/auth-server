@@ -1,0 +1,41 @@
+# Reviewed list of first-party OAuth clients.
+clients:
+  - id: t10-mac-client
+    name: t10 for Mac
+    type: public
+    # Native clients listen on an ephemeral loopback port, so any port matches.
+    redirect_uris:
+      - http://127.0.0.1/callback
+    idle_ttl: 720h
+    absolute_ttl: 2160h
+  - id: t10-mobile
+    name: t10 mobile app
+    type: public
+    # The only client allowed to take a password itself.
+    direct_login: true
+    idle_ttl: 2160h
+  - id: t10-workbench
+    name: t10 workbench
+    type: confidential
+    # Confidential clients match exactly, so each deployment lists its own.
+    redirect_uris:
+      - http://127.0.0.1:8083/auth/callback
+    # The hash of the dev secret in workbench's .env.example. Replace it outside
+    # local development.
+    secret_sha256: 3b2a1c8150447544142ed749be66a8a5cc8c4c25a0fb17e9b5e596313775cd11
+    idle_ttl: 12h
+    absolute_ttl: 168h
+
+# What each stable runtime may ask for on a user's behalf. Secrets are in the
+# database: every entry needs `authctl service-add`, or the server won't start.
+runtimes:
+  - name: t10-livekit-agent
+    # Room admission creates this runtime's grant for each call.
+    voice: true
+    # A call's grant is the parent of agent-pi's, so it has to hold whatever a
+    # tool needs, or the tool disappears on calls.
+    actions: [agent:use, work:read, work:write]
+    audiences: [agent-pi, t10-collab]
+  - name: agent-pi
+    actions: [agent:use, work:read, work:write]
+    audiences: [agent-pi, t10-collab]

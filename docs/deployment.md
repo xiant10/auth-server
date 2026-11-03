@@ -118,7 +118,7 @@ Use `http://auth-server.t10.svc.cluster.local:8081` for JWKS, tokens and grants,
 
 **Migrations:** new pods migrate while old pods are still running, and migrations are forward-only. Each one must therefore work with the previous version: add columns first, and drop them in a later release. `kubectl rollout undo` is only safe under this rule.
 
-**Adding a runtime:** add it to `clients.yaml` and `deploy/setup.sh`, then build the image, run setup with a new secret, and deploy.
+**Adding a runtime:** add it to `clients.yaml`, and a `service` line to `deploy/setup.sh`, which creates its account only when its secret is set. Then build the image, run setup with the new secret, and deploy. A deployment that doesn't run the service leaves its secret unset.
 
 **Rotating a signing key:** the `auth-server` Secret holds `AUTH_SIGNING_KEY_NEXT`, and a pod reads it at startup, so run `kubectl -n t10 rollout restart deploy/auth-server` after each change. Follow the steps in [design.md](design.md#deployment-and-operations).
 

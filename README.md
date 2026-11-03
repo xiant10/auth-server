@@ -115,3 +115,7 @@ docker run -d --rm --name auth-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=
 TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/auth_test?sslmode=disable' go test -p 1 ./...
 node --test verifier/ts/verifier.test.ts
 ```
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

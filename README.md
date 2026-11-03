@@ -59,7 +59,7 @@ Sign in at `/admin`. Tenant admins manage members, invitations, reset links and 
 | `POST /v1/token` (`authorization_code`, `refresh_token`, `client_credentials`, `agent_grant`; `password` in dev mode only), `POST /v1/revoke` | Public |
 | `GET /v1/authorize`, `/v1/signin`, `/v1/register`, `/v1/recover`, `/v1/reset`, `POST /v1/signout` | Pages; writes need a same-origin request |
 | `/v1/account`, `/v1/join` | Signed-in browser |
-| `POST /v1/rooms/admission`, `GET /v1/me`, `POST /v1/logout` | Any user |
+| `POST /v1/rooms/admission`, `GET /v1/me`, `GET /v1/me/access`, `POST /v1/logout` | Any user |
 | `/v1/challenges`, `/v1/login/*` | Public; the mobile app's sign-in |
 | `/v1/me/*`, `/v1/qr/{id}/*`, `POST /v1/devices/{id}/revoke` | Mobile app session |
 | `/v1/grants`, `/v1/grants/{id}/*`, `/v1/org/*` | Service token. See [docs/service-api.md](docs/service-api.md) |
@@ -67,7 +67,7 @@ Sign in at `/admin`. Tenant admins manage members, invitations, reset links and 
 | `/admin/tenants/{id}` pages | Signed-in admin of that tenant, with a second factor if the tenant requires one, or platform admin |
 | Other `/admin/*` pages | Signed-in platform admin with a second factor proved in the last 15 minutes. A stale one is sent to sign in again |
 | `POST /v1/tenants`, `.../suspend`, `.../activate`, `POST /v1/tenants/{id}/members`, `POST /v1/identifiers/release` | Platform admin with a second factor proved in the last 15 minutes |
-| `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
+| `GET /v1/tenants`, `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
 | `GET` and `PATCH /v1/tenants/{id}`, `GET /v1/tenants/{id}/members`, `PATCH .../members/{user}`, `POST .../members/{user}/reset-link`, `POST .../invitations` | Tenant admin active in that tenant, or platform admin |
 | `GET` and `POST /v1/tenants/{id}/units`, `PUT` and `DELETE .../units/{unit}`, `GET` and `PUT .../members/{user}/placement` | Tenant admin active in that tenant, or platform admin |
 

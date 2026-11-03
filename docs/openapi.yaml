@@ -235,6 +235,18 @@ paths:
       responses:
         "200": {$ref: "#/components/responses/Status"}
         default: {$ref: "#/components/responses/Error"}
+  /v1/me/access:
+    get:
+      summary: What the caller's own token can do, for services that make access decisions
+      operationId: meAccess
+      security: [{bearer: []}]
+      responses:
+        "200":
+          description: Roles, and whether a second factor is fresh enough for platform work
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MeAccess"}
+        default: {$ref: "#/components/responses/Error"}
   /v1/me:
     get:
       summary: The signed-in user, tenants and devices
@@ -500,6 +512,18 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/DeviceSession"}
   schemas:
+    MeAccess:
+      type: object
+      required: [user_id, active_tenant, tenant_admin, platform_admin, mfa, platform_verified]
+      properties:
+        user_id: {type: string}
+        active_tenant: {type: string, description: Empty for a platform admin in no tenant.}
+        tenant_admin: {type: boolean}
+        platform_admin: {type: boolean}
+        mfa: {type: boolean}
+        platform_verified:
+          type: boolean
+          description: A platform admin who may act now. It needs a second factor from the last 15 minutes, which dev mode waives.
     Device:
       type: object
       required: [name, platform, approval_public_key, session_public_key]

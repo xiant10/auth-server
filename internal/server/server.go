@@ -83,6 +83,8 @@ type Deps struct {
 	DevMode bool
 	// PublicURL is the origin pages must post from.
 	PublicURL string
+	// AgentControlURL is the operator console, linked from /admin. Empty hides it.
+	AgentControlURL string
 	// TrustProxy reads the client IP from X-Forwarded-For.
 	TrustProxy bool
 }
@@ -170,6 +172,7 @@ func (s *Server) routes() []route {
 
 		{"POST", "/v1/rooms/admission", accessUser, s.handleAdmission},
 		{"GET", "/v1/me", accessUser, s.handleMe},
+		{"GET", "/v1/me/access", accessUser, s.handleMeAccess},
 		{"PATCH", "/v1/me", accessUser, s.handleUpdateMe},
 		{"POST", "/v1/logout", accessUser, s.handleLogout},
 
@@ -187,6 +190,7 @@ func (s *Server) routes() []route {
 		{"POST", "/v1/me/invitations/accept", accessDevice, s.handleMeAcceptInvitation},
 		{"POST", "/v1/devices/{id}/revoke", accessDevice, s.handleDeviceRevoke},
 
+		{"GET", "/v1/tenants", accessPlatformAdmin, s.handleListTenants},
 		{"POST", "/v1/tenants", accessPlatformAdmin, s.handleCreateTenant},
 		{"POST", "/v1/tenants/{id}/suspend", accessPlatformAdmin, s.handleSetTenantStatus(directory.TenantSuspended)},
 		{"POST", "/v1/tenants/{id}/activate", accessPlatformAdmin, s.handleSetTenantStatus(directory.TenantActive)},

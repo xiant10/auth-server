@@ -93,10 +93,11 @@ func run() error {
 		Agents: agents.NewService(pool, dir, issuer, agents.LiveKit{
 			URL: cfg.LiveKitURL, APIKey: cfg.LiveKitAPIKey, APISecret: cfg.LiveKitAPISecret,
 		}, runtimes),
-		Issuer:     issuer,
-		DevMode:    cfg.DevMode,
-		PublicURL:  cfg.PublicURL,
-		TrustProxy: cfg.TrustProxy,
+		Issuer:          issuer,
+		DevMode:         cfg.DevMode,
+		PublicURL:       cfg.PublicURL,
+		AgentControlURL: cfg.AgentControlURL,
+		TrustProxy:      cfg.TrustProxy,
 	})
 	go purgeLoop(ctx, ids)
 

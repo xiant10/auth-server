@@ -105,6 +105,7 @@ var zhText = map[string]string{
 	"Users":                                 "用户",
 	"Sign-in names":                         "登录名",
 	"Audit log":                             "审计日志",
+	"Agent control":                         "智能体控制台",
 	"Your tenants":                          "我的租户",
 	"Your account":                          "我的账户",
 	"Sign out":                              "退出登录",

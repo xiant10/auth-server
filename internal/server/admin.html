@@ -41,7 +41,8 @@
 <a href="/admin/tenants"{{if eq .Nav "tenants"}} aria-current="page"{{end}}>{{template "icon" "tenants"}}{{t "Tenants"}}</a>
 <a href="/admin/users"{{if eq .Nav "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}{{t "Users"}}</a>
 <a href="/admin/names"{{if eq .Nav "names"}} aria-current="page"{{end}}>{{template "icon" "names"}}{{t "Sign-in names"}}</a>
-<a href="/admin/audit"{{if eq .Nav "audit"}} aria-current="page"{{end}}>{{template "icon" "audit"}}{{t "Audit log"}}</a>{{end}}
+<a href="/admin/audit"{{if eq .Nav "audit"}} aria-current="page"{{end}}>{{template "icon" "audit"}}{{t "Audit log"}}</a>
+{{if .AgentControl}}<a href="{{.AgentControl}}">{{template "icon" "home"}}{{t "Agent control"}}</a>{{end}}{{end}}
 {{if .Mine}}<p class="nav-label">{{t "Your tenants"}}</p>
 {{$nav := .Nav}}{{range .Mine}}<a href="/admin/tenants/{{.ID}}"{{if eq $nav .ID}} aria-current="page"{{end}}><span class="chip" aria-hidden="true">{{initial .Name}}</span>{{.Name}}</a>{{end}}{{end}}
 </nav>

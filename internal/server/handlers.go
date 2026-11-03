@@ -362,6 +362,52 @@ func (s *Server) issueResetLink(r *http.Request, p identity.Principal) (string, 
 	return s.PublicURL + "/v1/reset?token=" + token, true, nil
 }
 
+// handleMeAccess answers what a caller's own token can do, for a service that
+// makes access decisions and holds no roles. platform_verified carries the
+// 15-minute rule and the dev-mode waiver, so neither is repeated elsewhere.
+func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	platform, err := s.Directory.IsPlatformAdmin(r.Context(), p.UserID)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	verified, err := s.isPlatformAdmin(r, p)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	tenantAdmin := false
+	if p.TenantID != "" {
+		if tenantAdmin, err = s.Directory.IsTenantAdmin(r.Context(), p.UserID, p.TenantID); err != nil {
+			writeInternal(w, r, err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id": p.UserID, "active_tenant": p.TenantID, "tenant_admin": tenantAdmin,
+		"platform_admin": platform, "mfa": p.MFA, "platform_verified": verified,
+	})
+}
+
+// handleListTenants is the platform's tenant list, for t10-agent-control's picker.
+func (s *Server) handleListTenants(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
+	tenants, err := s.Directory.ListTenants(r.Context(), r.URL.Query().Get("q"), adminTenantLimit)
+	if err != nil {
+		writeDirectoryError(w, r, err)
+		return
+	}
+	type row struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Status string `json:"status"`
+	}
+	rows := make([]row, 0, len(tenants))
+	for _, t := range tenants {
+		rows = append(rows, row{ID: t.ID, Name: t.Name, Status: t.Status})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tenants": rows})
+}
+
 func (s *Server) handleReleaseName(w http.ResponseWriter, r *http.Request, p identity.Principal) {
 	var req struct {
 		Name string `json:"name"`

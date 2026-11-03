@@ -38,6 +38,8 @@ type adminData struct {
 	// PlatformRole means the viewer holds the role; CanPlatform means they may
 	// use it now, with a recent enough second factor.
 	PlatformRole, CanPlatform bool
+	// AgentControl is the operator console's address, if this platform has one.
+	AgentControl string
 
 	Tenant  directory.Tenant
 	Tenants []directory.TenantSummary
@@ -208,6 +210,7 @@ func (s *Server) adminBase(r *http.Request, p identity.Principal, title, scope s
 	data := adminData{
 		Title: translate(requestLang(r), title), Scope: scope, User: account.Label(), UserID: p.UserID,
 		Here: r.URL.RequestURI(), Account: account, PlatformRole: role, CanPlatform: can,
+		AgentControl: s.AgentControlURL,
 	}
 	for _, t := range tenants {
 		if t.Role == directory.RoleAdmin {

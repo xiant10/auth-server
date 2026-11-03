@@ -4,7 +4,7 @@ Sample accounts for local testing, and how each kind of user is created and mana
 
 ## Sample accounts
 
-Sign in at <http://localhost:8081/admin>. All six accounts use the password `t10-sample-password`.
+Tenant admins sign in to workbench and open Administration. Platform admins sign in to the platform console. <http://localhost:8081/admin> sends each to the right one. All six accounts use the password `t10-sample-password`.
 
 | Sign-in name | Role | What it tests |
 | --- | --- | --- |

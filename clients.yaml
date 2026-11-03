@@ -25,13 +25,13 @@ clients:
     secret_sha256: 3b2a1c8150447544142ed749be66a8a5cc8c4c25a0fb17e9b5e596313775cd11
     idle_ttl: 12h
     absolute_ttl: 168h
-  - id: t10-agent-control
-    name: t10 agent control
+  - id: t10-console
+    name: t10 platform console
     type: confidential
     redirect_uris:
-      - http://127.0.0.1:8085/auth/callback
+      - http://127.0.0.1:8086/auth/callback
     # The hash of a dev secret. Replace it outside local development.
-    secret_sha256: 23bbce36ff9b87eb32508e1ff6682afb6cd60440f0d00b48c2c702e3cf0a8010
+    secret_sha256: 9563997683bc03b226cf8fff630944ac87aa2dfa0699a2a2025677582821359c
     # Shorter than the workbench's, because this is an operator tool.
     idle_ttl: 1h
     absolute_ttl: 12h

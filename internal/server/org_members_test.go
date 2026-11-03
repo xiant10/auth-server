@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -61,7 +60,7 @@ func TestANewDepartedManagerIsStillRefused(t *testing.T) {
 	}
 }
 
-func TestAdminFormKeepsADepartedManager(t *testing.T) {
+func TestMemberListKeepsADepartedManager(t *testing.T) {
 	h := newHarness(t, true)
 	h.tenant("ten_acme")
 	h.user("admin", map[string]string{"ten_acme": directory.RoleAdmin})
@@ -70,9 +69,12 @@ func TestAdminFormKeepsADepartedManager(t *testing.T) {
 	h.mustPlace(rep, vice, "")
 	h.leave(vice)
 
-	_, _, page := h.signedIn("admin").get("/admin/tenants/ten_acme?tab=members")
-	if !strings.Contains(page, fmt.Sprintf(`<option value="%s" selected>`, vice)) {
-		t.Error("the form dropped the departed manager, so saving it would erase the link")
+	// An admin screen shows the link as set, so saving it back keeps it.
+	_, body := h.do("GET", "/v1/tenants/ten_acme/members", h.login("admin", "ten_acme"), nil)
+	for _, m := range body["members"].([]any) {
+		if row := m.(map[string]any); row["user_id"] == rep && row["manager_user_id"] != vice {
+			t.Errorf("the departed manager is missing, so saving the row would erase the link: %v", row)
+		}
 	}
 }
 

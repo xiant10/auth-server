@@ -166,31 +166,3 @@ func (s *Server) handleSetPlacement(w http.ResponseWriter, r *http.Request, p id
 	}
 	s.handleGetPlacement(w, r, p)
 }
-
-func (s *Server) handleAdminPlacement(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	err := s.Directory.SetPlacement(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("user"),
-		r.PostFormValue("manager"), r.PostFormValue("unit"))
-	s.tenantResult(w, r, p, tabMembers, err, "Placement updated.")
-}
-
-func (s *Server) handleAdminCreateUnit(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	_, err := s.Directory.CreateUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"),
-		r.PostFormValue("name"), r.PostFormValue("kind"), r.PostFormValue("parent"))
-	s.tenantResult(w, r, p, tabOrg, err, "Unit added.")
-}
-
-func (s *Server) handleAdminUpdateUnit(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	err := s.Directory.UpdateUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("unit"),
-		r.PostFormValue("name"), r.PostFormValue("kind"), r.PostFormValue("parent"))
-	s.tenantResult(w, r, p, tabOrg, err, "Unit updated.")
-}
-
-func (s *Server) handleAdminDeleteUnit(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	err := s.Directory.DeleteUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("unit"))
-	s.tenantResult(w, r, p, tabOrg, err, "Unit removed.")
-}
-
-func (s *Server) handleAdminRevokeGrant(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	err := s.Agents.RevokeInTenant(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("grant"))
-	s.tenantResult(w, r, p, tabAgents, err, "Agent access stopped. Tokens already issued last up to 5 minutes.")
-}

@@ -133,9 +133,11 @@ func newHarness(t *testing.T, devMode bool) *harness {
 		Agents: agents.NewService(pool, dir, issuer, agents.LiveKit{
 			URL: "ws://livekit.test:7880", APIKey: liveKitKey, APISecret: liveKitSec,
 		}, testRuntimes),
-		Issuer:    issuer,
-		DevMode:   devMode,
-		PublicURL: ts.URL,
+		Issuer:       issuer,
+		DevMode:      devMode,
+		PublicURL:    ts.URL,
+		ConsoleURL:   testConsoleURL,
+		WorkbenchURL: testWorkbenchURL,
 	})
 	ts.Config.Handler = srv.Handler()
 	for _, name := range []string{voiceRuntime, piRuntime, listedService, otherService} {

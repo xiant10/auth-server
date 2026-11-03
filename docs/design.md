@@ -44,7 +44,7 @@ Most of the init requirements stand; the cuts come from dropping general-platfor
 | Support access | Defer | V1 has none, so platform admins have no path into business records |
 | Dynamic agent grants | Simplify | One `agent_grants` table. The grant ID is the execution ID |
 | Change events | Defer | Modules cache org reads for at most 60 seconds. Add an outbox when a module needs a local copy |
-| Unified admin UI | Narrow | Server-rendered pages for identity, tenants and agents. Policy screens stay in business modules and are linked from the UI |
+| Admin UI | Moved out | This service serves the JSON routes, and checks every call. Tenant admins work in `workbench`, platform admins in `t10-console`, so each kind of admin has one place |
 | OpenFGA | Remove | Not needed by any stated rule |
 
 ### Gaps the requirements do not cover
@@ -391,7 +391,7 @@ The service ships as one static Go binary in one container, backed by one Postgr
 | Runtime | Two stateless replicas on Kubernetes behind TLS at the ingress, and one on `:8081` under Docker Compose for local use. See [deployment.md](deployment.md) |
 | Database | Managed Postgres with backups and failover, separate from business data |
 | Migrations | Embedded in the binary, run at startup under a Postgres advisory lock |
-| Admin UI | Go templates in the same binary, with no frontend build |
+| Admin UI | None. Tenant admins use `workbench` and platform admins `t10-console`, both through the JSON routes |
 | Signing keys | Two ES256 private keys from the secret store: current and next |
 | Configuration | Environment variables plus one reviewed YAML file for clients and the audiences each runtime may request |
 | Telemetry | OpenTelemetry export to the collector the sibling repos already use |

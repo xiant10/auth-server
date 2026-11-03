@@ -42,6 +42,8 @@ services:
     environment:
       AUTH_DEV_MODE: "true"
       AUTH_PUBLIC_URL: http://localhost:8081
+      # Where /admin sends tenant admins. A Compose stack has no platform console.
+      AUTH_WORKBENCH_URL: http://127.0.0.1:8083
       # All zeros, for local use only: it just lets TOTP survive a restart.
       AUTH_TOTP_KEY: "${AUTH_TOTP_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}"
       DATABASE_URL: "postgres://auth:${AUTH_DB_PASSWORD:-auth-dev-password}@postgres:5432/auth?sslmode=disable"

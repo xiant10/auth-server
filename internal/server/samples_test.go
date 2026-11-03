@@ -20,6 +20,17 @@ func (h *harness) sampleBrowser(name string) *browser {
 	return b
 }
 
+func (h *harness) sampleToken(name, tenant string) string {
+	h.t.Helper()
+	status, body := h.do("POST", "/v1/token", "", map[string]string{
+		"grant_type": "password", "username": name, "password": samples.Password, "tenant": tenant,
+	})
+	if status != http.StatusOK {
+		h.t.Fatalf("token for %s: %d %v", name, status, body)
+	}
+	return body["access_token"].(string)
+}
+
 func TestSampleAccountsGiveEachKindOfAccess(t *testing.T) {
 	h := newHarness(t, true)
 	ctx := context.Background()
@@ -29,21 +40,28 @@ func TestSampleAccountsGiveEachKindOfAccess(t *testing.T) {
 	if err := samples.Add(ctx, h.pool, h.id, h.dir); !errors.Is(err, samples.ErrExists) {
 		t.Errorf("second add: %v", err)
 	}
-	acme := "/admin/tenants/" + samples.TenantAcme
+	acme := "/v1/tenants/" + samples.TenantAcme + "/members"
 	for name, want := range map[string]map[string]int{
-		"sample-platform":     {acme: http.StatusOK, "/admin/tenants": http.StatusOK},
-		"sample-acme-admin":   {acme: http.StatusOK, "/admin/tenants": http.StatusForbidden},
+		"sample-platform":     {acme: http.StatusOK, "/v1/tenants": http.StatusOK},
+		"sample-acme-admin":   {acme: http.StatusOK, "/v1/tenants": http.StatusForbidden},
 		"sample-globex-admin": {acme: http.StatusForbidden},
 		"sample-member":       {acme: http.StatusForbidden},
-		"sample-multi":        {acme: http.StatusForbidden},
-		"sample-inactive":     {acme: http.StatusForbidden},
 	} {
-		b := h.sampleBrowser(name)
+		tenant := map[string]string{
+			"sample-acme-admin": samples.TenantAcme, "sample-member": samples.TenantAcme, "sample-globex-admin": samples.TenantGlobex,
+		}[name]
+		token := h.sampleToken(name, tenant)
 		for path, status := range want {
-			if got, _, _ := b.get(path); got != status {
-				t.Errorf("%s %s = %d, want %d", name, path, got, status)
+			if got, body := h.do("GET", path, token, nil); got != status {
+				t.Errorf("%s %s = %d, want %d: %v", name, path, got, status, body)
 			}
 		}
+	}
+	// An inactive member gets no token for the tenant at all.
+	if status, _ := h.do("POST", "/v1/token", "", map[string]string{
+		"grant_type": "password", "username": "sample-inactive", "password": samples.Password, "tenant": samples.TenantAcme,
+	}); status == http.StatusOK {
+		t.Error("an inactive member got a tenant token")
 	}
 }
 

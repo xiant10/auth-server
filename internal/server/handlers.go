@@ -238,8 +238,10 @@ func (s *Server) handleSetTenantStatus(status string) handlerFunc {
 	}
 }
 
+// handleListMembers carries names and placement, because an admin screen shows
+// them beside each membership.
 func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
-	members, err := s.Directory.ListMembers(r.Context(), r.PathValue("id"))
+	members, err := s.Directory.ListMemberDetails(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeDirectoryError(w, r, err)
 		return
@@ -291,6 +293,12 @@ func (s *Server) handleUpdateTenant(w http.ResponseWriter, r *http.Request, p id
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RequireMFA == nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "require_mfa is required")
+		return
+	}
+	// Requiring a factor the caller didn't sign in with would refuse their next
+	// token, so they'd lock themselves out of this setting.
+	if *req.RequireMFA && !p.MFA {
+		writeError(w, http.StatusConflict, "mfa_needed", "sign in with an authenticator before requiring one")
 		return
 	}
 	id := r.PathValue("id")
@@ -389,23 +397,14 @@ func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identi
 	})
 }
 
-// handleListTenants is the platform's tenant list, for t10-agent-control's picker.
+// handleListTenants is the platform's tenant list, for the console.
 func (s *Server) handleListTenants(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	tenants, err := s.Directory.ListTenants(r.Context(), r.URL.Query().Get("q"), adminTenantLimit)
 	if err != nil {
 		writeDirectoryError(w, r, err)
 		return
 	}
-	type row struct {
-		ID     string `json:"id"`
-		Name   string `json:"name"`
-		Status string `json:"status"`
-	}
-	rows := make([]row, 0, len(tenants))
-	for _, t := range tenants {
-		rows = append(rows, row{ID: t.ID, Name: t.Name, Status: t.Status})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"tenants": rows})
+	writeJSON(w, http.StatusOK, map[string]any{"tenants": tenants})
 }
 
 func (s *Server) handleReleaseName(w http.ResponseWriter, r *http.Request, p identity.Principal) {

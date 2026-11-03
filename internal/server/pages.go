@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 
@@ -25,9 +24,6 @@ import (
 //go:embed pages.html
 var pagesHTML string
 
-//go:embed admin.html
-var adminHTML string
-
 //go:embed logo.png
 var logoBytes []byte
 
@@ -35,37 +31,11 @@ var logoDataURL = template.URL("data:image/png;base64," + base64.StdEncoding.Enc
 
 // pages is the English set, and pagesZH its copy for Chinese. A set's t function
 // is fixed when it is built, so no template passes the language around.
-var pages = template.Must(template.Must(template.New("pages").Funcs(template.FuncMap{
-	"short": shortID, "initial": initial, "indent": indent, "join": joinList,
+var pages = template.Must(template.New("pages").Funcs(template.FuncMap{
 	"logo": func() template.URL { return logoDataURL },
-}).Funcs(translator(langEN)).Parse(pagesHTML)).Parse(adminHTML))
+}).Funcs(translator(langEN)).Parse(pagesHTML))
 
 var pagesZH = template.Must(pages.Clone()).Funcs(translator(langZH))
-
-// indent draws a unit's depth inside a select, which can't hold any styling.
-func indent(depth int) string {
-	return strings.Repeat("\u00a0\u00a0", depth)
-}
-
-func joinList(items []string) string { return strings.Join(items, ", ") }
-
-// initial is the letter on a user's avatar.
-func initial(name string) string {
-	for _, r := range strings.TrimPrefix(name, "+") {
-		return strings.ToUpper(string(r))
-	}
-	return "?"
-}
-
-// shortID trims the long random part of an ID for display. The full value stays
-// in the element's title.
-func shortID(id string) string {
-	id = strings.TrimPrefix(id, "user:")
-	if len(id) <= 16 || strings.ContainsAny(id, "/ ") {
-		return id
-	}
-	return id[:12] + "…"
-}
 
 const defaultNext = "/v1/account"
 
@@ -85,8 +55,10 @@ type pageData struct {
 	// TOTPImage is a data: URL, which html/template also blanks. It is this
 	// service's own PNG.
 	TOTPImage template.URL
-	// Admin shows the link to the admin UI. Wide gives the account page room.
-	Admin, Wide bool
+	// ConsoleURL and OrgURL are where this person administers the platform and
+	// their tenants, empty if they don't. Wide gives the account page room.
+	ConsoleURL, OrgURL string
+	Wide               bool
 }
 
 func setPageHeaders(w http.ResponseWriter) {
@@ -173,9 +145,6 @@ func safeNext(next string) string {
 	}
 	switch u.Path {
 	case "/v1/authorize", "/v1/join", "/v1/account", "/admin":
-		return next
-	}
-	if strings.HasPrefix(u.Path, "/admin/") && path.Clean(u.Path) == u.Path {
 		return next
 	}
 	return defaultNext
@@ -504,12 +473,12 @@ func (s *Server) renderAccount(w http.ResponseWriter, r *http.Request, p identit
 		writeInternal(w, r, err)
 		return
 	}
-	admin, err := s.isAnyAdmin(r, p)
+	console, org, err := s.adminHomes(r, p)
 	if err != nil {
 		writeInternal(w, r, err)
 		return
 	}
-	data.Title, data.Account, data.Admin, data.Wide, data.Here = "Your account", account, admin, true, defaultNext
+	data.Title, data.Account, data.ConsoleURL, data.OrgURL, data.Wide, data.Here = "Your account", account, console, org, true, defaultNext
 	render(w, r, status, "account", data)
 }
 

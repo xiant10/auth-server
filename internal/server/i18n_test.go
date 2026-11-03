@@ -44,13 +44,11 @@ func handlerText(t *testing.T, file string, funcs ...string) []string {
 
 func TestChineseCatalogIsComplete(t *testing.T) {
 	used := map[string]bool{}
-	for _, m := range regexp.MustCompile(`\bt "((?:[^"\\]|\\.)*)"`).FindAllStringSubmatch(adminHTML+pagesHTML, -1) {
+	for _, m := range regexp.MustCompile(`\bt "((?:[^"\\]|\\.)*)"`).FindAllStringSubmatch(pagesHTML, -1) {
 		used[m[1]] = true
 	}
-	for _, file := range []string{"admin.go", "org.go"} {
-		for _, text := range handlerText(t, file) {
-			used[text] = true
-		}
+	for _, text := range handlerText(t, "admin.go", "handleAdmin") {
+		used[text] = true
 	}
 	for _, text := range handlerText(t, "pages.go") {
 		used[text] = true
@@ -64,7 +62,7 @@ func TestChineseCatalogIsComplete(t *testing.T) {
 	} {
 		used[value] = true
 	}
-	if len(used) < 150 {
+	if len(used) < 100 {
 		t.Fatalf("found only %d strings", len(used))
 	}
 	verb := regexp.MustCompile(`%(\[\d\])?[sd]`)
@@ -191,30 +189,19 @@ func (b *browser) getIn(t *testing.T, path, acceptLanguage string) (int, string)
 	return status, body
 }
 
-func TestAdminFollowsTheBrowserLanguage(t *testing.T) {
+func TestAccountFollowsTheBrowserLanguage(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("boss")
-	status, body := b.getIn(t, "/admin/tenants/ten_acme", "zh-CN,zh;q=0.9")
-	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "成员", "管理后台", "租户：ten_acme", "此处的更改仅对该租户生效")
-	if strings.Contains(body, "Your account") {
+	status, body := b.getIn(t, "/v1/account", "zh-CN,zh;q=0.9")
+	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "组织设置", "修改密码")
+	if strings.Contains(body, "Organization settings") {
 		t.Error("English left on the Chinese page")
 	}
-	status, body = b.getIn(t, "/admin/tenants/ten_acme", "en-US")
-	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Your account")
+	status, body = b.getIn(t, "/v1/account", "en-US")
+	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Organization settings")
 
-	status, body = h.signedIn("grace").getIn(t, "/admin/tenants/ten_acme", "zh")
-	wantPage(t, status, body, http.StatusForbidden, "无权访问", "您没有此页面的管理权限")
-}
-
-func TestAdminResultsAreTranslated(t *testing.T) {
-	h, member := adminFixture(t, false)
-	b := h.signedIn("boss")
-	b.choose(t, langZH, "/admin")
-	const page = "/admin/tenants/ten_acme"
-	status, _, body := b.post(page+"/members/"+member, url.Values{"role": {"admin"}, "status": {"active"}})
-	wantPage(t, status, body, http.StatusOK, "成员已更新", "已启用成员")
-	status, _, body = b.post(page+"/members/"+member, url.Values{"role": {"owner"}, "status": {"active"}})
-	wantPage(t, status, body, http.StatusBadRequest, "该值无效")
+	status, body = h.signedIn("grace").getIn(t, "/admin", "zh")
+	wantPage(t, status, body, http.StatusForbidden, "无权访问", "你在这里没有可管理的内容")
 }
 
 // choose presses the language switch and returns where it was sent.
@@ -230,18 +217,18 @@ func (b *browser) choose(t *testing.T, lang, next string) string {
 func TestLanguageChoiceBeatsTheBrowser(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("boss")
-	const page = "/admin/tenants/ten_acme?tab=security"
+	const page = "/v1/account"
 	status, body := b.getIn(t, page, "en")
-	wantPage(t, status, body, http.StatusOK, `name="next" value="/admin/tenants/ten_acme?tab=security"`)
+	wantPage(t, status, body, http.StatusOK, `name="next" value="/v1/account"`)
 
 	if location := b.choose(t, langZH, page); location != page {
 		t.Errorf("sent to %q", location)
 	}
 	status, body = b.getIn(t, page, "en")
-	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "第二重验证")
+	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "修改密码")
 	b.choose(t, langEN, page)
 	status, body = b.getIn(t, page, "zh")
-	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Second factor")
+	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Change password")
 
 	b.choose(t, "klingon", page)
 	status, body = b.getIn(t, page, "en")
@@ -276,20 +263,6 @@ func TestLanguageSwitchNeedsSameOrigin(t *testing.T) {
 	}
 }
 
-func TestAccountPopupShowsTheAccountPanels(t *testing.T) {
-	h, _ := adminFixture(t, false)
-	b := h.signedIn("boss")
-	status, body := b.getIn(t, "/admin/tenants/ten_acme", "zh")
-	wantPage(t, status, body, http.StatusOK, `id="account"`, `popovertarget="account"`, `action="/v1/account"`, "修改密码", "退出所有设备")
-	if strings.Contains(body, "<iframe") || strings.Contains(body, "<script") {
-		t.Error("popup needs a frame or a script")
-	}
-	// The popup's forms land on the account page, which keeps the language.
-	b.choose(t, langZH, "/admin")
-	status, _, body = b.post("/v1/account", url.Values{"action": {"password"}, "password": {"wrong"}, "new_password": {"another-long-password"}})
-	wantPage(t, status, body, http.StatusUnauthorized, `<html lang="zh-Hans">`, "密码或验证码错误")
-}
-
 func TestAccountPageStaysUnframeable(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	resp, err := h.signedIn("boss").client.Get(h.url + "/v1/account")
@@ -300,21 +273,4 @@ func TestAccountPageStaysUnframeable(t *testing.T) {
 	if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "frame-ancestors 'none'") {
 		t.Error("account page can be framed")
 	}
-}
-
-// Leaving a page that shows a one-time link would lose the link.
-func TestNoLanguageSwitchBesideAOneTimeLink(t *testing.T) {
-	h, _ := adminFixture(t, false)
-	b := h.signedIn("boss")
-	status, _, body := b.post("/admin/tenants/ten_acme/invitations", url.Values{"role": {"member"}})
-	wantPage(t, status, body, http.StatusOK, "/v1/register?invite=")
-	if strings.Contains(body, `action="/v1/language"`) {
-		t.Error("switch offered beside a one-time link")
-	}
-}
-
-func TestLanguageSwitchKeepsTheTabAfterAPost(t *testing.T) {
-	h, _ := adminFixture(t, false)
-	status, _, body := h.signedIn("boss").post("/admin/tenants/ten_acme/units", url.Values{"name": {"Sales"}, "kind": {"department"}})
-	wantPage(t, status, body, http.StatusOK, `name="next" value="/admin/tenants/ten_acme?tab=org"`)
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -301,80 +300,6 @@ func TestOrgChangesAreAudited(t *testing.T) {
 	h.mustPlace(u["ada"], u["boss"], unit)
 	if h.auditCount("org_unit.create", "success") != 1 || h.auditCount("membership.placement", "success") != 1 {
 		t.Error("an org change wrote no audit row")
-	}
-}
-
-func TestAdminOrganizationAndAgentTabs(t *testing.T) {
-	h, member := adminFixture(t, true)
-	boss := h.signedIn("boss")
-	const base = "/admin/tenants/ten_acme"
-
-	if status, _, page := boss.post(base+"/units", url.Values{"name": {"<b>Sales</b>"}, "kind": {"department"}}); status != http.StatusOK || !strings.Contains(page, "Unit added") {
-		t.Fatalf("add unit: %d", status)
-	}
-	status, _, page := boss.get(base + "?tab=org")
-	if status != http.StatusOK || !strings.Contains(page, "&lt;b&gt;Sales&lt;/b&gt;") || strings.Contains(page, "<b>Sales") {
-		t.Fatalf("org tab: %d", status)
-	}
-	units, err := h.dir.ListUnits(context.Background(), "ten_acme")
-	if err != nil || len(units) != 1 {
-		t.Fatal(err, units)
-	}
-	bossID := h.userID("boss")
-	if status, _, page := boss.post(base+"/members/"+member+"/placement", url.Values{"manager": {bossID}, "unit": {units[0].ID}}); status != http.StatusOK || !strings.Contains(page, "Placement updated") {
-		t.Fatalf("placement: %d", status)
-	}
-	if _, _, page := boss.get(base); !strings.Contains(page, "Reports to boss") {
-		t.Error("the member row doesn't show the manager")
-	}
-	if status, _, page := boss.post(base+"/members/"+bossID+"/placement", url.Values{"manager": {member}}); status != http.StatusConflict || !strings.Contains(page, "under themselves") {
-		t.Errorf("cycle: %d", status)
-	}
-	if status, _, _ := boss.post(base+"/units/"+units[0].ID+"/delete", nil); status != http.StatusConflict {
-		t.Errorf("deleting a unit in use: %d", status)
-	}
-
-	// Each outsider is refused every write, on the tenant in the URL.
-	for name, b := range map[string]*browser{"member": h.signedIn("grace"), "other tenant's admin": h.signedIn("rival")} {
-		for _, action := range []string{"/units", "/units/" + units[0].ID, "/units/" + units[0].ID + "/delete", "/members/" + member + "/placement"} {
-			if status, _, _ := b.post(base+action, url.Values{"name": {"x"}, "kind": {"team"}}); status != http.StatusForbidden {
-				t.Errorf("%s on %s: %d", name, action, status)
-			}
-		}
-	}
-}
-
-func TestAdminCanStopAnAgent(t *testing.T) {
-	h, _ := adminFixture(t, true)
-	const base = "/admin/tenants/ten_acme"
-	token := h.login("grace", "")
-	id := h.grant(piRuntime, token, []string{"crm:read"}, []string{piRuntime})
-	child := h.grant(piRuntime, h.mint(piRuntime, id), []string{"crm:read"}, []string{piRuntime})
-
-	boss := h.signedIn("boss")
-	status, _, page := boss.get(base + "?tab=agents")
-	if status != http.StatusOK || !strings.Contains(page, "grace") || !strings.Contains(page, "/grants/"+id+"/revoke") {
-		t.Fatalf("agents tab: %d", status)
-	}
-
-	rival := h.signedIn("rival")
-	if status, _, _ := rival.post(base+"/grants/"+id+"/revoke", nil); status != http.StatusForbidden {
-		t.Errorf("another tenant's admin: %d", status)
-	}
-	if status, _, _ := rival.post("/admin/tenants/ten_other/grants/"+id+"/revoke", nil); status != http.StatusNotFound {
-		t.Errorf("through their own tenant's URL: %d", status)
-	}
-	if status, _, _ := h.signedIn("grace").post(base+"/grants/"+id+"/revoke", nil); status != http.StatusForbidden {
-		t.Errorf("a plain member: %d", status)
-	}
-	h.mint(piRuntime, child)
-
-	if status, _, page := boss.post(base+"/grants/"+id+"/revoke", nil); status != http.StatusOK || !strings.Contains(page, "Agent access stopped") {
-		t.Fatalf("revoke: %d", status)
-	}
-	h.wantStopped(piRuntime, child)
-	if _, _, page := boss.get(base + "?tab=agents"); strings.Contains(page, "/grants/"+child+"/revoke") {
-		t.Error("a stopped chain still shows as running")
 	}
 }
 

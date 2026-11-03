@@ -21,7 +21,7 @@ For the external reviewers of rollout step 4. Public registration stays closed u
 | User suspension and the platform role | `internal/identity/account.go`, `internal/directory/users.go` |
 | Token verifiers for other services | `verifier/verifier.go`, `verifier/ts/verifier.ts` |
 | Routes, access rules, pages, headers | `internal/server/` |
-| Admin UI and its cookie access rules | `internal/server/admin.go`, `admin.html` |
+| Admin JSON routes for workbench and the console, and the `/admin` redirect | `internal/server/admin.go`, `handlers.go`, `org.go` |
 | Audit log and schema | `internal/audit/`, `internal/db/migrations/` |
 | Client list, config checks, container | `clients.yaml`, `internal/config/`, `Dockerfile` |
 

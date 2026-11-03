@@ -47,9 +47,16 @@ In a container, use `http://host.docker.internal:8081` for `JWT_JWKS_URL` and `A
 
 Production runs on Kubernetes from `deploy/k8s/`, using the same image as Compose. See [docs/deployment.md](docs/deployment.md).
 
-## Admin UI
+## Administration
 
-Sign in at `/admin`. Tenant admins manage members, invitations, reset links and their MFA policy, build the org tree, set each member's manager and unit, and can stop any running agent. Platform admins also get every tenant, every user, tenant and user suspension, the platform role, name release and the platform audit log. A banner on every page shows whether a change is platform-wide or which tenant it applies to. Every web page, signed in or out, is in English and Simplified Chinese: it follows the browser's language until someone picks one with the switch, which a cookie remembers. New text needs an entry in `zhText` in `internal/server/i18n.go`, or a test fails. In the local stack, `ada@acme.example` can open everything.
+This service has no admin screens. People administer t10 in two places, and both call the JSON routes below with the person's own token, so every check stays here:
+
+| Who | Where | What |
+| --- | --- | --- |
+| Tenant admins | `workbench`, under Administration | Members, invitations, reset links, the org tree, each member's manager and unit, the MFA policy, running agents and the tenant's activity |
+| Platform admins | The platform console, `t10-console`, on an internal address | Every tenant and user, tenant and user suspension, the platform role, name release and the platform audit log |
+
+`/admin` sends a signed-in person to whichever they administer, from `AUTH_WORKBENCH_URL` and `AUTH_CONSOLE_URL`, and shows both links to someone who holds both roles. The account page links them too. The sign-in and account pages are in English and Simplified Chinese: they follow the browser's language until someone picks one with the switch, which a cookie remembers. New text needs an entry in `zhText` in `internal/server/i18n.go`, or a test fails.
 
 ## API
 
@@ -63,13 +70,14 @@ Sign in at `/admin`. Tenant admins manage members, invitations, reset links and 
 | `/v1/challenges`, `/v1/login/*` | Public; the mobile app's sign-in |
 | `/v1/me/*`, `/v1/qr/{id}/*`, `POST /v1/devices/{id}/revoke` | Mobile app session |
 | `/v1/grants`, `/v1/grants/{id}/*`, `/v1/org/*` | Service token. See [docs/service-api.md](docs/service-api.md) |
-| `GET /admin` | Admin UI home, for any signed-in browser. It redirects or refuses by role |
-| `/admin/tenants/{id}` pages | Signed-in admin of that tenant, with a second factor if the tenant requires one, or platform admin |
-| Other `/admin/*` pages | Signed-in platform admin with a second factor proved in the last 15 minutes. A stale one is sent to sign in again |
+| `GET /admin`, `/admin/*` | Signed-in browser. Redirects to the console or workbench by role |
 | `POST /v1/tenants`, `.../suspend`, `.../activate`, `POST /v1/tenants/{id}/members`, `POST /v1/identifiers/release` | Platform admin with a second factor proved in the last 15 minutes |
-| `GET /v1/tenants`, `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
+| `GET /v1/audit`, `GET /v1/tenants`, `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
 | `GET` and `PATCH /v1/tenants/{id}`, `GET /v1/tenants/{id}/members`, `PATCH .../members/{user}`, `POST .../members/{user}/reset-link`, `POST .../invitations` | Tenant admin active in that tenant, or platform admin |
 | `GET` and `POST /v1/tenants/{id}/units`, `PUT` and `DELETE .../units/{unit}`, `GET` and `PUT .../members/{user}/placement` | Tenant admin active in that tenant, or platform admin |
+| `GET /v1/tenants/{id}/grants`, `POST .../grants/{grant}/revoke`, `GET .../audit` | Tenant admin active in that tenant, or platform admin |
+
+`GET /v1/tenants/{id}/members` carries each member's name, account status, manager and unit. A manager is the one an admin set, who may have left, so saving a row back keeps the link. `PATCH /v1/tenants/{id}` with `require_mfa: true` answers `409 mfa_needed` unless the caller's own session has a second factor, because their next token would otherwise be refused.
 
 **Org writes:** a unit body has `name`, `kind` (`department` or `team`) and an optional `parent_id`. A placement body has optional `manager_user_id` and `org_unit_id`. `PUT` replaces the whole value, so a field left out is cleared. Errors are `not_found`, `invalid_request`, `cycle` and `unit_in_use`.
 

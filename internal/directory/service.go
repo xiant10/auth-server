@@ -246,7 +246,7 @@ func (s *Service) GetTenant(ctx context.Context, id string) (Tenant, error) {
 // TenantSummary is one row of the platform's tenant list.
 type TenantSummary struct {
 	Tenant
-	Members int
+	Members int `json:"members"`
 }
 
 // ListTenants returns up to limit tenants whose name or ID contains search.
@@ -335,14 +335,16 @@ func (s *Service) ListMembers(ctx context.Context, tenantID string) ([]Member, e
 // MemberDetail is a membership with the sign-in name an admin knows the user by.
 type MemberDetail struct {
 	Member
-	Name string
+	Name string `json:"name"`
 	// UserStatus is the account's own status, set by a platform admin.
-	UserStatus string
-	JoinedAt   time.Time
+	UserStatus string    `json:"user_status"`
+	JoinedAt   time.Time `json:"joined_at"`
 	// ManagerUserID and UnitID are empty when unset, and the two names are for
 	// display.
-	ManagerUserID, ManagerName string
-	UnitID, UnitName           string
+	ManagerUserID string `json:"manager_user_id,omitempty"`
+	ManagerName   string `json:"manager_name,omitempty"`
+	UnitID        string `json:"org_unit_id,omitempty"`
+	UnitName      string `json:"org_unit_name,omitempty"`
 }
 
 // ListMemberDetails returns a tenant's memberships for the admin UI.

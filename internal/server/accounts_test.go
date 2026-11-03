@@ -607,13 +607,15 @@ func TestTenantCanRequireMFA(t *testing.T) {
 	h.user("boss", map[string]string{"ten_acme": directory.RoleAdmin})
 	h.user("ada", map[string]string{"ten_acme": directory.RoleMember})
 
-	status, body := h.do("PATCH", "/v1/tenants/ten_acme", h.login("boss", ""), map[string]bool{"require_mfa": true})
-	h.wantStatus(status, body, http.StatusOK)
-	if body["id"] != "ten_acme" {
-		t.Errorf("tenant = %v", body)
+	// The setting is the admin's, and needs their own factor, which
+	// TestRequiringAFactorNeedsOneYourself covers. This is about the members.
+	if err := h.dir.SetRequireMFA(context.Background(), "test", "ten_acme", true); err != nil {
+		t.Fatal(err)
 	}
 
 	b := h.browser()
+	var status int
+	var body map[string]any
 	b.signIn("ada", testPassword, "")
 	status, body = h.token(redeem(b.code()))
 	h.wantStatus(status, body, http.StatusForbidden)

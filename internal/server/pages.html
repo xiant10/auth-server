@@ -96,7 +96,8 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 <body>
 {{if .Wide}}<header class="bar">
 <a class="home" href="/v1/account"><img class="mark" src="{{logo}}" alt="t10"> {{t "Account"}}</a>
-{{if .Admin}}<a href="/admin">{{t "Administration"}}</a>{{end}}
+{{if .ConsoleURL}}<a href="{{.ConsoleURL}}">{{t "Platform console"}}</a>{{end}}
+{{if .OrgURL}}<a href="{{.OrgURL}}">{{t "Organization settings"}}</a>{{end}}
 {{if .Here}}{{template "lang_switch" .Here}}{{end}}
 <form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form>
 </header>
@@ -235,6 +236,12 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 {{template "foot"}}{{end}}
 
 {{define "problem"}}{{template "head" .}}{{template "foot"}}{{end}}
+
+{{define "admin_moved"}}{{template "head" .}}
+<p>{{t "You administer the platform and a tenant. Each has its own place."}}</p>
+<p><a href="{{.ConsoleURL}}">{{t "Platform console"}}</a></p>
+<p><a href="{{.OrgURL}}">{{t "Organization settings"}}</a></p>
+{{template "foot"}}{{end}}
 
 {{define "totp"}}{{template "head" .}}
 <p>{{t "Scan this with your authenticator app, then enter the code it shows."}}</p>

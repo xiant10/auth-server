@@ -45,14 +45,6 @@ const (
 	accessUser
 	// accessDevice needs a user token from a mobile app's device session.
 	accessDevice
-	// accessAdmin is an admin UI page for any signed-in browser. The handler
-	// decides what that user can see.
-	accessAdmin
-	// accessAdminTenant is the browser form of accessTenantAdmin. A cookie has
-	// no active tenant, so {id} is the active tenant, and the page shows it.
-	accessAdminTenant
-	// accessAdminPlatform is the browser form of accessPlatformAdmin.
-	accessAdminPlatform
 	// accessTenantAdmin needs an admin of the {id} tenant whose token is
 	// active in it, or a platform admin.
 	accessTenantAdmin
@@ -83,8 +75,9 @@ type Deps struct {
 	DevMode bool
 	// PublicURL is the origin pages must post from.
 	PublicURL string
-	// AgentControlURL is the operator console, linked from /admin. Empty hides it.
-	AgentControlURL string
+	// ConsoleURL is the platform console, and WorkbenchURL the tenant admins'
+	// client. /admin sends people to them, and an empty one is left out.
+	ConsoleURL, WorkbenchURL string
 	// TrustProxy reads the client IP from X-Forwarded-For.
 	TrustProxy bool
 }
@@ -133,31 +126,8 @@ func (s *Server) routes() []route {
 		{"POST", "/v1/account", accessBrowser, s.handleAccount},
 		{"GET", "/v1/join", accessBrowser, s.handleJoinPage},
 		{"POST", "/v1/join", accessBrowser, s.handleJoin},
-
-		{"GET", "/admin", accessAdmin, s.handleAdminHome},
-		{"GET", "/admin/tenants", accessAdminPlatform, s.handleAdminTenants},
-		{"POST", "/admin/tenants", accessAdminPlatform, s.handleAdminCreateTenant},
-		{"GET", "/admin/names", accessAdminPlatform, s.handleAdminNames},
-		{"POST", "/admin/names/release", accessAdminPlatform, s.handleAdminReleaseName},
-		{"GET", "/admin/audit", accessAdminPlatform, s.handleAdminAudit},
-		{"GET", "/admin/users", accessAdminPlatform, s.handleAdminUsers},
-		{"POST", "/admin/users/{user}/suspend", accessAdminPlatform, s.handleAdminSetUserStatus(identity.UserSuspended)},
-		{"POST", "/admin/users/{user}/activate", accessAdminPlatform, s.handleAdminSetUserStatus(identity.UserActive)},
-		{"POST", "/admin/users/{user}/platform-admin", accessAdminPlatform, s.handleAdminAddPlatformAdmin},
-		{"POST", "/admin/users/{user}/platform-admin/remove", accessAdminPlatform, s.handleAdminRemovePlatformAdmin},
-		{"POST", "/admin/tenants/{id}/suspend", accessAdminPlatform, s.handleAdminSetStatus(directory.TenantSuspended)},
-		{"POST", "/admin/tenants/{id}/activate", accessAdminPlatform, s.handleAdminSetStatus(directory.TenantActive)},
-		{"POST", "/admin/tenants/{id}/members", accessAdminPlatform, s.handleAdminAddMember},
-		{"GET", "/admin/tenants/{id}", accessAdminTenant, s.handleAdminTenant},
-		{"POST", "/admin/tenants/{id}/settings", accessAdminTenant, s.handleAdminSettings},
-		{"POST", "/admin/tenants/{id}/invitations", accessAdminTenant, s.handleAdminInvite},
-		{"POST", "/admin/tenants/{id}/members/{user}", accessAdminTenant, s.handleAdminUpdateMember},
-		{"POST", "/admin/tenants/{id}/members/{user}/reset-link", accessAdminTenant, s.handleAdminResetLink},
-		{"POST", "/admin/tenants/{id}/members/{user}/placement", accessAdminTenant, s.handleAdminPlacement},
-		{"POST", "/admin/tenants/{id}/units", accessAdminTenant, s.handleAdminCreateUnit},
-		{"POST", "/admin/tenants/{id}/units/{unit}", accessAdminTenant, s.handleAdminUpdateUnit},
-		{"POST", "/admin/tenants/{id}/units/{unit}/delete", accessAdminTenant, s.handleAdminDeleteUnit},
-		{"POST", "/admin/tenants/{id}/grants/{grant}/revoke", accessAdminTenant, s.handleAdminRevokeGrant},
+		{"GET", "/admin", accessBrowser, s.handleAdmin},
+		{"GET", "/admin/{rest...}", accessBrowser, s.handleAdmin},
 
 		{"POST", "/v1/grants", accessService, s.handleCreateGrant},
 		{"GET", "/v1/grants/{id}/chain", accessService, s.handleGrantChain},
@@ -196,6 +166,7 @@ func (s *Server) routes() []route {
 		{"POST", "/v1/tenants/{id}/activate", accessPlatformAdmin, s.handleSetTenantStatus(directory.TenantActive)},
 		{"POST", "/v1/tenants/{id}/members", accessPlatformAdmin, s.handleAddMember},
 		{"POST", "/v1/identifiers/release", accessPlatformAdmin, s.handleReleaseName},
+		{"GET", "/v1/audit", accessPlatformAdmin, s.handlePlatformAudit},
 		{"GET", "/v1/users", accessPlatformAdmin, s.handleListUsers},
 		{"POST", "/v1/users/{user}/suspend", accessPlatformAdmin, s.handleSetUserStatus(identity.UserSuspended)},
 		{"POST", "/v1/users/{user}/activate", accessPlatformAdmin, s.handleSetUserStatus(identity.UserActive)},
@@ -214,6 +185,9 @@ func (s *Server) routes() []route {
 		{"DELETE", "/v1/tenants/{id}/units/{unit}", accessTenantAdmin, s.handleDeleteUnit},
 		{"GET", "/v1/tenants/{id}/members/{user}/placement", accessTenantAdmin, s.handleGetPlacement},
 		{"PUT", "/v1/tenants/{id}/members/{user}/placement", accessTenantAdmin, s.handleSetPlacement},
+		{"GET", "/v1/tenants/{id}/grants", accessTenantAdmin, s.handleTenantGrants},
+		{"POST", "/v1/tenants/{id}/grants/{grant}/revoke", accessTenantAdmin, s.handleTenantRevokeGrant},
+		{"GET", "/v1/tenants/{id}/audit", accessTenantAdmin, s.handleTenantAudit},
 	}
 }
 
@@ -275,9 +249,6 @@ func (s *Server) guard(rt route) http.Handler {
 				return
 			}
 			rt.handler(w, r, p)
-			return
-		case accessAdmin, accessAdminTenant, accessAdminPlatform:
-			s.guardAdmin(w, r, rt)
 			return
 		case accessService:
 			account, err := s.Identity.AuthenticateService(r.Context(), bearerToken(r))

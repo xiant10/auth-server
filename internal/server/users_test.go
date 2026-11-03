@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -381,48 +380,5 @@ func TestSuspendedAdminDoesNotCountAsCover(t *testing.T) {
 	_, err := h.dir.UpdateMember(ctx, "test", "ten_acme", first, directory.MemberUpdate{Role: &role})
 	if !errors.Is(err, directory.ErrLastAdmin) {
 		t.Errorf("demoting the only admin who can sign in: %v", err)
-	}
-}
-
-func TestAdminUsersPage(t *testing.T) {
-	h, member, root, _ := platformFixture(t)
-	admin := h.signedIn("root")
-	status, _, page := admin.get("/admin/users")
-	wantPage(t, status, page, http.StatusOK, "grace", "platform admin", "Yes, suspend grace")
-
-	status, _, page = admin.post("/admin/users/"+member+"/suspend?q=gra", nil)
-	wantPage(t, status, page, http.StatusOK, "User suspended", "Reactivate")
-	if strings.Contains(page, "rival") {
-		t.Error("the result lost the search")
-	}
-	status, _, page = admin.post("/admin/users/"+member+"/platform-admin", nil)
-	wantPage(t, status, page, http.StatusConflict, "Reactivate this user first")
-	status, _, page = h.signedIn("boss").get("/admin/tenants/ten_acme")
-	wantPage(t, status, page, http.StatusOK, ">suspended<")
-
-	status, _, page = admin.post("/admin/users/"+member+"/activate", nil)
-	wantPage(t, status, page, http.StatusOK, "User reactivated")
-	status, _, page = admin.post("/admin/users/"+root+"/suspend", nil)
-	wantPage(t, status, page, http.StatusConflict, "Remove this user&#39;s platform role first")
-	status, _, page = admin.post("/admin/users/"+root+"/platform-admin/remove", nil)
-	wantPage(t, status, page, http.StatusConflict, "at least one admin")
-
-	status, _, page = admin.post("/admin/users/"+member+"/platform-admin", nil)
-	wantPage(t, status, page, http.StatusOK, "Platform role added")
-	status, location, _ := admin.post("/admin/users/"+root+"/platform-admin/remove", nil)
-	if status != http.StatusSeeOther || location != "/admin" {
-		t.Fatalf("removing your own role: %d %s", status, location)
-	}
-	if status, _, _ := admin.get("/admin/users"); status != http.StatusForbidden {
-		t.Errorf("the role survived removal: %d", status)
-	}
-
-	for name, b := range map[string]*browser{"tenant admin": h.signedIn("boss"), "member": h.signedIn("rival")} {
-		if status, _, _ := b.get("/admin/users"); status != http.StatusForbidden {
-			t.Errorf("%s reads users: %d", name, status)
-		}
-		if status, _, _ := b.post("/admin/users/"+member+"/suspend", url.Values{}); status != http.StatusForbidden {
-			t.Errorf("%s suspends: %d", name, status)
-		}
 	}
 }

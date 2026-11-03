@@ -338,11 +338,12 @@ func TestPasswordOnlyDeviceCannotSatisfyMFA(t *testing.T) {
 	h.user("boss", map[string]string{"ten_acme": directory.RoleAdmin})
 	a := h.app()
 	a.login("boss")
-	status, body := h.do("PATCH", "/v1/tenants/ten_acme", h.login("boss", ""), map[string]bool{"require_mfa": true})
-	h.wantStatus(status, body, http.StatusOK)
+	if err := h.dir.SetRequireMFA(context.Background(), "test", "ten_acme", true); err != nil {
+		t.Fatal(err)
+	}
 
 	// Someone with only the password enrolled this device, so it proves nothing.
-	status, body = a.tryRefresh("")
+	status, body := a.tryRefresh("")
 	h.wantStatus(status, body, http.StatusForbidden)
 
 	// Nor does a browser sign-in it approves.

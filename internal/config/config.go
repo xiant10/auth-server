@@ -32,8 +32,10 @@ type Config struct {
 	DefaultRegion string
 	// TrustProxy reads the client IP from the ingress's X-Forwarded-For.
 	TrustProxy bool
-	// AgentControlURL is t10-agent-control's console, linked from /admin.
-	AgentControlURL string
+	// ConsoleURL is the platform console, t10-console, and
+	// WorkbenchURL the client where tenant admins work. /admin and the account
+	// page link to them.
+	ConsoleURL, WorkbenchURL string
 
 	LiveKitURL       string
 	LiveKitAPIKey    string
@@ -51,7 +53,8 @@ func Load(getenv func(string) string) (Config, error) {
 		ClientsFile:       getenv("AUTH_CLIENTS_FILE"),
 		DefaultRegion:     getenv("AUTH_DEFAULT_REGION"),
 		TrustProxy:        getenv("AUTH_TRUST_PROXY") == "true",
-		AgentControlURL:   strings.TrimRight(getenv("AUTH_AGENT_CONTROL_URL"), "/"),
+		ConsoleURL:        strings.TrimRight(getenv("AUTH_CONSOLE_URL"), "/"),
+		WorkbenchURL:      strings.TrimRight(getenv("AUTH_WORKBENCH_URL"), "/"),
 		LiveKitURL:        getenv("LIVEKIT_URL"),
 		LiveKitAPIKey:     getenv("LIVEKIT_API_KEY"),
 		LiveKitAPISecret:  getenv("LIVEKIT_API_SECRET"),

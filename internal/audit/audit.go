@@ -47,11 +47,11 @@ type Execer interface {
 
 // Record is one stored audit row.
 type Record struct {
-	At      time.Time
-	Actor   string
-	Action  string
-	Target  string
-	Outcome string
+	At      time.Time `json:"at"`
+	Actor   string    `json:"actor"`
+	Action  string    `json:"action"`
+	Target  string    `json:"target"`
+	Outcome string    `json:"outcome"`
 }
 
 // List returns one scope's newest rows.

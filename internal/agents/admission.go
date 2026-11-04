@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,7 +61,15 @@ type Membership interface {
 // Signer signs the participant assertion and delegated tokens.
 type Signer interface {
 	SignAssertion(userID, tenantID, audience string, ttl time.Duration) (string, time.Time, error)
-	MintDelegated(userID, tenantID, runtimeID, grantID, scope string, audiences []string, ttl time.Duration) (string, time.Time, error)
+	MintDelegated(d Delegation, ttl time.Duration) (string, time.Time, error)
+}
+
+// Delegation is what a token minted from a grant says: whose rights, which
+// runtime acts, under which grant, and why the run is running.
+type Delegation struct {
+	UserID, TenantID, RuntimeID, GrantID, Scope string
+	Audiences                                   []string
+	Trigger, Automation                         string
 }
 
 // LiveKit holds the only copy of the LiveKit API secret.
@@ -77,7 +86,20 @@ type Service struct {
 	signer     Signer
 	liveKit    LiveKit
 	runtimes   []Runtime
+	exchangers []string
+	// toolGateway turns on each runtime's tool_audience, where the tool gateway
+	// runs. Off, every token carries its grant's audiences, as in Light.
+	toolGateway bool
 }
+
+// UseToolGateway makes tokens for runtimes with a tool_audience good only at
+// the tool gateway. Turn it on only where the gateway runs and every harness
+// points its MCP entries at it, or their tool calls stop.
+func (s *Service) UseToolGateway(on bool) { s.toolGateway = on }
+
+// AllowExchange names the services that may exchange a delegated token for one
+// with another audience on its grant.
+func (s *Service) AllowExchange(services []string) { s.exchangers = slices.Clone(services) }
 
 // NewService builds the module. With no voice runtime listed, admission creates
 // no grant, which suits an agent that doesn't call agent-pi.
@@ -125,7 +147,7 @@ func (s *Service) Admit(ctx context.Context, userID, tokenTenant, requestedTenan
 	if voice, ok := s.voiceRuntime(); ok {
 		grant = &Grant{
 			ID: ids.New("grt"), RuntimeID: ServiceID(voice.Name), UserID: userID, TenantID: tokenTenant,
-			Actions: voice.Actions, Audiences: voice.Audiences, Constraints: []byte("{}"), Depth: 1,
+			Actions: voice.Actions, Audiences: voice.Audiences, Constraints: []byte("{}"), Depth: 1, Trigger: TriggerVoice,
 		}
 		attributes = map[string]string{GrantAttribute: grant.ID}
 	}

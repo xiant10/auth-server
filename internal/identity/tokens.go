@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"t10-auth-server/internal/agents"
 	"t10-auth-server/internal/ids"
 )
 
@@ -28,9 +29,12 @@ type Claims struct {
 	TenantID  string `json:"tid,omitempty"`
 	Scope     string `json:"scope,omitempty"`
 	SessionID string `json:"sid,omitempty"`
-	// Actor and Grant appear only on delegated tokens.
-	Actor *Actor `json:"act,omitempty"`
-	Grant string `json:"grant,omitempty"`
+	// Actor and Grant appear only on delegated tokens, with Trigger, which says
+	// why the run is running, and Automation when one started it.
+	Actor      *Actor `json:"act,omitempty"`
+	Grant      string `json:"grant,omitempty"`
+	Trigger    string `json:"trg,omitempty"`
+	Automation string `json:"automation,omitempty"`
 }
 
 // Actor names the runtime acting for the user.
@@ -74,9 +78,12 @@ func (i *Issuer) MintService(serviceID string) (string, time.Time, error) {
 
 // MintDelegated signs a token for a grant. Its audience is the grant's services
 // and never t10, so it can't be replayed as a user token.
-func (i *Issuer) MintDelegated(userID, tenantID, runtimeID, grantID, scope string, audiences []string, ttl time.Duration) (string, time.Time, error) {
-	claims := Claims{TenantID: tenantID, Scope: scope, Actor: &Actor{Subject: runtimeID}, Grant: grantID}
-	return i.sign(userID, audiences, ttl, claims)
+func (i *Issuer) MintDelegated(d agents.Delegation, ttl time.Duration) (string, time.Time, error) {
+	claims := Claims{
+		TenantID: d.TenantID, Scope: d.Scope, Actor: &Actor{Subject: d.RuntimeID}, Grant: d.GrantID,
+		Trigger: d.Trigger, Automation: d.Automation,
+	}
+	return i.sign(d.UserID, d.Audiences, ttl, claims)
 }
 
 func (i *Issuer) sign(subject string, audience []string, ttl time.Duration, claims Claims) (string, time.Time, error) {

@@ -197,6 +197,19 @@ func TestPlatformAuditIsForPlatformAdmins(t *testing.T) {
 	}
 }
 
+func TestRuntimesAreForPlatformAdmins(t *testing.T) {
+	h, _, _, rootToken := platformFixture(t)
+	status, body := h.do("GET", "/v1/runtimes", rootToken, nil)
+	h.wantStatus(status, body, http.StatusOK)
+	runtimes := body["runtimes"].([]any)
+	if len(runtimes) == 0 || runtimes[0].(map[string]any)["audiences"] == nil {
+		t.Fatalf("runtimes: %v", body)
+	}
+	if status, _ := h.do("GET", "/v1/runtimes", h.login("boss", "ten_acme"), nil); status != http.StatusForbidden {
+		t.Errorf("tenant admin reads runtimes: %d", status)
+	}
+}
+
 func TestTOTPPageShowsAQRCode(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("grace")
@@ -216,12 +229,16 @@ func TestMeAccess(t *testing.T) {
 	if body["active_tenant"] != "ten_acme" || body["tenant_admin"] != true || body["platform_admin"] != false || body["platform_verified"] != false {
 		t.Fatalf("tenant admin: %v", body)
 	}
+	// A tenant admin with no recent factor isn't verified for policy changes.
+	if body["tenant_verified"] != false {
+		t.Fatalf("tenant admin without a factor: %v", body)
+	}
 
 	grace := h.signedIn("grace")
 	graceToken, _ := h.redeem(grace)
 	status, body = h.do("GET", "/v1/me/access", graceToken, nil)
 	h.wantStatus(status, body, http.StatusOK)
-	if body["user_id"] != member || body["tenant_admin"] != false {
+	if body["user_id"] != member || body["tenant_admin"] != false || body["tenant_verified"] != false {
 		t.Fatalf("member: %v", body)
 	}
 
@@ -268,6 +285,16 @@ func TestMeAccessDevModeWaivesTheFactor(t *testing.T) {
 	h.wantStatus(status, body, http.StatusOK)
 	if body["mfa"] != false || body["platform_verified"] != true {
 		t.Fatalf("dev mode: %v", body)
+	}
+}
+
+func TestMeAccessDevModeWaivesTheTenantFactor(t *testing.T) {
+	h, _ := adminFixture(t, true)
+	bossToken, _ := h.redeem(h.signedIn("boss"))
+	status, body := h.do("GET", "/v1/me/access", bossToken, nil)
+	h.wantStatus(status, body, http.StatusOK)
+	if body["tenant_admin"] != true || body["tenant_verified"] != true {
+		t.Fatalf("dev mode tenant admin: %v", body)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"t10-auth-server/internal/agents"
 	"t10-auth-server/internal/audit"
 	"t10-auth-server/internal/db"
 	"t10-auth-server/internal/ids"
@@ -388,7 +389,11 @@ func (s *Service) RefreshDevice(ctx context.Context, r DeviceRefresh) (DeviceTok
 			return fmt.Errorf("extend session: %w", err)
 		}
 		_, err = tx.Exec(ctx, "UPDATE auth.devices SET last_used_at = now() WHERE id = $1", deviceID)
-		return err
+		if err != nil {
+			return err
+		}
+		// Using t10 keeps a person's consent to their automations.
+		return agents.RenewStanding(ctx, tx, userID)
 	})
 	if err != nil {
 		return DeviceTokens{}, err

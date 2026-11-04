@@ -72,7 +72,7 @@ This service has no admin screens. People administer t10 in two places, and both
 | `/v1/grants`, `/v1/grants/{id}/*`, `/v1/org/*` | Service token. See [docs/service-api.md](docs/service-api.md) |
 | `GET /admin`, `/admin/*` | Signed-in browser. Redirects to the console or workbench by role |
 | `POST /v1/tenants`, `.../suspend`, `.../activate`, `POST /v1/tenants/{id}/members`, `POST /v1/identifiers/release` | Platform admin with a second factor proved in the last 15 minutes |
-| `GET /v1/audit`, `GET /v1/tenants`, `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
+| `GET /v1/audit`, `GET /v1/tenants`, `GET /v1/runtimes`, `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |
 | `GET` and `PATCH /v1/tenants/{id}`, `GET /v1/tenants/{id}/members`, `PATCH .../members/{user}`, `POST .../members/{user}/reset-link`, `POST .../invitations` | Tenant admin active in that tenant, or platform admin |
 | `GET` and `POST /v1/tenants/{id}/units`, `PUT` and `DELETE .../units/{unit}`, `GET` and `PUT .../members/{user}/placement` | Tenant admin active in that tenant, or platform admin |
 | `GET /v1/tenants/{id}/grants`, `POST .../grants/{grant}/revoke`, `GET .../audit` | Tenant admin active in that tenant, or platform admin |

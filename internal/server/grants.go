@@ -54,19 +54,59 @@ func (s *Server) handleGrantExchange(w http.ResponseWriter, r *http.Request, req
 		"user_id":      grant.UserID,
 		"tenant_id":    grant.TenantID,
 		"grant_id":     grant.ID,
+		"trigger":      grant.Trigger,
 	})
 }
 
-// handleCreateGrant creates a root grant from a live user token, or a child from
-// a delegated one. The runtime holds the token: model output supplies nothing
+// grantTypeTokenExchange is RFC 8693's token exchange.
+const grantTypeTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
+
+// handleTokenExchange is the tool gateway's: it trades a run's token, which only
+// the gateway accepts, for one the module it forwards to accepts, with the same
+// person, runtime, grant and trigger.
+func (s *Server) handleTokenExchange(w http.ResponseWriter, r *http.Request, req tokenRequest) {
+	account, err := s.Identity.ServiceLogin(r.Context(), req.ClientID, req.ClientSecret)
+	if errors.Is(err, identity.ErrInvalidClient) {
+		writeError(w, http.StatusUnauthorized, "invalid_client", "unknown service or wrong secret")
+		return
+	}
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	subject, err := s.Issuer.VerifyDelegated(req.SubjectToken)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_grant", "subject token is invalid or expired")
+		return
+	}
+	token, expires, err := s.Agents.TokenExchange(r.Context(), agents.Caller{ID: account.ID, Name: account.Name},
+		subject.Grant, subject.Audience, subject.ExpiresAt.Time, req.Audience)
+	if err != nil {
+		writeGrantError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"access_token":      token,
+		"issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+		"token_type":        "Bearer",
+		"expires_in":        int(time.Until(expires).Seconds()),
+	})
+}
+
+// handleCreateGrant creates a root grant from a live user token, a child from a
+// delegated one, or a firing from a standing grant's ID. The runtime holds the token: model output supplies nothing
 // here, and the user and tenant come only from the token.
 func (s *Server) handleCreateGrant(w http.ResponseWriter, r *http.Request, p identity.Principal) {
 	var req struct {
 		SubjectToken string          `json:"subject_token"`
+		ParentID     string          `json:"parent_id"`
 		Actions      []string        `json:"actions"`
 		Audiences    []string        `json:"audiences"`
 		Constraints  json.RawMessage `json:"constraints"`
 		TTLSeconds   int             `json:"ttl_seconds"`
+		Standing     bool            `json:"standing"`
+		Trigger      string          `json:"trigger"`
+		Automation   string          `json:"automation"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "malformed grant request")
@@ -74,11 +114,14 @@ func (s *Server) handleCreateGrant(w http.ResponseWriter, r *http.Request, p ide
 	}
 	asked := agents.GrantRequest{
 		Actions: req.Actions, Audiences: req.Audiences, Constraints: req.Constraints,
-		TTL: time.Duration(req.TTLSeconds) * time.Second,
+		TTL: time.Duration(req.TTLSeconds) * time.Second, Standing: req.Standing, Trigger: req.Trigger, Automation: req.Automation,
 	}
 	var grant *agents.Grant
 	var err error
-	if delegated, verifyErr := s.Issuer.VerifyDelegated(req.SubjectToken); verifyErr == nil {
+	if req.ParentID != "" && req.SubjectToken == "" {
+		// A firing: the parent is a standing grant, which mints no token.
+		grant, err = s.Agents.CreateFiring(r.Context(), caller(p), req.ParentID, asked)
+	} else if delegated, verifyErr := s.Issuer.VerifyDelegated(req.SubjectToken); verifyErr == nil {
 		grant, err = s.Agents.CreateChild(r.Context(), caller(p), delegated.Grant, asked)
 	} else {
 		user, authErr := s.Identity.Authenticate(r.Context(), req.SubjectToken)

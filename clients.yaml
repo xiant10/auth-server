@@ -45,10 +45,26 @@ runtimes:
     # A call's grant is the parent of agent-pi's, so it has to hold whatever a
     # tool needs, or the tool disappears on calls.
     actions: [agent:use, work:read, work:write]
-    audiences: [agent-pi, agent-sales, t10-collab]
+    audiences: [agent-pi, agent-sales, t10-collab, ai-gateway-tools]
   - name: agent-pi
     actions: [agent:use, work:read, work:write]
-    audiences: [agent-pi, t10-collab]
+    audiences: [agent-pi, t10-collab, ai-gateway-tools]
+    # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateway.
+    tool_audience: ai-gateway-tools
   - name: agent-sales
     actions: [agent:use, work:read, work:write]
-    audiences: [agent-sales, t10-collab]
+    audiences: [agent-sales, t10-collab, ai-gateway-tools]
+    tool_audience: ai-gateway-tools
+  # Fires automations: it holds a person's standing grant, and makes one child
+  # per firing for the harness it calls, through ai-gateway-agent, which has to
+  # accept the firing's token. Its account exists only where setup has
+  # T10_AUTOMATIONS_SECRET.
+  - name: t10-automations
+    optional: true
+    actions: [agent:use, work:read, work:write]
+    audiences: [ai-gateway, agent-pi, agent-sales, t10-collab, ai-gateway-tools]
+
+# Services that may exchange a run's token for one with another audience on
+# its grant: the tool gateway, which forwards each tool call to its module with
+# a token only that module accepts.
+exchangers: [ai-gateway-tools]

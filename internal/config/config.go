@@ -12,6 +12,11 @@ import (
 // Config is the validated service configuration.
 type Config struct {
 	ListenAddr string
+	// OTLPEndpoint is an OTLP/gRPC host:port for traces. Empty turns them off.
+	OTLPEndpoint string
+	// ToolGateway is AUTH_TOOL_GATEWAY: where ai-gateway-tools runs, tokens for
+	// runtimes with a tool_audience go only to it.
+	ToolGateway bool
 	// PublicURL is the external base URL and the JWT issuer.
 	PublicURL   string
 	DatabaseURL string
@@ -46,6 +51,8 @@ type Config struct {
 func Load(getenv func(string) string) (Config, error) {
 	cfg := Config{
 		ListenAddr:        getenv("AUTH_LISTEN_ADDR"),
+		OTLPEndpoint:      getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		ToolGateway:       getenv("AUTH_TOOL_GATEWAY") == "true",
 		PublicURL:         strings.TrimRight(getenv("AUTH_PUBLIC_URL"), "/"),
 		DatabaseURL:       getenv("DATABASE_URL"),
 		SigningKeyCurrent: getenv("AUTH_SIGNING_KEY_CURRENT"),

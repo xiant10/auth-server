@@ -126,13 +126,16 @@ func newHarness(t *testing.T, devMode bool) *harness {
 	})
 	ts := httptest.NewServer(nil)
 	t.Cleanup(ts.Close)
+	agentService := agents.NewService(pool, dir, issuer, agents.LiveKit{
+		URL: "ws://livekit.test:7880", APIKey: liveKitKey, APISecret: liveKitSec,
+	}, testRuntimes)
+	agentService.AllowExchange([]string{toolGateway})
+	agentService.UseToolGateway(true)
 	srv := New(Deps{
-		Pool:      pool,
-		Identity:  ids,
-		Directory: dir,
-		Agents: agents.NewService(pool, dir, issuer, agents.LiveKit{
-			URL: "ws://livekit.test:7880", APIKey: liveKitKey, APISecret: liveKitSec,
-		}, testRuntimes),
+		Pool:         pool,
+		Identity:     ids,
+		Directory:    dir,
+		Agents:       agentService,
 		Issuer:       issuer,
 		DevMode:      devMode,
 		PublicURL:    ts.URL,
@@ -140,7 +143,7 @@ func newHarness(t *testing.T, devMode bool) *harness {
 		WorkbenchURL: testWorkbenchURL,
 	})
 	ts.Config.Handler = srv.Handler()
-	for _, name := range []string{voiceRuntime, piRuntime, listedService, otherService} {
+	for _, name := range []string{voiceRuntime, piRuntime, firingRuntime, gatedRuntime, toolGateway, listedService, otherService} {
 		if _, err := ids.AddServiceAccount(ctx, "test", name, serviceSecret(name)); err != nil {
 			t.Fatal(err)
 		}

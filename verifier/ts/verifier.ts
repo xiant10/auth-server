@@ -40,8 +40,11 @@ export type Identity = {
 	/** Set only on a service's own token, which has no user. */
 	readonly serviceId?: string;
 	readonly scopes: readonly string[];
-	/** Set when an agent is acting for the user. `chain` runs from the root grant to this one. */
-	readonly agent?: { readonly runtime: string; readonly grantId: string; readonly chain: readonly Link[] };
+	/**
+	 * Set when an agent is acting for the user. `chain` runs from the root grant to this one. `trigger` says why the run is running,
+	 * and `automation` names the automation that started it, both from the signed token.
+	 */
+	readonly agent?: { readonly runtime: string; readonly grantId: string; readonly trigger: string; readonly automation?: string; readonly chain: readonly Link[] };
 };
 
 /** Answer 401. */
@@ -74,6 +77,8 @@ type Claims = {
 	sid?: unknown;
 	act?: { sub?: unknown };
 	grant?: unknown;
+	trg?: unknown;
+	automation?: unknown;
 };
 
 export class Verifier {
@@ -107,7 +112,9 @@ export class Verifier {
 				throw new InvalidTokenError("delegated token is not for this service");
 			}
 			const chain = await this.#chain(claims.grant);
-			return { userId: subject, tenantId, scopes, agent: { runtime, grantId: claims.grant, chain } };
+			const trigger = typeof claims.trg === "string" ? claims.trg : "";
+			const automation = typeof claims.automation === "string" && claims.automation !== "" ? { automation: claims.automation } : {};
+			return { userId: subject, tenantId, scopes, agent: { runtime, grantId: claims.grant, trigger, ...automation, chain } };
 		}
 		if (!audience.includes(AUDIENCE_T10)) throw new InvalidTokenError("audience not accepted");
 		if (typeof claims.sid === "string" && claims.sid !== "") return { userId: subject, tenantId, scopes };

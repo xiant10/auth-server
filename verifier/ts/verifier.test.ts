@@ -49,10 +49,17 @@ describe("Verifier", () => {
 		assert.equal(allows(got, "anything:at-all"), true);
 	});
 
+	it("returns why a run is running", async () => {
+		const got = await verifier(server().stub).verify(token({ ...AGENT, trg: "schedule", automation: "au_brief" }));
+		assert.equal(got.agent?.trigger, "schedule");
+		assert.equal(got.agent?.automation, "au_brief");
+	});
+
 	it("returns an agent with its whole chain", async () => {
 		const got = await verifier(server().stub).verify(token(AGENT));
 		assert.equal(got.userId, "usr_1");
 		assert.equal(got.agent?.runtime, "svc_pi");
+		assert.equal(got.agent?.trigger, "");
 		assert.deepEqual(got.agent?.chain.map((link) => link.id), ["grt_root", "grt_leaf"]);
 		assert.equal(allows(got, "crm:read"), true);
 		assert.equal(allows(got, "agent:use"), false);

@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
+	"t10-auth-server/internal/telemetry"
 	"time"
 
 	"t10-auth-server/internal/agents"
@@ -45,7 +46,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	shutdownTelemetry, err := telemetry.Setup(ctx, cfg.OTLPEndpoint)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		flush, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(flush); err != nil {
+			slog.Warn("flush telemetry", "error", err)
+		}
+	}()
 	runtimes, err := agents.LoadRuntimes(cfg.ClientsFile)
+	if err != nil {
+		return err
+	}
+	exchangers, err := agents.LoadExchangers(cfg.ClientsFile)
 	if err != nil {
 		return err
 	}
@@ -82,17 +98,20 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		if !exists {
+		if !exists && !r.Optional {
 			return fmt.Errorf("runtime %s has no service account: run authctl service-add --name %s", r.Name, r.Name)
 		}
 	}
+	agentService := agents.NewService(pool, dir, issuer, agents.LiveKit{
+		URL: cfg.LiveKitURL, APIKey: cfg.LiveKitAPIKey, APISecret: cfg.LiveKitAPISecret,
+	}, runtimes)
+	agentService.AllowExchange(exchangers)
+	agentService.UseToolGateway(cfg.ToolGateway)
 	srv := server.New(server.Deps{
-		Pool:      pool,
-		Identity:  ids,
-		Directory: dir,
-		Agents: agents.NewService(pool, dir, issuer, agents.LiveKit{
-			URL: cfg.LiveKitURL, APIKey: cfg.LiveKitAPIKey, APISecret: cfg.LiveKitAPISecret,
-		}, runtimes),
+		Pool:         pool,
+		Identity:     ids,
+		Directory:    dir,
+		Agents:       agentService,
 		Issuer:       issuer,
 		DevMode:      cfg.DevMode,
 		PublicURL:    cfg.PublicURL,

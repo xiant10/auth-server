@@ -245,6 +245,8 @@ Access tokens are ES256 JWTs that live for 5 minutes. They match what `agent-pi`
 | `sid` | Session ID, on user tokens only |
 | `act.sub` | Runtime acting for the user, on agent tokens only |
 | `grant` | Agent grant ID, on agent tokens only |
+| `trg` | Why the run is running: `user`, `voice`, `schedule`, `event` or `webhook`, on agent tokens only. `agent` is reserved for delegation |
+| `automation` | The automation that started the run, on agent tokens whose trigger is `schedule`, `event` or `webhook` |
 
 ### Microservice calls
 
@@ -433,7 +435,7 @@ Credential handling is now the largest risk in the service, so an external secur
 - **Room credentials:** the LiveKit API secret lives only in the auth service. The grant ID travels as a participant attribute in the LiveKit-signed token, so a client cannot alter it.
 - **Browser requests:** auth pages and the admin UI use a `__Host-` cookie with `SameSite=Lax`, an Origin check on writes and a re-sign-in within 15 minutes for platform actions.
 - **Endpoint enforcement:** every handler declares its required role in the route table, and a test fails if a route has none.
-- **Audit:** changes write audit rows in the same transaction. Denied actions write separately, because their transaction rolled back. The app's database role has no `UPDATE` or `DELETE` on `audit_log`.
+- **Audit:** changes write audit rows in the same transaction. Denied actions write separately, because their transaction rolled back. The app's database role has no `UPDATE` or `DELETE` on `audit_log`. Proposed: rows carry the platform's shared audit fields from [`contracts/audit/README.md`](../../contracts/audit/README.md), adding `act`, `grant`, `trigger`, `automation` and `turn_id` where a run or request supplies them, so the console and `workbench` can show these rows beside other services' records. These are audit records, not logs, and are never written by logging.
 - **Support access:** none exists in v1. Adding it needs its own design.
 
 ## Alternatives, open questions and rollout
@@ -459,7 +461,7 @@ The recommendation is to build credentials into the service, using vetted librar
 - [ ] **Will outside MCP clients connect?** External tools count as third-party OAuth clients and would need the consent and registration work this design removes.
 - [ ] **Which microservices exist?** Pass-through assumes all of them run inside the deployment. Confirm the full inventory, including Deals, Documents and the `agent-pi` sales app.
 - [ ] **Where does it run?** Docker Compose locally and Kubernetes in production. The cloud and cluster are still open. A cloud with workload identity could replace service account secrets later.
-- [ ] **How long is audit data kept?** This depends on customer contracts.
+- [ ] **How long is audit data kept?** This depends on customer contracts. `contracts/audit/README.md` proposes one per-tenant retention setting for every service's records.
 - [ ] **Are the proposed limits right?** The session lifetimes, 5-minute token, 8-hour default grant, 24-hour cap, depth 4 and 60-second cache are starting values.
 - [ ] **Who does the external review?** A firm needs choosing and briefing with [security-review.md](security-review.md). Production infrastructure can't be assessed until "Where does it run?" is answered.
 - [ ] **What is the plan for public sign-up?** Registration stays invite-only until the CAPTCHA, new-tenant quotas and a real breached-password list exist. The hand-written blocklist has about 60 entries. Deciding the CAPTCHA before the review lets reviewers see it.

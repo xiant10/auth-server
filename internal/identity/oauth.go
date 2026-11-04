@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"t10-auth-server/internal/agents"
 	"t10-auth-server/internal/audit"
 	"t10-auth-server/internal/db"
 	"t10-auth-server/internal/ids"
@@ -309,6 +310,10 @@ func (s *Service) Refresh(ctx context.Context, r Refreshing) (Tokens, error) {
 			sessionID, hashSecret(next), previous, retired, idle, nullable(tenantID))
 		if err != nil {
 			return fmt.Errorf("rotate session: %w", err)
+		}
+		// Using t10 keeps a person's consent to their automations.
+		if err := agents.RenewStanding(ctx, tx, row.userID); err != nil {
+			return err
 		}
 		access, expires, err := s.issuer.MintAccess(row.userID, tenantID, sessionID)
 		if err != nil {

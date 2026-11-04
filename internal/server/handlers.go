@@ -46,6 +46,8 @@ type tokenRequest struct {
 	Challenge    string `json:"challenge"`
 	Signature    string `json:"signature"`
 	GrantID      string `json:"grant_id"`
+	SubjectToken string `json:"subject_token"`
+	Audience     string `json:"audience"`
 }
 
 // parseTokenRequest takes JSON, which the Mac client's password login sends,
@@ -76,6 +78,8 @@ func parseTokenRequest(r *http.Request) (tokenRequest, error) {
 			Challenge:    r.PostForm.Get("challenge"),
 			Signature:    r.PostForm.Get("signature"),
 			GrantID:      r.PostForm.Get("grant_id"),
+			SubjectToken: r.PostForm.Get("subject_token"),
+			Audience:     r.PostForm.Get("audience"),
 		}, nil
 	default:
 		return req, errors.New("unsupported content type")
@@ -119,6 +123,8 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request, _ identity.
 		writeTokens(w, r, tokens, err)
 	case req.GrantType == "agent_grant":
 		s.handleGrantExchange(w, r, req)
+	case req.GrantType == grantTypeTokenExchange:
+		s.handleTokenExchange(w, r, req)
 	case req.GrantType == "password" && s.DevMode:
 		// Outside dev mode this grant does not exist, whatever is seeded.
 		token, err := s.Identity.PasswordLogin(ctx, req.Username, req.Password, req.Tenant, s.clientIP(r))
@@ -371,8 +377,9 @@ func (s *Server) issueResetLink(r *http.Request, p identity.Principal) (string, 
 }
 
 // handleMeAccess answers what a caller's own token can do, for a service that
-// makes access decisions and holds no roles. platform_verified carries the
-// 15-minute rule and the dev-mode waiver, so neither is repeated elsewhere.
+// makes access decisions and holds no roles. platform_verified and
+// tenant_verified carry the 15-minute rule and the dev-mode waiver, so neither
+// is repeated elsewhere.
 func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identity.Principal) {
 	platform, err := s.Directory.IsPlatformAdmin(r.Context(), p.UserID)
 	if err != nil {
@@ -391,9 +398,12 @@ func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identi
 			return
 		}
 	}
+	// tenant_verified is the same rule for a tenant's admins: a factor from the
+	// last 15 minutes, waived in dev mode, for changes such as tenant policy.
+	tenantVerified := tenantAdmin && (p.MFARecent || s.DevMode)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": p.UserID, "active_tenant": p.TenantID, "tenant_admin": tenantAdmin,
-		"platform_admin": platform, "mfa": p.MFA, "platform_verified": verified,
+		"platform_admin": platform, "mfa": p.MFA, "platform_verified": verified, "tenant_verified": tenantVerified,
 	})
 }
 
@@ -405,6 +415,16 @@ func (s *Server) handleListTenants(w http.ResponseWriter, r *http.Request, _ ide
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tenants": tenants})
+}
+
+// handleListRuntimes is the reviewed runtime list from the clients file. It holds
+// no credentials, which live in the database.
+func (s *Server) handleListRuntimes(w http.ResponseWriter, _ *http.Request, _ identity.Principal) {
+	runtimes := s.Agents.Runtimes()
+	if runtimes == nil {
+		runtimes = []agents.Runtime{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"runtimes": runtimes})
 }
 
 func (s *Server) handleReleaseName(w http.ResponseWriter, r *http.Request, p identity.Principal) {

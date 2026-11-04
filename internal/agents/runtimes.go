@@ -22,11 +22,41 @@ var (
 // Runtime is one entry of the reviewed runtime list: what a stable service may
 // ask for on behalf of a user. Credentials live in the database, not here.
 type Runtime struct {
-	Name      string   `yaml:"name"`
-	Actions   []string `yaml:"actions"`
-	Audiences []string `yaml:"audiences"`
+	Name      string   `yaml:"name" json:"name"`
+	Actions   []string `yaml:"actions" json:"actions"`
+	Audiences []string `yaml:"audiences" json:"audiences"`
 	// Voice names the runtime that room admission creates grants for.
-	Voice bool `yaml:"voice"`
+	Voice bool `yaml:"voice" json:"voice"`
+	// Optional lets auth-server start without the runtime's account, for a
+	// service only some deployments run. Without one, it simply can't sign in.
+	Optional bool `yaml:"optional" json:"optional,omitempty"`
+	// ToolAudience is the tool gateway's audience. Where the gateway runs,
+	// AUTH_TOOL_GATEWAY makes it the only audience on tokens minted for this
+	// runtime's grants, so the harness can't call a module without the gateway.
+	// The grant keeps its own audiences, which the gateway exchanges the token
+	// for. Elsewhere, as in Light, a token carries the grant's audiences.
+	ToolAudience string `yaml:"tool_audience" json:"tool_audience,omitempty"`
+}
+
+// LoadExchangers reads which services may exchange a delegated token for one
+// with another audience: the tool gateway, and nothing else.
+func LoadExchangers(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read exchangers: %w", err)
+	}
+	var doc struct {
+		Exchangers []string `yaml:"exchangers"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("parse exchangers: %w", err)
+	}
+	for _, name := range doc.Exchangers {
+		if !namePattern.MatchString(name) {
+			return nil, fmt.Errorf("exchanger %q is not a service name", name)
+		}
+	}
+	return doc.Exchangers, nil
 }
 
 // LoadRuntimes reads and validates the runtime list from the clients file.
@@ -69,8 +99,21 @@ func validateRuntimes(runtimes []Runtime) error {
 				return fmt.Errorf("runtime %s: audience %q is not allowed", r.Name, audience)
 			}
 		}
+		// The gateway reads the grant's chain, so it has to be listed on it.
+		if r.ToolAudience != "" && !slices.Contains(r.Audiences, r.ToolAudience) {
+			return fmt.Errorf("runtime %s: tool_audience %q must also be one of its audiences", r.Name, r.ToolAudience)
+		}
 	}
 	return nil
+}
+
+// Runtimes lists the reviewed runtimes, for the platform console, which checks
+// each pool's audience against them.
+func (s *Service) Runtimes() []Runtime { return slices.Clone(s.runtimes) }
+
+// runtimeByID is the runtime a service account ID names.
+func (s *Service) runtimeByID(id string) (Runtime, bool) {
+	return s.runtime(strings.TrimPrefix(id, "svc_"))
 }
 
 func (s *Service) runtime(name string) (Runtime, bool) {

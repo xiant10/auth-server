@@ -41,7 +41,7 @@ func TestVerifierSeparatesPeopleAgentsAndServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if agent.UserID != userID || agent.Agent == nil || agent.Agent.GrantID != grantID || agent.Agent.Runtime != "svc_"+voiceRuntime {
+	if agent.UserID != userID || agent.Agent == nil || agent.Agent.GrantID != grantID || agent.Agent.Runtime != "svc_"+voiceRuntime || agent.Agent.Trigger != "voice" {
 		t.Fatalf("agent: %+v", agent)
 	}
 	if !agent.Allows("agent:use") || agent.Allows("crm:read") {

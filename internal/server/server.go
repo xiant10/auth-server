@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"t10-auth-server/internal/telemetry"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -167,6 +168,7 @@ func (s *Server) routes() []route {
 		{"POST", "/v1/tenants/{id}/members", accessPlatformAdmin, s.handleAddMember},
 		{"POST", "/v1/identifiers/release", accessPlatformAdmin, s.handleReleaseName},
 		{"GET", "/v1/audit", accessPlatformAdmin, s.handlePlatformAudit},
+		{"GET", "/v1/runtimes", accessPlatformAdmin, s.handleListRuntimes},
 		{"GET", "/v1/users", accessPlatformAdmin, s.handleListUsers},
 		{"POST", "/v1/users/{user}/suspend", accessPlatformAdmin, s.handleSetUserStatus(identity.UserSuspended)},
 		{"POST", "/v1/users/{user}/activate", accessPlatformAdmin, s.handleSetUserStatus(identity.UserActive)},
@@ -195,7 +197,8 @@ func (s *Server) routes() []route {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	for _, rt := range s.routes() {
-		mux.Handle(rt.method+" "+rt.pattern, s.guard(rt))
+		key := rt.method + " " + rt.pattern
+		mux.Handle(key, telemetry.Wrap(key, s.guard(rt)))
 	}
 	return wrap(mux)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"slices"
 	"time"
 
@@ -25,7 +26,30 @@ const (
 	MaxGrantDepth = 4
 	// DelegatedTokenTTL is the lifetime of a token minted from a grant.
 	DelegatedTokenTTL = 5 * time.Minute
+	// StandingGrantTTL is how long a person's consent to future runs lasts, and
+	// what using t10 renews it to.
+	StandingGrantTTL = 90 * 24 * time.Hour
+	// standingRenewal is how stale a standing grant's expiry gets before a
+	// refresh renews it, so a busy person doesn't write on every refresh.
+	standingRenewal = 24 * time.Hour
+	// StandingRuntime is the only runtime that may hold a standing grant.
+	StandingRuntime = "t10-automations"
 )
+
+// Triggers say why a run is running. A person started user and voice runs; the
+// others run unattended, from a standing grant, and name their automation.
+const (
+	TriggerUser     = "user"
+	TriggerVoice    = "voice"
+	TriggerSchedule = "schedule"
+	TriggerEvent    = "event"
+	TriggerWebhook  = "webhook"
+)
+
+// unattended are the triggers a standing grant's children may carry.
+var unattended = []string{TriggerSchedule, TriggerEvent, TriggerWebhook}
+
+var automationPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // Errors returned by the grant calls.
 var (
@@ -55,9 +79,13 @@ type Grant struct {
 	Audiences   []string        `json:"audiences"`
 	Constraints json.RawMessage `json:"constraints"`
 	Depth       int             `json:"depth"`
-	CreatedAt   time.Time       `json:"created_at"`
-	ExpiresAt   time.Time       `json:"expires_at"`
-	RevokedAt   *time.Time      `json:"-"`
+	// Trigger is why its run is running. A standing grant has none.
+	Trigger    string     `json:"trigger,omitempty"`
+	Automation string     `json:"automation,omitempty"`
+	Standing   bool       `json:"standing,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	RevokedAt  *time.Time `json:"-"`
 }
 
 // GrantRequest is what a runtime asks for. Model output never supplies it.
@@ -66,6 +94,13 @@ type GrantRequest struct {
 	Audiences   []string
 	Constraints json.RawMessage
 	TTL         time.Duration
+	// Standing asks for a root that consents to future runs, for
+	// t10-automations only.
+	Standing bool
+	// Trigger and Automation are set only on a standing grant's child, which is
+	// one firing. Every other child inherits its parent's.
+	Trigger    string
+	Automation string
 }
 
 func (r GrantRequest) ttl() time.Duration {
@@ -102,12 +137,19 @@ func (s *Service) checkRuntime(caller Caller, r GrantRequest) error {
 }
 
 // CreateRoot starts a chain for a user whose live token the handler verified.
+// A standing root is that person's consent to runs that start later.
 func (s *Service) CreateRoot(ctx context.Context, caller Caller, userID, tenantID string, r GrantRequest) (*Grant, error) {
 	if tenantID == "" {
 		return nil, ErrNoTenant
 	}
 	if err := s.checkRuntime(caller, r); err != nil {
 		return nil, err
+	}
+	if r.Trigger != "" || r.Automation != "" {
+		return nil, fmt.Errorf("%w: only a standing grant's child names a trigger", ErrGrantRequest)
+	}
+	if r.Standing && caller.Name != StandingRuntime {
+		return nil, fmt.Errorf("%w: only %s may hold a standing grant", ErrGrantRequest, StandingRuntime)
 	}
 	constraints, err := r.constraints()
 	if err != nil {
@@ -118,9 +160,13 @@ func (s *Service) CreateRoot(ctx context.Context, caller Caller, userID, tenantI
 	}
 	g := &Grant{
 		ID: ids.New("grt"), RuntimeID: caller.ID, UserID: userID, TenantID: tenantID,
-		Actions: r.Actions, Audiences: r.Audiences, Constraints: constraints, Depth: 1,
+		Actions: r.Actions, Audiences: r.Audiences, Constraints: constraints, Depth: 1, Trigger: TriggerUser,
 	}
-	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return insertGrant(ctx, tx, g, r.ttl()) })
+	ttl := r.ttl()
+	if r.Standing {
+		g.Standing, g.Trigger, ttl = true, "", StandingGrantTTL
+	}
+	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return insertGrant(ctx, tx, g, ttl) })
 	if err != nil {
 		return nil, err
 	}
@@ -148,9 +194,17 @@ func (s *Service) CreateChild(ctx context.Context, caller Caller, parentID strin
 	if !subset(r.Actions, parent.Actions) || !subset(r.Audiences, parent.Audiences) {
 		return nil, fmt.Errorf("%w: a child can only narrow its parent", ErrGrantRequest)
 	}
+	if r.Standing {
+		return nil, fmt.Errorf("%w: a standing grant is always a root", ErrGrantRequest)
+	}
+	trigger, automation, err := childTrigger(parent, r)
+	if err != nil {
+		return nil, err
+	}
 	g := &Grant{
 		ID: ids.New("grt"), ParentID: parent.ID, RuntimeID: caller.ID, UserID: parent.UserID, TenantID: parent.TenantID,
 		Actions: r.Actions, Audiences: r.Audiences, Constraints: constraints, Depth: parent.Depth + 1,
+		Trigger: trigger, Automation: automation,
 	}
 	ttl := min(r.ttl(), time.Until(parent.ExpiresAt))
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return insertGrant(ctx, tx, g, ttl) })
@@ -160,16 +214,52 @@ func (s *Service) CreateChild(ctx context.Context, caller Caller, parentID strin
 	return g, nil
 }
 
+// CreateFiring makes one firing of an automation: a child of a standing grant,
+// which mints no token of its own, so the runtime names it by ID. Only the
+// runtime that holds the consent may, and the chain is checked as for any mint,
+// so a suspended person or a revoked consent stops the next firing.
+func (s *Service) CreateFiring(ctx context.Context, caller Caller, standingID string, r GrantRequest) (*Grant, error) {
+	chain, err := s.chain(ctx, standingID)
+	if err != nil {
+		return nil, err
+	}
+	if len(chain) != 1 || !chain[0].Standing || chain[0].RuntimeID != caller.ID {
+		return nil, ErrGrantInvalid
+	}
+	return s.CreateChild(ctx, caller, standingID, r)
+}
+
+// childTrigger decides a child's trigger. A standing grant's child is one
+// firing, so it must say which kind and which automation. Any other child keeps
+// its parent's, so a run can't shed an unattended trigger by delegating.
+func childTrigger(parent Grant, r GrantRequest) (string, string, error) {
+	if !parent.Standing {
+		if r.Trigger != "" || r.Automation != "" {
+			return "", "", fmt.Errorf("%w: a child keeps its parent's trigger", ErrGrantRequest)
+		}
+		return parent.Trigger, parent.Automation, nil
+	}
+	if !slices.Contains(unattended, r.Trigger) {
+		return "", "", fmt.Errorf("%w: a standing grant's child needs a trigger of schedule, event or webhook", ErrGrantRequest)
+	}
+	if !automationPattern.MatchString(r.Automation) {
+		return "", "", fmt.Errorf("%w: a standing grant's child needs its automation's ID", ErrGrantRequest)
+	}
+	return r.Trigger, r.Automation, nil
+}
+
 func insertGrant(ctx context.Context, tx pgx.Tx, g *Grant, ttl time.Duration) error {
 	var parent *string
 	if g.ParentID != "" {
 		parent = &g.ParentID
 	}
 	err := tx.QueryRow(ctx,
-		`INSERT INTO auth.agent_grants (id, parent_id, runtime_id, user_id, tenant_id, actions, audiences, constraints, depth, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now() + make_interval(secs => $10))
+		`INSERT INTO auth.agent_grants (id, parent_id, runtime_id, user_id, tenant_id, actions, audiences, constraints, depth,
+		                                trigger, automation, standing, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now() + make_interval(secs => $13))
 		 RETURNING created_at, expires_at`,
-		g.ID, parent, g.RuntimeID, g.UserID, g.TenantID, g.Actions, g.Audiences, string(g.Constraints), g.Depth, ttl.Seconds(),
+		g.ID, parent, g.RuntimeID, g.UserID, g.TenantID, g.Actions, g.Audiences, string(g.Constraints), g.Depth,
+		g.Trigger, g.Automation, g.Standing, ttl.Seconds(),
 	).Scan(&g.CreatedAt, &g.ExpiresAt)
 	if err != nil {
 		return fmt.Errorf("insert grant: %w", err)
@@ -178,6 +268,7 @@ func insertGrant(ctx context.Context, tx pgx.Tx, g *Grant, ttl time.Duration) er
 		Actor: "service:" + g.RuntimeID, Scope: audit.ScopeTenant(g.TenantID), Action: "grant.create", Target: g.ID,
 		Outcome: audit.Success, Detail: map[string]any{
 			"user": g.UserID, "parent": g.ParentID, "actions": g.Actions, "audiences": g.Audiences,
+			"trigger": g.Trigger, "automation": g.Automation, "standing": g.Standing,
 		},
 	})
 }
@@ -196,7 +287,7 @@ func (s *Service) chain(ctx context.Context, id string) ([]Grant, error) {
 			SELECT g.*, c.distance + 1 FROM auth.agent_grants g JOIN chain c ON g.id = c.parent_id
 		)
 		SELECT c.id, COALESCE(c.parent_id, ''), c.runtime_id, c.user_id, c.tenant_id, c.actions, c.audiences,
-		       c.constraints, c.depth, c.created_at, c.expires_at,
+		       c.constraints, c.depth, c.trigger, c.automation, c.standing, c.created_at, c.expires_at,
 		       CASE WHEN sa.status = 'active' THEN c.revoked_at ELSE COALESCE(c.revoked_at, now()) END
 		FROM chain c JOIN auth.service_accounts sa ON sa.id = c.runtime_id
 		ORDER BY c.distance DESC`, id)
@@ -206,7 +297,7 @@ func (s *Service) chain(ctx context.Context, id string) ([]Grant, error) {
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Grant, error) {
 		var g Grant
 		err := row.Scan(&g.ID, &g.ParentID, &g.RuntimeID, &g.UserID, &g.TenantID, &g.Actions, &g.Audiences,
-			&g.Constraints, &g.Depth, &g.CreatedAt, &g.ExpiresAt, &g.RevokedAt)
+			&g.Constraints, &g.Depth, &g.Trigger, &g.Automation, &g.Standing, &g.CreatedAt, &g.ExpiresAt, &g.RevokedAt)
 		return g, err
 	})
 }
@@ -254,12 +345,68 @@ func (s *Service) Exchange(ctx context.Context, caller Caller, grantID string) (
 		return "", time.Time{}, nil, err
 	}
 	g := chain[len(chain)-1]
+	// Consent to future runs isn't a run: each firing is a child, and mints.
+	if g.Standing {
+		s.denyGrant(ctx, caller, g, "standing")
+		return "", time.Time{}, nil, ErrGrantInvalid
+	}
 	ttl := min(DelegatedTokenTTL, time.Until(g.ExpiresAt))
-	token, expires, err := s.signer.MintDelegated(g.UserID, g.TenantID, g.RuntimeID, g.ID, scopeOf(g.Actions), g.Audiences, ttl)
+	token, expires, err := s.signer.MintDelegated(s.delegation(g, s.tokenAudiences(g)), ttl)
 	if err != nil {
 		return "", time.Time{}, nil, err
 	}
 	return token, expires, &g, nil
+}
+
+// tokenAudiences is who a grant's tokens are for: its runtime's tool gateway
+// alone when the runtime sets one, so a harness can reach a module only through
+// it, and otherwise the grant's audiences.
+func (s *Service) tokenAudiences(g Grant) []string {
+	// A grant made before its runtime listed the gateway can't be checked
+	// there, so its tokens keep the grant's audiences until it ends.
+	if runtime, ok := s.runtimeByID(g.RuntimeID); ok && runtime.ToolAudience != "" && s.toolGateway && slices.Contains(g.Audiences, runtime.ToolAudience) {
+		return []string{runtime.ToolAudience}
+	}
+	return g.Audiences
+}
+
+func (s *Service) delegation(g Grant, audiences []string) Delegation {
+	return Delegation{
+		UserID: g.UserID, TenantID: g.TenantID, RuntimeID: g.RuntimeID, GrantID: g.ID, Scope: scopeOf(g.Actions),
+		Audiences: audiences, Trigger: g.Trigger, Automation: g.Automation,
+	}
+}
+
+// TokenExchange trades a delegated token presented to the caller for one with
+// a single other audience on the same grant, for the tool gateway to forward a
+// call to that module. The caller must be allowed to exchange and named in the
+// token's audience, the target must be on the grant, and the whole chain is
+// checked as for any mint. The new token says the same thing about who and
+// why, and ends no later than the one it replaces.
+func (s *Service) TokenExchange(ctx context.Context, caller Caller, grantID string, subjectAudiences []string, subjectExpires time.Time, audience string) (string, time.Time, error) {
+	if !slices.Contains(s.exchangers, caller.Name) {
+		return "", time.Time{}, fmt.Errorf("%w: %s may not exchange tokens", ErrGrantRequest, caller.Name)
+	}
+	if !slices.Contains(subjectAudiences, caller.Name) {
+		return "", time.Time{}, fmt.Errorf("%w: the token wasn't presented to %s", ErrGrantRequest, caller.Name)
+	}
+	if audience == "" || audience == audienceT10 || audience == caller.Name {
+		return "", time.Time{}, fmt.Errorf("%w: audience %q can't be asked for", ErrGrantRequest, audience)
+	}
+	chain, err := s.liveChain(ctx, caller, grantID)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	g := chain[len(chain)-1]
+	if !slices.Contains(g.Audiences, audience) {
+		s.denyGrant(ctx, caller, g, "audience_not_on_grant")
+		return "", time.Time{}, fmt.Errorf("%w: %s isn't on the grant", ErrGrantRequest, audience)
+	}
+	ttl := min(DelegatedTokenTTL, time.Until(g.ExpiresAt), time.Until(subjectExpires))
+	if ttl <= 0 {
+		return "", time.Time{}, ErrGrantExpired
+	}
+	return s.signer.MintDelegated(s.delegation(g, []string{audience}), ttl)
 }
 
 // Chain returns a live grant's ancestors for a target service to enforce.
@@ -289,16 +436,20 @@ func (s *Service) Extend(ctx context.Context, caller Caller, grantID, userID, te
 	if err := s.membership.CheckActive(ctx, userID, tenantID); err != nil {
 		return nil, ErrGrantInvalid
 	}
-	limit := g.CreatedAt.Add(MaxGrantLife)
+	limit, extension := g.CreatedAt.Add(MaxGrantLife), DefaultGrantTTL
 	if len(chain) > 1 {
 		limit = chain[len(chain)-2].ExpiresAt
+	}
+	// A person's consent has no cap from creation: using t10 keeps it.
+	if g.Standing {
+		limit, extension = time.Now().Add(StandingGrantTTL), StandingGrantTTL
 	}
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx,
 			`UPDATE auth.agent_grants
 			 SET expires_at = GREATEST(expires_at, LEAST(now() + make_interval(secs => $2), $3))
 			 WHERE id = $1 RETURNING expires_at`,
-			g.ID, DefaultGrantTTL.Seconds(), limit).Scan(&g.ExpiresAt)
+			g.ID, extension.Seconds(), limit).Scan(&g.ExpiresAt)
 		if err != nil {
 			return fmt.Errorf("extend grant: %w", err)
 		}
@@ -359,7 +510,7 @@ func (g GrantRow) Running() bool { return !g.Stopped && g.ExpiresAt.After(time.N
 func (s *Service) ListTenantGrants(ctx context.Context, tenantID string, limit int) ([]GrantRow, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT g.id, COALESCE(g.parent_id, ''), g.runtime_id, g.user_id, g.tenant_id, g.actions, g.audiences,
-		        g.depth, g.created_at, g.expires_at,
+		        g.depth, g.trigger, g.automation, g.standing, g.created_at, g.expires_at,
 		        COALESCE((SELECT i.value FROM auth.user_identifiers i
 		                  WHERE i.user_id = g.user_id ORDER BY i.created_at, i.value LIMIT 1), ''),
 		        s.stopped
@@ -380,7 +531,7 @@ func (s *Service) ListTenantGrants(ctx context.Context, tenantID string, limit i
 	grants, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (GrantRow, error) {
 		var g GrantRow
 		err := row.Scan(&g.ID, &g.ParentID, &g.RuntimeID, &g.UserID, &g.TenantID, &g.Actions, &g.Audiences,
-			&g.Depth, &g.CreatedAt, &g.ExpiresAt, &g.Who, &g.Stopped)
+			&g.Depth, &g.Trigger, &g.Automation, &g.Standing, &g.CreatedAt, &g.ExpiresAt, &g.Who, &g.Stopped)
 		return g, err
 	})
 	if err != nil {
@@ -402,6 +553,22 @@ func (s *Service) RevokeInTenant(ctx context.Context, actor, tenantID, grantID s
 		return ErrGrantInvalid
 	}
 	return s.revoke(ctx, actor, grantID, tenantID)
+}
+
+// RenewStanding keeps a person's standing grants alive while they use t10, in
+// the caller's transaction. It writes only when an expiry is a day stale, so a
+// refresh every few minutes costs one read. Expired or revoked grants stay
+// ended: consent that lapsed needs a live token to give again.
+func RenewStanding(ctx context.Context, tx pgx.Tx, userID string) error {
+	_, err := tx.Exec(ctx,
+		`UPDATE auth.agent_grants SET expires_at = now() + make_interval(secs => $2)
+		 WHERE user_id = $1 AND standing AND revoked_at IS NULL AND expires_at > now()
+		   AND expires_at < now() + make_interval(secs => $3)`,
+		userID, StandingGrantTTL.Seconds(), (StandingGrantTTL - standingRenewal).Seconds())
+	if err != nil {
+		return fmt.Errorf("renew standing grants: %w", err)
+	}
+	return nil
 }
 
 // RevokeUserGrants stops everything running for a user, in the caller's

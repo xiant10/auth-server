@@ -40,20 +40,28 @@ These routes take a service token as a bearer token.
 
 | Route | Purpose |
 | --- | --- |
-| `POST /v1/grants` | Create a grant |
+| `POST /v1/grants` | Create a grant, a standing grant, or one firing of a standing grant |
 | `GET /v1/grants/{id}/chain` | Read a live grant and its ancestors, root first. A stopped grant answers `invalid_grant` |
 | `POST /v1/grants/{id}/extend` | Renew for a new user request, with `subject_token` set to that user's live token |
 | `POST /v1/grants/{id}/revoke` | Stop it, along with everything beneath it |
 
 `POST /v1/grants` takes `subject_token`, `actions`, `audiences`, and optionally `constraints` and `ttl_seconds`.
 
-- **A user token as `subject_token`** starts a root grant for that user and tenant.
-- **A delegated token** starts a child of its grant. A child can only narrow its parent and can't outlive it. The chain stops at 4 grants.
+- **A user token as `subject_token`** starts a root grant for that user and tenant. Its trigger is `user`. A grant room admission creates has `voice`.
+- **A delegated token** starts a child of its grant. A child can only narrow its parent and can't outlive it, and it keeps its parent's trigger and automation. The chain stops at 4 grants.
+- **`standing: true` with a user token** records that person's consent to future runs. Only the `t10-automations` runtime may ask. It lasts 90 days, and each refresh of the person's session renews it to 90 days, writing at most once a day. It has no trigger and mints no token: exchanging it answers `invalid_grant`. Sign-out-everywhere, a password reset, suspension and membership removal end it, as they end any grant.
+- **`parent_id` with no `subject_token`** is one firing: a child of a standing grant, from the runtime that holds it. It must give `trigger`, one of `schedule`, `event` or `webhook`, and `automation`, its automation's ID of up to 64 letters, digits, `_` or `-`. It lasts 8 hours, as any grant, and mints tokens carrying `trg` and `automation`. Any other use of `parent_id`, or a `trigger` anywhere else, answers `invalid_request` or `invalid_grant`.
 - **The user and tenant** come only from the token. Never pass values from model output into this request.
 
 Actions and audiences must also be on the runtime's list in `clients.yaml`, which never allows a wildcard or the audience `t10`. A grant lasts 8 hours by default, and extending can't take it past 24 hours from creation.
 
 A grant ID is safe to store, because it's useless without the runtime's secret. A session secret or user token is not.
+
+## Token exchange
+
+`ai-gateway-tools` trades a run's token, which is good only at the gateway, for one a module accepts: `POST /v1/token` with `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, `client_id` and `client_secret`, `subject_token` and `audience`. The caller must be listed under `exchangers` in `clients.yaml` and named in the subject token's `aud`, and `audience` must be on the token's grant. The chain is checked as for any mint. The answer has the same `sub`, `tid`, `scope`, `act`, `grant`, `trg` and `automation`, an `aud` of that module alone, and ends no later than the subject token.
+
+Where `AUTH_TOOL_GATEWAY=true`, a runtime with `tool_audience` in `clients.yaml` gets tokens whose only audience is that, when its grant lists it. A grant made before the runtime listed the gateway keeps its audiences until it ends, within 24 hours. Compose, Light and quickstart leave it off.
 
 ## Room admission
 

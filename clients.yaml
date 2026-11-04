@@ -20,6 +20,8 @@ clients:
     # Confidential clients match exactly, so each deployment lists its own.
     redirect_uris:
       - http://127.0.0.1:8083/auth/callback
+      - http://127.0.0.1:18060/auth/callback
+      - http://127.0.0.1:28060/auth/callback
     # The hash of the dev secret in workbench's .env.example. Replace it outside
     # local development.
     secret_sha256: 3b2a1c8150447544142ed749be66a8a5cc8c4c25a0fb17e9b5e596313775cd11
@@ -30,6 +32,9 @@ clients:
     type: confidential
     redirect_uris:
       - http://127.0.0.1:8086/auth/callback
+      - http://127.0.0.1:18020/auth/callback
+      - http://127.0.0.1:18086/auth/callback
+      - http://127.0.0.1:28020/auth/callback
     # The hash of a dev secret. Replace it outside local development.
     secret_sha256: 9563997683bc03b226cf8fff630944ac87aa2dfa0699a2a2025677582821359c
     # Shorter than the workbench's, because this is an operator tool.

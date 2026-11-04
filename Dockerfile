@@ -21,6 +21,6 @@ ENV AUTH_CLIENTS_FILE=/etc/t10-auth/clients.yaml
 
 USER 65534:65534
 
-EXPOSE 8081
+EXPOSE 18000
 
 ENTRYPOINT ["/usr/local/bin/auth-server"]

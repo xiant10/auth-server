@@ -24,7 +24,7 @@ spec:
             matchLabels:
               t10.dev/auth-client: "true"
       ports:
-        - port: 8081
+        - port: 18000
   egress:
     - ports:
         - port: 53

@@ -17,5 +17,5 @@ configMapGenerator:
   - name: auth-server
     literals:
       - AUTH_DEV_MODE=false
-      - AUTH_LISTEN_ADDR=:8081
+      - AUTH_LISTEN_ADDR=:18000
       - AUTH_TRUST_PROXY=true

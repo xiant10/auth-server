@@ -401,9 +401,17 @@ func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identi
 	// tenant_verified is the same rule for a tenant's admins: a factor from the
 	// last 15 minutes, waived in dev mode, for changes such as tenant policy.
 	tenantVerified := tenantAdmin && (p.MFARecent || s.DevMode)
+	// modules and module_admin come from business roles, for navigation only:
+	// each module checks its own entitlements.
+	modules, moduleAdmin, err := s.Roles.Access(r.Context(), p.TenantID, p.UserID, tenantAdmin)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": p.UserID, "active_tenant": p.TenantID, "tenant_admin": tenantAdmin,
 		"platform_admin": platform, "mfa": p.MFA, "platform_verified": verified, "tenant_verified": tenantVerified,
+		"modules": modules, "module_admin": moduleAdmin,
 	})
 }
 

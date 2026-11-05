@@ -19,6 +19,7 @@ import (
 	"t10-auth-server/internal/db"
 	"t10-auth-server/internal/directory"
 	"t10-auth-server/internal/identity"
+	"t10-auth-server/internal/roles"
 	"t10-auth-server/internal/samples"
 )
 
@@ -34,6 +35,7 @@ commands:
   service-finish   retire the old secret after a rotation
   service-disable  stop a service, and every grant it holds
   service-enable   start it again
+  permissions-purge  remove a retired module's permissions from every tenant's roles
   samples-add     create sample tenants and accounts (dev mode only)
   samples-remove  delete them and everything they gathered (dev mode only)
 
@@ -72,6 +74,8 @@ func run(args []string) error {
 		return serviceAdd(ctx, args[1:])
 	case "service-rotate", "service-finish", "service-disable", "service-enable":
 		return serviceChange(ctx, args[0], args[1:])
+	case "permissions-purge":
+		return permissionsPurge(ctx, args[1:])
 	case "samples-add":
 		return samplesAdd(ctx)
 	case "samples-remove":
@@ -242,6 +246,40 @@ func samplesRemove(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("removed %d users and %d tenants; their audit rows stay\n", removed.Users, removed.Tenants)
+	return nil
+}
+
+// permissionsPurge removes a module's permissions for good. Taking a module out
+// of an overlay only makes them unavailable; this is the deliberate second step.
+// It reads AUTH_PERMISSIONS_DIR, as auth-server does, and refuses a module that
+// is still deployed there.
+func permissionsPurge(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("permissions-purge", flag.ExitOnError)
+	module := fs.String("module", "", "the retired module's ID")
+	confirm := fs.String("confirm", "", "the module's ID again, to confirm")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *module == "" || *confirm != *module {
+		return errors.New("name the module with --module and repeat it with --confirm")
+	}
+	catalog, err := roles.LoadCatalog(os.Getenv("AUTH_PERMISSIONS_DIR"))
+	if err != nil {
+		return err
+	}
+	pool, err := open(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	removed, err := roles.NewService(pool, catalog).Purge(ctx, actor, *module)
+	if errors.Is(err, roles.ErrDeployed) {
+		return fmt.Errorf("%s is still in AUTH_PERMISSIONS_DIR: take it out of the overlay first", *module)
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Printf("removed %d role permissions of %s; roles and assignments stay\n", removed, *module)
 	return nil
 }
 

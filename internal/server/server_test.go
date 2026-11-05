@@ -21,6 +21,7 @@ import (
 	"t10-auth-server/internal/db"
 	"t10-auth-server/internal/directory"
 	"t10-auth-server/internal/identity"
+	"t10-auth-server/internal/roles"
 )
 
 const (
@@ -81,6 +82,7 @@ type harness struct {
 	pool *pgxpool.Pool
 	dir  *directory.Service
 	id   *identity.Service
+	srv  *Server
 	url  string
 }
 
@@ -131,11 +133,16 @@ func newHarness(t *testing.T, devMode bool) *harness {
 	}, testRuntimes)
 	agentService.AllowExchange([]string{toolGateway})
 	agentService.UseToolGateway(true)
+	roleService := roles.NewService(pool, testCatalog(t, 1))
+	if err := roleService.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
 	srv := New(Deps{
 		Pool:         pool,
 		Identity:     ids,
 		Directory:    dir,
 		Agents:       agentService,
+		Roles:        roleService,
 		Issuer:       issuer,
 		DevMode:      devMode,
 		PublicURL:    ts.URL,
@@ -148,7 +155,7 @@ func newHarness(t *testing.T, devMode bool) *harness {
 			t.Fatal(err)
 		}
 	}
-	return &harness{t: t, pool: pool, dir: dir, id: ids, url: ts.URL}
+	return &harness{t: t, pool: pool, dir: dir, id: ids, srv: srv, url: ts.URL}
 }
 
 func (h *harness) tenant(id string) {

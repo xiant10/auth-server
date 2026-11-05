@@ -50,6 +50,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: auth-server
               app.kubernetes.io/component: server
+      volumes:
+        - name: permissions
+          configMap:
+            name: auth-server-permissions
       containers:
         - name: auth-server
           image: t10/auth-server
@@ -67,6 +71,10 @@ spec:
             # Below the memory limit, which Argon2 at 64 MiB a hash could reach.
             - name: GOMEMLIMIT
               value: 320MiB
+          volumeMounts:
+            - name: permissions
+              mountPath: /etc/auth-server/permissions
+              readOnly: true
           resources:
             requests:
               cpu: 250m

@@ -30,6 +30,9 @@ type Config struct {
 
 	// ClientsFile is the reviewed YAML list of OAuth clients.
 	ClientsFile string
+	// PermissionsDir holds one <module>.yaml per deployed module with business
+	// roles, mounted from the overlay's catalog ConfigMap. Empty means none.
+	PermissionsDir string
 	// TOTPKey is the 32-byte AES key for stored TOTP secrets. Empty in dev mode
 	// means a throwaway key.
 	TOTPKey []byte
@@ -58,6 +61,7 @@ func Load(getenv func(string) string) (Config, error) {
 		SigningKeyCurrent: getenv("AUTH_SIGNING_KEY_CURRENT"),
 		SigningKeyNext:    getenv("AUTH_SIGNING_KEY_NEXT"),
 		ClientsFile:       getenv("AUTH_CLIENTS_FILE"),
+		PermissionsDir:    getenv("AUTH_PERMISSIONS_DIR"),
 		DefaultRegion:     getenv("AUTH_DEFAULT_REGION"),
 		TrustProxy:        getenv("AUTH_TRUST_PROXY") == "true",
 		ConsoleURL:        strings.TrimRight(getenv("AUTH_CONSOLE_URL"), "/"),

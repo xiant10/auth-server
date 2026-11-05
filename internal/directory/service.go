@@ -388,8 +388,11 @@ type MemberUpdate struct {
 func (s *Service) UpdateMember(ctx context.Context, actor, tenantID, userID string, u MemberUpdate) (Member, error) {
 	var m Member
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		// Locking the tenant serializes two admins demoting each other.
-		if _, err := tx.Exec(ctx, "SELECT 1 FROM auth.tenants WHERE id = $1 FOR UPDATE", tenantID); err != nil {
+		// Locking the tenant serializes two admins demoting each other. A role or
+		// status change alters what the member may do, so it raises the revision
+		// entitlement reads return.
+		if _, err := tx.Exec(ctx,
+			"UPDATE auth.tenants SET authorization_revision = authorization_revision + 1 WHERE id = $1", tenantID); err != nil {
 			return fmt.Errorf("lock tenant: %w", err)
 		}
 		var wasAdmin bool

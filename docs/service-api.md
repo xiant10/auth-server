@@ -103,3 +103,48 @@ These routes take a service token, and every one needs `tenant=<id>`.
 Sign-in names never appear here, because they're unverified and can hold a phone number. Don't treat a member missing from a read as gone: act only on an explicit `status: inactive`.
 
 An empty result is `[]`, so it's safe to pass straight to `WHERE owner_id = ANY(...)`. Cache for at most 60 seconds, and fail closed when both the cache and the service are unavailable.
+
+## Business roles
+
+Tenant admins build roles from the permissions that deployed modules declare, and assign them to members. A module checks them with the entitlement read below. None of this changes membership's `member` or `admin` role, and a role's name confers nothing. The design is [`proposals/auth-custom-roles.md`](../../proposals/auth-custom-roles.md) in the workspace.
+
+**The catalog.** auth-server reads one `<module>.yaml` per deployed module from `AUTH_PERMISSIONS_DIR`, the overlay's catalog ConfigMap. Unset, no module has business roles. Each file holds the module's ID, its `prefix`, its catalog `version`, its `permissions` (each a `key` under the prefix, a `description` and a `lifecycle` of `active`, `deprecated` or `retired`) and its role `templates`. `service` names the only service that may read the module's entitlements, `t10-<module>` by default. auth-server refuses to start on a key outside the module's prefix, a file named for another module, or a template using a permission that isn't active.
+
+```yaml
+module: property
+prefix: property
+version: 1
+permissions:
+  - {key: property:resident.read, description: See residents in scope, lifecycle: active}
+  - {key: property:admin, description: Property settings, lifecycle: active}
+templates:
+  - {id: steward, name: Steward, permissions: [property:resident.read]}
+```
+
+A module taken out of the catalog keeps its permissions in the database, and tenants' roles keep holding them, but they confer nothing until it comes back. `authctl permissions-purge --module=<id> --confirm=<id>` removes them from every role for good, and refuses while the module is still in `AUTH_PERMISSIONS_DIR`.
+
+**The entitlement read.** `GET /v1/entitlements?tenant=<id>&module=<id>&user=<id>[&user=<id>...]`, with the module's service token, for up to 200 users. A service may read only the module its catalog entry names it for; any other answers `403`, and a module not deployed `404`. It is never cached, so read it on each protected request, and fail closed when it's unavailable.
+
+| Field | Meaning |
+| --- | --- |
+| `tenant_status`, `revision` | The tenant's status, and its authorization revision, raised by every role, assignment and membership change |
+| `users[].active` | The account, membership and tenant are all active. Otherwise `grants` is empty |
+| `users[].account_status`, `membership_status` | Empty when there's no such account or membership |
+| `users[].tenant_admin` | The built-in tenant admin role, which a module maps to its own administrator |
+| `users[].grants[]` | `permission`, `assignment_id`, `role_id`. Bind your scope, such as buildings, to `assignment_id`, and union scope only across the assignments that grant the action asked |
+
+One read returns account, membership and tenant status, so it replaces a separate `/v1/org/members/{user}` read for authorization.
+
+**Tenant admin routes**, under `/v1/tenants/{id}`:
+
+| Route | Does |
+| --- | --- |
+| `GET /permission-catalog` | The deployed modules with their permissions and templates, and `unavailable`: permissions this tenant's roles hold that confer nothing here, with `reason` `module_not_deployed` or `retired` |
+| `GET`, `POST /roles` | List roles, or create one from `name`, `description` and `permissions`, or from `template: {module, id}`, whose name, description and permissions apply to fields left out |
+| `GET`, `PATCH /roles/{role}` | Read a role, or change `name`, `description`, `enabled` or the whole `permissions` list. `revision` is required, and a stale one answers `409 stale_revision`. A permission the role already holds may stay after its module is gone; a new one must be active and deployed, or it answers `400 unknown_permission` |
+| `GET`, `POST /members/{user}/role-assignments` | List a member's assignments, revoked ones included, or assign `role_id`. A disabled role answers `409 role_disabled` |
+| `DELETE /members/{user}/role-assignments/{assignment}?revision=<n>` | Revoke. The ID is never reused: assigning again makes a new one |
+
+A role reports `active` (enabled, with at least one permission that confers something here), `unavailable`, its `assignments` count, and `template` with `latest_version` when the module's catalog is newer than the role. A newer template never changes a role.
+
+**For clients**, `GET /v1/me/access` adds `modules` and `module_admin`, and `GET /v1/me/permissions?module=<id>` returns the caller's own grants in their active tenant. Both are for showing what someone can do, never for enforcing it.

@@ -20,6 +20,7 @@ import (
 	"t10-auth-server/internal/audit"
 	"t10-auth-server/internal/directory"
 	"t10-auth-server/internal/identity"
+	"t10-auth-server/internal/roles"
 )
 
 const (
@@ -69,6 +70,7 @@ type Deps struct {
 	Identity  *identity.Service
 	Directory *directory.Service
 	Agents    *agents.Service
+	Roles     *roles.Service
 	Issuer    *identity.Issuer
 	// DevMode enables the password grant and open registration. Public
 	// registration waits on the security review and a CAPTCHA, so outside dev
@@ -140,10 +142,12 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/org/members", accessService, s.handleOrgMembers},
 		{"GET", "/v1/org/members/{id}", accessService, s.handleOrgMember},
 		{"GET", "/v1/org/members/{id}/reports", accessService, s.handleOrgReports},
+		{"GET", "/v1/entitlements", accessService, s.handleEntitlements},
 
 		{"POST", "/v1/rooms/admission", accessUser, s.handleAdmission},
 		{"GET", "/v1/me", accessUser, s.handleMe},
 		{"GET", "/v1/me/access", accessUser, s.handleMeAccess},
+		{"GET", "/v1/me/permissions", accessUser, s.handleMyPermissions},
 		{"PATCH", "/v1/me", accessUser, s.handleUpdateMe},
 		{"POST", "/v1/logout", accessUser, s.handleLogout},
 
@@ -190,6 +194,14 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/tenants/{id}/grants", accessTenantAdmin, s.handleTenantGrants},
 		{"POST", "/v1/tenants/{id}/grants/{grant}/revoke", accessTenantAdmin, s.handleTenantRevokeGrant},
 		{"GET", "/v1/tenants/{id}/audit", accessTenantAdmin, s.handleTenantAudit},
+		{"GET", "/v1/tenants/{id}/permission-catalog", accessTenantAdmin, s.handlePermissionCatalog},
+		{"GET", "/v1/tenants/{id}/roles", accessTenantAdmin, s.handleListRoles},
+		{"POST", "/v1/tenants/{id}/roles", accessTenantAdmin, s.handleCreateRole},
+		{"GET", "/v1/tenants/{id}/roles/{role}", accessTenantAdmin, s.handleGetRole},
+		{"PATCH", "/v1/tenants/{id}/roles/{role}", accessTenantAdmin, s.handleUpdateRole},
+		{"GET", "/v1/tenants/{id}/members/{user}/role-assignments", accessTenantAdmin, s.handleListAssignments},
+		{"POST", "/v1/tenants/{id}/members/{user}/role-assignments", accessTenantAdmin, s.handleAssignRole},
+		{"DELETE", "/v1/tenants/{id}/members/{user}/role-assignments/{assignment}", accessTenantAdmin, s.handleRevokeAssignment},
 	}
 }
 

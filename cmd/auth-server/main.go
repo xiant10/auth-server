@@ -20,6 +20,7 @@ import (
 	"t10-auth-server/internal/db"
 	"t10-auth-server/internal/directory"
 	"t10-auth-server/internal/identity"
+	"t10-auth-server/internal/roles"
 	"t10-auth-server/internal/server"
 )
 
@@ -107,11 +108,20 @@ func run() error {
 	}, runtimes)
 	agentService.AllowExchange(exchangers)
 	agentService.UseToolGateway(cfg.ToolGateway)
+	catalog, err := roles.LoadCatalog(cfg.PermissionsDir)
+	if err != nil {
+		return err
+	}
+	roleService := roles.NewService(pool, catalog)
+	if err := roleService.Sync(ctx); err != nil {
+		return err
+	}
 	srv := server.New(server.Deps{
 		Pool:         pool,
 		Identity:     ids,
 		Directory:    dir,
 		Agents:       agentService,
+		Roles:        roleService,
 		Issuer:       issuer,
 		DevMode:      cfg.DevMode,
 		PublicURL:    cfg.PublicURL,

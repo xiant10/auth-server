@@ -524,6 +524,14 @@ components:
         platform_verified:
           type: boolean
           description: A platform admin who may act now. It needs a second factor from the last 15 minutes, which dev mode waives.
+        modules:
+          type: array
+          items: {type: string}
+          description: Deployed modules with business roles in which the caller holds any permission, or all of them for a tenant admin. For navigation only; each module checks its own entitlements.
+        module_admin:
+          type: array
+          items: {type: string}
+          description: Modules whose settings the caller may administer, through <prefix>:admin or as a tenant admin.
     Device:
       type: object
       required: [name, platform, approval_public_key, session_public_key]

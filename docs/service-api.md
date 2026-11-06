@@ -148,3 +148,5 @@ One read returns account, membership and tenant status, so it replaces a separat
 A role reports `active` (enabled, with at least one permission that confers something here), `unavailable`, its `assignments` count, and `template` with `latest_version` when the module's catalog is newer than the role. A newer template never changes a role.
 
 **For clients**, `GET /v1/me/access` adds `modules` and `module_admin`, and `GET /v1/me/permissions?module=<id>` returns the caller's own grants in their active tenant. Both are for showing what someone can do, never for enforcing it.
+
+**Places and tenants.** `GET /v1/me/homes` lists where a signed-in person can go: their tenants with `workbench` addresses, the `console` for a platform admin, and their `account`. It's only for showing links. `GET /` sends a browser to the one place someone has, or shows a chooser. A client in `clients.yaml` may set `tenant: required`, so `/v1/authorize` asks someone with several tenants to pick, and honours a `tenant` parameter naming one of theirs, or `tenant: none`, so its sessions hold no tenant. See [`sign-in-and-landing.md`](sign-in-and-landing.md).

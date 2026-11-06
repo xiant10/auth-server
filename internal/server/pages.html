@@ -52,6 +52,14 @@ form.lang > button[aria-pressed=true] { background: var(--panel); color: var(--t
 <style>
 body { min-height: 100vh; }
 main.card { max-width: 25rem; margin: 3rem auto; padding: 2rem; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.choices { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.choices a { display: flex; flex-direction: column; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: 8px; color: var(--text); text-decoration: none; }
+.choices a:hover { background: var(--sunken); }
+.choices-head { margin: 1.25rem 0 0; color: var(--muted); font-size: .8rem; font-weight: 600; }
+.door-foot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; }
+.door-foot form { margin: 0; }
+.door-foot button { width: auto; min-height: 2.25rem; margin: 0; padding: .25rem .8rem; }
+.choices span { color: var(--muted); font-size: .85rem; }
 main.wide { max-width: 44rem; margin: 0 auto; padding: 1.75rem 1rem 3rem; }
 .brand { display: flex; align-items: center; justify-content: space-between; gap: .55rem; font-weight: 700; margin: 0 0 1.25rem; }
 main.card h1 { margin-bottom: 1rem; }
@@ -96,8 +104,8 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 <body>
 {{if .Wide}}<header class="bar">
 <a class="home" href="/v1/account"><img class="mark" src="{{logo}}" alt="t10"> {{t "Account"}}</a>
-{{if .ConsoleURL}}<a href="{{.ConsoleURL}}">{{t "Platform console"}}</a>{{end}}
-{{if .OrgURL}}<a href="{{.OrgURL}}">{{t "Organization settings"}}</a>{{end}}
+{{range .Choices}}<a href="{{.Href}}">{{.Name}}</a>
+{{end}}{{if .ConsoleURL}}<a href="{{.ConsoleURL}}">{{t "Platform console"}}</a>{{end}}
 {{if .Here}}{{template "lang_switch" .Here}}{{end}}
 <form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form>
 </header>
@@ -237,10 +245,35 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 
 {{define "problem"}}{{template "head" .}}{{template "foot"}}{{end}}
 
+{{define "tenant_picker"}}{{template "head" .}}
+<p>{{t "You belong to several tenants. Which one do you want to open?"}}</p>
+{{template "tenant_rows" .Choices}}
+{{template "foot"}}{{end}}
+
+{{define "tenant_rows"}}<ul class="choices">
+{{range .}}<li><a href="{{.Href}}"><strong>{{.Name}}</strong><span>{{if eq .Role "admin"}}{{t "Admin"}}{{else}}{{t "Member"}}{{end}}{{if .NeedsFactor}} · {{t "Needs a second factor"}}{{end}}</span></a></li>
+{{end}}</ul>{{end}}
+
+{{define "front_door"}}{{template "head" .}}
+{{if .Choices}}<h2 class="choices-head">{{t "Workbench"}}</h2>
+{{template "tenant_rows" .Choices}}{{end}}
+{{if .ConsoleURL}}<h2 class="choices-head">{{t "Platform"}}</h2>
+<ul class="choices"><li><a href="{{.ConsoleURL}}"><strong>{{t "Platform console"}}</strong><span>{{t "On the internal network"}}</span></a></li></ul>{{end}}
+{{template "account_links"}}
+{{template "foot"}}{{end}}
+
+{{define "no_places"}}{{template "head" .}}
+<p>{{t "Ask a tenant admin for an invitation link."}}</p>
+{{template "account_links"}}
+{{template "foot"}}{{end}}
+
+{{define "account_links"}}<div class="door-foot"><a href="/v1/account">{{t "Account"}}</a>
+<form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form></div>{{end}}
+
 {{define "admin_moved"}}{{template "head" .}}
 <p>{{t "You administer the platform and a tenant. Each has its own place."}}</p>
 <p><a href="{{.ConsoleURL}}">{{t "Platform console"}}</a></p>
-<p><a href="{{.OrgURL}}">{{t "Organization settings"}}</a></p>
+<p><a href="{{.OrgURL}}">{{t "Workbench"}}</a></p>
 {{template "foot"}}{{end}}
 
 {{define "totp"}}{{template "head" .}}

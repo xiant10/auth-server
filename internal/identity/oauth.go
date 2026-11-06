@@ -38,13 +38,14 @@ func (s *Service) Client(id string) (Client, bool) {
 	return c, ok
 }
 
-// IssueCode creates a 60-second, single-use code for a signed-in browser.
-func (s *Service) IssueCode(ctx context.Context, sessionID, clientID, redirectURI, challenge string) (string, error) {
+// IssueCode creates a 60-second, single-use code for a signed-in browser. tenant
+// is the one they picked, or empty.
+func (s *Service) IssueCode(ctx context.Context, sessionID, clientID, redirectURI, challenge, tenant string) (string, error) {
 	code := randomSecret()
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO auth.auth_codes (code_hash, session_id, client_id, code_challenge, redirect_uri, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		hashSecret(code), sessionID, clientID, challenge, redirectURI, time.Now().Add(authCodeTTL))
+		`INSERT INTO auth.auth_codes (code_hash, session_id, client_id, code_challenge, redirect_uri, expires_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		hashSecret(code), sessionID, clientID, challenge, redirectURI, time.Now().Add(authCodeTTL), nullable(tenant))
 	if err != nil {
 		return "", fmt.Errorf("store code: %w", err)
 	}
@@ -88,11 +89,11 @@ func (s *Service) RedeemCode(ctx context.Context, r Redemption) (Tokens, error) 
 		var browserSession, clientID, challenge, redirectURI string
 		var expires time.Time
 		var used *time.Time
-		var issued *string
+		var issued, picked *string
 		err := tx.QueryRow(ctx,
-			`SELECT session_id, client_id, code_challenge, redirect_uri, expires_at, used_at, issued_session_id
+			`SELECT session_id, client_id, code_challenge, redirect_uri, expires_at, used_at, issued_session_id, tenant_id
 			 FROM auth.auth_codes WHERE code_hash = $1 FOR UPDATE`, hashSecret(r.Code)).
-			Scan(&browserSession, &clientID, &challenge, &redirectURI, &expires, &used, &issued)
+			Scan(&browserSession, &clientID, &challenge, &redirectURI, &expires, &used, &issued, &picked)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrInvalidGrant
 		}
@@ -125,7 +126,11 @@ func (s *Service) RedeemCode(ctx context.Context, r Redemption) (Tokens, error) 
 			return fmt.Errorf("load browser session: %w", err)
 		}
 
-		tenantID, err := s.tenantFor(ctx, tx, userID, r.Tenant, mfaAt != nil)
+		requested := r.Tenant
+		if picked != nil {
+			requested = *picked
+		}
+		tenantID, err := s.clientTenant(ctx, tx, client, userID, requested, mfaAt != nil)
 		if err != nil {
 			return err
 		}
@@ -152,6 +157,15 @@ func (s *Service) RedeemCode(ctx context.Context, r Redemption) (Tokens, error) 
 		return Tokens{}, ErrInvalidGrant
 	}
 	return tokens, nil
+}
+
+// clientTenant is the tenant a session of this client holds. A client with no use
+// for one gets none, so no tenant's policy can stop it signing in or refreshing.
+func (s *Service) clientTenant(ctx context.Context, q db.Querier, client Client, userID, requested string, mfa bool) (string, error) {
+	if client.Tenant == TenantNone {
+		return "", nil
+	}
+	return s.tenantFor(ctx, q, userID, requested, mfa)
 }
 
 func (s *Service) tenantFor(ctx context.Context, q db.Querier, userID, requested string, mfa bool) (string, error) {
@@ -293,7 +307,7 @@ func (s *Service) Refresh(ctx context.Context, r Refreshing) (Tokens, error) {
 		if requested == "" && row.tenantID != nil {
 			requested = *row.tenantID
 		}
-		tenantID, err := s.tenantFor(ctx, tx, row.userID, requested, row.mfaAt != nil)
+		tenantID, err := s.clientTenant(ctx, tx, client, row.userID, requested, row.mfaAt != nil)
 		if err != nil {
 			return err
 		}

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -37,7 +38,11 @@ var pages = template.Must(template.New("pages").Funcs(template.FuncMap{
 
 var pagesZH = template.Must(pages.Clone()).Funcs(translator(langZH))
 
-const defaultNext = "/v1/account"
+// defaultNext is the front door, which sends each person where they belong.
+const (
+	defaultNext = "/"
+	accountPath = "/v1/account"
+)
 
 type pageData struct {
 	Title, Error, Notice string
@@ -59,6 +64,14 @@ type pageData struct {
 	// their tenants, empty if they don't. Wide gives the account page room.
 	ConsoleURL, OrgURL string
 	Wide               bool
+	// Choices are the tenant picker's rows.
+	Choices []tenantChoice
+}
+
+// tenantChoice is one tenant on the picker. Href is this same sign-in, naming it.
+type tenantChoice struct {
+	Name, Role, Href string
+	NeedsFactor      bool
 }
 
 func setPageHeaders(w http.ResponseWriter) {
@@ -144,7 +157,7 @@ func safeNext(next string) string {
 		return defaultNext
 	}
 	switch u.Path {
-	case "/v1/authorize", "/v1/join", "/v1/account", "/admin":
+	case "/", "/v1/authorize", "/v1/join", accountPath, "/admin":
 		return next
 	}
 	return defaultNext
@@ -171,6 +184,15 @@ func (s *Server) handleLanguage(w http.ResponseWriter, r *http.Request, _ identi
 		})
 	}
 	http.Redirect(w, r, languageNext(r.PostFormValue("next")), http.StatusSeeOther)
+}
+
+func tenantChoices(q url.Values, tenants []directory.UserTenant, mfa bool) []tenantChoice {
+	choices := make([]tenantChoice, 0, len(tenants))
+	for _, t := range tenants {
+		q.Set("tenant", t.ID)
+		choices = append(choices, tenantChoice{Name: t.Name, Role: t.Role, Href: "/v1/authorize?" + q.Encode(), NeedsFactor: t.RequireMFA && !mfa})
+	}
+	return choices
 }
 
 // handleAuthorize starts the code flow. A bad client or redirect URI gets an
@@ -206,7 +228,24 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 		http.Redirect(w, r, "/v1/signin?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusFound)
 		return
 	}
-	code, err := s.Identity.IssueCode(r.Context(), p.SessionID, clientID, redirectURI, challenge)
+	tenant := ""
+	if client.Tenant == identity.TenantRequired {
+		tenants, err := s.Directory.ListUserTenants(r.Context(), p.UserID)
+		if err != nil {
+			writeInternal(w, r, err)
+			return
+		}
+		named := q.Get("tenant")
+		// Someone with one tenant or none has nothing to pick, and redeeming the code
+		// settles it. A tenant they don't belong to reads the same as naming none.
+		if slices.ContainsFunc(tenants, func(t directory.UserTenant) bool { return t.ID == named }) {
+			tenant = named
+		} else if len(tenants) > 1 {
+			render(w, r, http.StatusOK, "tenant_picker", pageData{Title: "Choose a tenant", Choices: tenantChoices(q, tenants, p.MFA)})
+			return
+		}
+	}
+	code, err := s.Identity.IssueCode(r.Context(), p.SessionID, clientID, redirectURI, challenge, tenant)
 	if err != nil {
 		writeInternal(w, r, err)
 		return
@@ -448,14 +487,20 @@ func (s *Server) handleJoinPage(w http.ResponseWriter, r *http.Request, _ identi
 func (s *Server) handleJoin(w http.ResponseWriter, r *http.Request, p identity.Principal) {
 	ctx := r.Context()
 	invite := r.PostFormValue("invite")
+	var joined directory.Member
 	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		_, err := s.Directory.AcceptInvitation(ctx, tx, audit.ActorUser(p.UserID), invite, p.UserID)
+		var err error
+		joined, err = s.Directory.AcceptInvitation(ctx, tx, audit.ActorUser(p.UserID), invite, p.UserID)
 		return err
 	})
 	data := pageData{Title: "Join tenant", Invite: invite}
 	switch {
 	case err == nil:
-		http.Redirect(w, r, defaultNext, http.StatusSeeOther)
+		next := defaultNext
+		if s.WorkbenchURL != "" {
+			next = s.tenantURL(joined.TenantID)
+		}
+		http.Redirect(w, r, next, http.StatusSeeOther)
 	case errors.Is(err, directory.ErrExists):
 		data.Error = "You are already a member of this tenant."
 		render(w, r, http.StatusConflict, "join", data)
@@ -473,12 +518,18 @@ func (s *Server) renderAccount(w http.ResponseWriter, r *http.Request, p identit
 		writeInternal(w, r, err)
 		return
 	}
-	console, org, err := s.adminHomes(r, p)
+	found, err := s.homesOf(r, p)
 	if err != nil {
 		writeInternal(w, r, err)
 		return
 	}
-	data.Title, data.Account, data.ConsoleURL, data.OrgURL, data.Wide, data.Here = "Your account", account, console, org, true, defaultNext
+	if found.Console != nil {
+		data.ConsoleURL = found.Console.URL
+	}
+	if found.Workbench != nil {
+		data.Choices = choicesFrom(found.Workbench.Tenants)
+	}
+	data.Title, data.Account, data.Wide, data.Here = "Your account", account, true, accountPath
 	render(w, r, status, "account", data)
 }
 
@@ -543,7 +594,7 @@ func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request, p identit
 	case "codes":
 		var codes []string
 		if codes, err = s.Identity.RegenerateRecoveryCodes(ctx, p.UserID, reauth); err == nil {
-			render(w, r, http.StatusOK, "codes", pageData{Title: "Recovery codes", Codes: codes, Next: defaultNext})
+			render(w, r, http.StatusOK, "codes", pageData{Title: "Recovery codes", Codes: codes, Next: accountPath})
 			return
 		}
 	case "device_revoke":

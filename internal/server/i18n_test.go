@@ -47,7 +47,7 @@ func TestChineseCatalogIsComplete(t *testing.T) {
 	for _, m := range regexp.MustCompile(`\bt "((?:[^"\\]|\\.)*)"`).FindAllStringSubmatch(pagesHTML, -1) {
 		used[m[1]] = true
 	}
-	for _, text := range handlerText(t, "admin.go", "handleAdmin") {
+	for _, text := range handlerText(t, "admin.go", "handleAdmin", "handleFrontDoor") {
 		used[text] = true
 	}
 	for _, text := range handlerText(t, "pages.go") {
@@ -193,15 +193,16 @@ func TestAccountFollowsTheBrowserLanguage(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("boss")
 	status, body := b.getIn(t, "/v1/account", "zh-CN,zh;q=0.9")
-	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "组织设置", "修改密码")
-	if strings.Contains(body, "Organization settings") {
+	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "修改密码")
+	if strings.Contains(body, "Your account") {
 		t.Error("English left on the Chinese page")
 	}
 	status, body = b.getIn(t, "/v1/account", "en-US")
-	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Organization settings")
+	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Your account")
 
-	status, body = h.signedIn("grace").getIn(t, "/admin", "zh")
-	wantPage(t, status, body, http.StatusForbidden, "无权访问", "你在这里没有可管理的内容")
+	h.user("alone", nil)
+	status, body = h.signedIn("alone").getIn(t, "/", "zh")
+	wantPage(t, status, body, http.StatusOK, "你还没有加入任何租户")
 }
 
 // choose presses the language switch and returns where it was sent.

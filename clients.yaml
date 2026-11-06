@@ -17,6 +17,7 @@ clients:
   - id: t10-workbench
     name: t10 workbench
     type: confidential
+    tenant: required
     # Confidential clients match exactly, so each deployment lists its own.
     redirect_uris:
       - http://127.0.0.1:8083/auth/callback
@@ -30,6 +31,8 @@ clients:
   - id: t10-console
     name: t10 platform console
     type: confidential
+    # Its routes check the platform role, and no tenant's policy should stop it.
+    tenant: none
     redirect_uris:
       - http://127.0.0.1:8086/auth/callback
       - http://127.0.0.1:18020/auth/callback

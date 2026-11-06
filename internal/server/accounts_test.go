@@ -22,16 +22,22 @@ import (
 )
 
 const (
-	testClientID     = "t10-mac-client"
-	testMobileClient = "t10-mobile"
-	testRedirect     = "http://127.0.0.1:53124/callback"
-	testVerifier     = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	testClientID       = "t10-mac-client"
+	testMobileClient   = "t10-mobile"
+	testPickerClient   = "test-picker"
+	testNoTenantClient = "test-no-tenant"
+	testRedirect       = "http://127.0.0.1:53124/callback"
+	testVerifier       = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 )
 
 func testClients() []identity.Client {
 	return []identity.Client{{
 		ID: testClientID, Type: identity.ClientPublic, RedirectURIs: []string{"http://127.0.0.1/callback"},
 		IdleTTL: 720 * time.Hour, AbsoluteTTL: 2160 * time.Hour,
+	}, {
+		ID: testPickerClient, Type: identity.ClientPublic, RedirectURIs: []string{"http://127.0.0.1/callback"}, IdleTTL: time.Hour, Tenant: identity.TenantRequired,
+	}, {
+		ID: testNoTenantClient, Type: identity.ClientPublic, RedirectURIs: []string{"http://127.0.0.1/callback"}, IdleTTL: time.Hour, Tenant: identity.TenantNone,
 	}, {
 		ID: testMobileClient, Name: "t10 mobile app", Type: identity.ClientPublic, DirectLogin: true, IdleTTL: 2160 * time.Hour,
 	}}

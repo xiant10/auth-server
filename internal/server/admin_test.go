@@ -77,8 +77,9 @@ func TestAdminPointsEachRoleToItsHome(t *testing.T) {
 			t.Errorf("tenant admin %s: %d %s", path, status, location)
 		}
 	}
-	status, _, body := h.signedIn("grace").get("/admin")
-	wantPage(t, status, body, http.StatusForbidden, "You don&#39;t administer anything here")
+	if status, location, _ := h.signedIn("grace").get("/admin"); status != http.StatusSeeOther || location != "/" {
+		t.Errorf("member: %d %s", status, location)
+	}
 
 	// The platform role is enough to be pointed at the console, which asks for
 	// a factor itself.
@@ -90,17 +91,87 @@ func TestAdminPointsEachRoleToItsHome(t *testing.T) {
 	if _, err := h.dir.Add(context.Background(), "test", "ten_acme", root, directory.RoleAdmin); err != nil {
 		t.Fatal(err)
 	}
-	status, _, body = h.signedIn("root").get("/admin")
+	status, _, body := h.signedIn("root").get("/admin")
 	wantPage(t, status, body, http.StatusOK, `href="`+testConsoleURL+`"`, `href="`+testWorkbenchURL+`/admin"`)
 }
 
-func TestAccountPageLinksAdminsOnly(t *testing.T) {
+func TestAccountPageHasAWayBack(t *testing.T) {
 	h, _ := adminFixture(t, false)
-	if _, _, body := h.signedIn("boss").get("/v1/account"); !strings.Contains(body, `href="`+testWorkbenchURL+`/admin"`) || strings.Contains(body, testConsoleURL) {
-		t.Error("tenant admin's links are wrong")
+	for _, name := range []string{"boss", "grace"} {
+		if _, _, body := h.signedIn(name).get("/v1/account"); !strings.Contains(body, `href="`+testWorkbenchURL+`/t/ten_acme/"`) || strings.Contains(body, testConsoleURL) {
+			t.Errorf("%s's links are wrong: %s", name, body)
+		}
 	}
-	if _, _, body := h.signedIn("grace").get("/v1/account"); strings.Contains(body, testWorkbenchURL) || strings.Contains(body, testConsoleURL) {
-		t.Error("member has a link")
+}
+
+func TestFrontDoorSendsEachPersonWhereTheyBelong(t *testing.T) {
+	h, _ := adminFixture(t, false)
+	if status, location, _ := h.browser().get("/"); status != http.StatusSeeOther || !strings.Contains(location, "/v1/signin?next=%2F") {
+		t.Errorf("anonymous: %d %s", status, location)
+	}
+	if status, location, _ := h.signedIn("grace").get("/"); status != http.StatusSeeOther || location != testWorkbenchURL+"/t/ten_acme/" {
+		t.Errorf("one tenant: %d %s", status, location)
+	}
+	root := h.user("root", nil)
+	h.platformAdmin(root)
+	if status, location, _ := h.signedIn("root").get("/"); status != http.StatusSeeOther || location != testConsoleURL {
+		t.Errorf("platform only: %d %s", status, location)
+	}
+	h.user("alone", nil)
+	status, location, body := h.signedIn("alone").get("/")
+	wantPage(t, status, body, http.StatusOK, "not in a tenant yet", "invitation link", `href="/v1/account"`, `action="/v1/signout"`)
+	if location != "" {
+		t.Errorf("no places: %s", location)
+	}
+	h.user("several", map[string]string{"ten_acme": directory.RoleMember, "ten_other": directory.RoleAdmin})
+	status, _, body = h.signedIn("several").get("/")
+	wantPage(t, status, body, http.StatusOK, "Where to?", testWorkbenchURL+"/t/ten_acme/", testWorkbenchURL+"/t/ten_other/")
+	if strings.Contains(body, testConsoleURL) {
+		t.Errorf("console offered to a non-admin: %s", body)
+	}
+	if _, err := h.dir.Add(context.Background(), "test", "ten_acme", root, directory.RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	status, _, body = h.signedIn("root").get("/")
+	wantPage(t, status, body, http.StatusOK, "Where to?", testWorkbenchURL+"/t/ten_acme/", `href="`+testConsoleURL+`"`, "internal network")
+}
+
+func TestHomesListOnlyThePersonsOwnPlaces(t *testing.T) {
+	h, _ := adminFixture(t, false)
+	grace, _ := h.redeem(h.signedIn("grace"))
+	status, body := h.do("GET", "/v1/me/homes", grace, nil)
+	h.wantStatus(status, body, http.StatusOK)
+	tenants := body["workbench"].(map[string]any)["tenants"].([]any)
+	row := tenants[0].(map[string]any)
+	if len(tenants) != 1 || row["id"] != "ten_acme" || row["url"] != testWorkbenchURL+"/t/ten_acme/" || body["console"] != nil {
+		t.Errorf("member: %v", body)
+	}
+	if !strings.HasSuffix(body["account"].(map[string]any)["url"].(string), "/v1/account") {
+		t.Errorf("account: %v", body)
+	}
+	root := h.user("root", nil)
+	h.platformAdmin(root)
+	token, _ := h.redeem(h.signedIn("root"))
+	status, body = h.do("GET", "/v1/me/homes", token, nil)
+	h.wantStatus(status, body, http.StatusOK)
+	if body["workbench"] != nil || body["console"].(map[string]any)["url"] != testConsoleURL {
+		t.Errorf("platform admin: %v", body)
+	}
+	if status, _ := h.do("GET", "/v1/me/homes", "", nil); status != http.StatusUnauthorized {
+		t.Errorf("no token: %d", status)
+	}
+}
+
+func TestAnInvitationLandsInItsTenant(t *testing.T) {
+	h, _ := adminFixture(t, false)
+	boss, _ := h.redeem(h.signedIn("boss"))
+	status, invited := h.do("POST", "/v1/tenants/ten_acme/invitations", boss, map[string]string{"role": "member"})
+	h.wantStatus(status, invited, http.StatusCreated)
+	joinURL, _ := url.Parse(invited["join_url"].(string))
+	h.user("newcomer", nil)
+	status, location, body := h.signedIn("newcomer").post("/v1/join", url.Values{"invite": {joinURL.Query().Get("invite")}})
+	if status != http.StatusSeeOther || location != testWorkbenchURL+"/t/ten_acme/" {
+		t.Errorf("join: %d %s %s", status, location, body)
 	}
 }
 

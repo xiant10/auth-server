@@ -19,6 +19,16 @@ const (
 	ClientConfidential = "confidential"
 )
 
+// What a client's sessions do about tenants.
+const (
+	// TenantRequired has a person with several tenants pick one on the hosted
+	// page, before the client gets a code.
+	TenantRequired = "required"
+	// TenantNone gives a session no tenant at all, for an operator tool whose
+	// routes check the platform role.
+	TenantNone = "none"
+)
+
 // Client is one entry of the reviewed client list.
 type Client struct {
 	ID string `yaml:"id"`
@@ -34,6 +44,9 @@ type Client struct {
 	// DirectLogin allows the password API. Only the mobile app may have it,
 	// because it is the one client t10 builds with its own login screen.
 	DirectLogin bool `yaml:"direct_login"`
+	// Tenant is TenantRequired, TenantNone, or empty for a client that names a
+	// tenant itself when it redeems or refreshes.
+	Tenant string `yaml:"tenant"`
 }
 
 // LoadClients reads and validates the client list.
@@ -59,6 +72,9 @@ func LoadClients(path string) ([]Client, error) {
 		}
 		if c.Type == ClientConfidential && c.SecretSHA256 == "" {
 			return nil, fmt.Errorf("client %s: confidential clients need secret_sha256", c.ID)
+		}
+		if c.Tenant != "" && c.Tenant != TenantRequired && c.Tenant != TenantNone {
+			return nil, fmt.Errorf("client %s: tenant must be required or none", c.ID)
 		}
 		if c.IdleTTL <= 0 {
 			return nil, fmt.Errorf("client %s: idle_ttl is required", c.ID)

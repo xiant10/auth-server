@@ -92,20 +92,29 @@ func pagesFor(lang string) *template.Template {
 // must be here: TestChineseCatalogIsComplete fails on a string that isn't.
 var zhText = map[string]string{
 	// Frame and navigation.
-	"Platform console":      "平台控制台",
-	"Organization settings": "组织设置",
+	"Platform console":           "平台控制台",
+	"Workbench":                  "工作台",
+	"Platform":                   "平台",
+	"Where to?":                  "去哪里？",
+	"On the internal network":    "仅限内部网络",
+	"You're not in a tenant yet": "你还没有加入任何租户",
+	"Ask a tenant admin for an invitation link.": "请联系租户管理员获取邀请链接。",
+	"Choose a tenant": "选择租户",
+	"Admin":           "管理员",
+	"Member":          "成员",
+	"You belong to several tenants. Which one do you want to open?": "你属于多个租户。要打开哪一个？",
+	"Needs a second factor": "需要第二验证因素",
 	"You administer the platform and a tenant. Each has its own place.": "你同时管理平台和租户，两者各有入口。",
-	"You don't administer anything here.":                               "你在这里没有可管理的内容。",
-	"Administration":                                                    "管理入口",
-	"Language":                                                          "语言",
-	"Sign-in names":                                                     "登录名",
-	"Your account":                                                      "我的账户",
-	"Sign out":                                                          "退出登录",
-	"Your name":                                                         "您的姓名",
-	"Name teammates see":                                                "同事看到的姓名",
-	"Name saved.":                                                       "姓名已保存。",
-	"Use a name of 100 characters or fewer.":                            "姓名不能超过 100 个字符。",
-	"Save":                                                              "保存",
+	"Administration":                         "管理入口",
+	"Language":                               "语言",
+	"Sign-in names":                          "登录名",
+	"Your account":                           "我的账户",
+	"Sign out":                               "退出登录",
+	"Your name":                              "您的姓名",
+	"Name teammates see":                     "同事看到的姓名",
+	"Name saved.":                            "姓名已保存。",
+	"Use a name of 100 characters or fewer.": "姓名不能超过 100 个字符。",
+	"Save":                                   "保存",
 
 	// Values stored in English.
 	"active":     "已启用",
@@ -180,7 +189,6 @@ var zhText = map[string]string{
 	"Your role or tenant requires an authenticator.":                "您的角色或租户要求使用身份验证器。",
 
 	// Refusals.
-	"No access": "无权访问",
 
 	// Results of actions.
 

@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"t10-auth-server/internal/agents"
 	"t10-auth-server/internal/audit"
@@ -46,6 +47,106 @@ func (s *Server) adminHomes(r *http.Request, p identity.Principal) (console, wor
 	return console, workbench, nil
 }
 
+// homes are the places a signed-in person can go, from what this deployment has
+// and what they belong to. Both apps' switchers and the front door show this one
+// list. It's only for showing links: each place checks every call itself.
+type homes struct {
+	Workbench *homeWorkbench `json:"workbench,omitempty"`
+	Console   *homeLink      `json:"console,omitempty"`
+	Account   homeLink       `json:"account"`
+}
+
+type homeWorkbench struct {
+	Tenants []homeTenant `json:"tenants"`
+}
+
+type homeTenant struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+	URL  string `json:"url"`
+}
+
+type homeLink struct {
+	URL string `json:"url"`
+}
+
+func (s *Server) homesOf(r *http.Request, p identity.Principal) (homes, error) {
+	found := homes{Account: homeLink{URL: s.PublicURL + accountPath}}
+	platform, err := s.Directory.IsPlatformAdmin(r.Context(), p.UserID)
+	if err != nil {
+		return homes{}, err
+	}
+	if platform && s.ConsoleURL != "" {
+		found.Console = &homeLink{URL: s.ConsoleURL}
+	}
+	tenants, err := s.Directory.ListUserTenants(r.Context(), p.UserID)
+	if err != nil {
+		return homes{}, err
+	}
+	if s.WorkbenchURL != "" && len(tenants) > 0 {
+		found.Workbench = &homeWorkbench{Tenants: make([]homeTenant, 0, len(tenants))}
+		for _, t := range tenants {
+			found.Workbench.Tenants = append(found.Workbench.Tenants, homeTenant{ID: t.ID, Name: t.Name, Role: t.Role, URL: s.tenantURL(t.ID)})
+		}
+	}
+	return found, nil
+}
+
+func (s *Server) tenantURL(tenant string) string {
+	return s.WorkbenchURL + "/t/" + url.PathEscape(tenant) + "/"
+}
+
+func (s *Server) handleMyHomes(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	found, err := s.homesOf(r, p)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, found)
+}
+
+// handleFrontDoor is where sign-in goes when nobody asked for anywhere else. One
+// place goes straight there. An app opened directly never comes through here.
+func (s *Server) handleFrontDoor(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	// A deployment with no apps to send anyone to, such as a harness tested alone.
+	if s.WorkbenchURL == "" && s.ConsoleURL == "" {
+		http.Redirect(w, r, accountPath, http.StatusSeeOther)
+		return
+	}
+	found, err := s.homesOf(r, p)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	var tenants []homeTenant
+	if found.Workbench != nil {
+		tenants = found.Workbench.Tenants
+	}
+	switch {
+	case len(tenants) == 1 && found.Console == nil:
+		http.Redirect(w, r, tenants[0].URL, http.StatusSeeOther)
+	case len(tenants) == 0 && found.Console != nil:
+		http.Redirect(w, r, found.Console.URL, http.StatusSeeOther)
+	case len(tenants) == 0:
+		render(w, r, http.StatusOK, "no_places", pageData{Title: "You're not in a tenant yet", Here: "/"})
+	default:
+		data := pageData{Title: "Where to?", Here: "/", Choices: choicesFrom(tenants)}
+		if found.Console != nil {
+			data.ConsoleURL = found.Console.URL
+		}
+		render(w, r, http.StatusOK, "front_door", data)
+	}
+}
+
+func choicesFrom(tenants []homeTenant) []tenantChoice {
+	choices := make([]tenantChoice, 0, len(tenants))
+	for _, t := range tenants {
+		choices = append(choices, tenantChoice{Name: t.Name, Role: t.Role, Href: t.URL})
+	}
+	return choices
+}
+
 // handleAdmin sends someone with one place to go straight there, and shows
 // both when they hold both roles.
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request, p identity.Principal) {
@@ -62,7 +163,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request, p identity.
 	case workbench != "":
 		http.Redirect(w, r, workbench, http.StatusSeeOther)
 	default:
-		render(w, r, http.StatusForbidden, "problem", pageData{Title: "No access", Error: "You don't administer anything here."})
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
 

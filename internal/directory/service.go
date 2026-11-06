@@ -455,12 +455,14 @@ type UserTenant struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Role string `json:"role"`
+	// RequireMFA is for the tenant picker, which says so before someone picks it.
+	RequireMFA bool `json:"-"`
 }
 
 // ListUserTenants returns the tenants a user can select.
 func (s *Service) ListUserTenants(ctx context.Context, userID string) ([]UserTenant, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT t.id, t.name, m.role FROM auth.memberships m
+		`SELECT t.id, t.name, m.role, t.require_mfa FROM auth.memberships m
 		 JOIN auth.tenants t ON t.id = m.tenant_id
 		 WHERE m.user_id = $1 AND m.status = 'active' AND t.status = 'active'
 		 ORDER BY t.name, t.id`, userID)

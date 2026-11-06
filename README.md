@@ -1,6 +1,6 @@
 # t10 auth server
 
-The only JWT issuer for t10: accounts, tenants, memberships and room admission. See [docs/design.md](docs/design.md).
+The only JWT issuer for t10: accounts, tenants, memberships and room admission. See [docs/developer-reference.md](docs/developer-reference.md) for the developer reference and [docs/design.md](docs/design.md) for system design.
 
 **Status:** rollout steps 1 to 3 and 5 to 8 are built, with these still to do: step 4's external review, and in step 6 the services that don't exist yet and closing public access at an ingress. [docs/security-review.md](docs/security-review.md) is the reviewers' brief. See [docs/mobile-api.md](docs/mobile-api.md) and [docs/openapi.yaml](docs/openapi.yaml) to integrate an app, and [docs/service-api.md](docs/service-api.md) for a runtime or microservice. Outside dev mode, registration needs an invitation, because public registration waits on the security review and a CAPTCHA.
 

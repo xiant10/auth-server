@@ -52,16 +52,23 @@ runtimes:
     voice: true
     # A call's grant is the parent of agent-pi's, so it has to hold whatever a
     # tool needs, or the tool disappears on calls.
-    actions: [agent:use, work:read, work:write]
-    audiences: [agent-pi, agent-sales, t10-collab, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read]
+    audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
   - name: agent-pi
-    actions: [agent:use, work:read, work:write]
-    audiences: [agent-pi, t10-collab, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read]
+    audiences: [agent-pi, t10-collab, t10-knowledge, ai-gateway-tools]
     # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateway.
     tool_audience: ai-gateway-tools
   - name: agent-sales
-    actions: [agent:use, work:read, work:write]
-    audiences: [agent-sales, t10-collab, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read]
+    audiences: [agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
+    tool_audience: ai-gateway-tools
+  # The Rust harness, serving the `ti` pool. Optional, as agent-ti is an
+  # optional component: a deployment without it needs no account.
+  - name: agent-ti
+    optional: true
+    actions: [agent:use, work:read, work:write, knowledge:read]
+    audiences: [agent-ti, t10-collab, t10-knowledge, ai-gateway-tools]
     tool_audience: ai-gateway-tools
   # Fires automations: it holds a person's standing grant, and makes one child
   # per firing for the harness it calls, through ai-gateway-agent, which has to
@@ -69,8 +76,8 @@ runtimes:
   # T10_AUTOMATIONS_SECRET.
   - name: t10-automations
     optional: true
-    actions: [agent:use, work:read, work:write]
-    audiences: [ai-gateway, agent-pi, agent-sales, t10-collab, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read]
+    audiences: [ai-gateway, agent-pi, agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
 
 # Services that may exchange a run's token for one with another audience on
 # its grant: the tool gateway, which forwards each tool call to its module with

@@ -41,7 +41,7 @@ Most of the init requirements stand; the cuts come from dropping general-platfor
 | Manager relationships | Keep | One manager per membership. Matrix reporting is out of v1 |
 | Platform Administration module | Merge | Becomes a role table plus tenant lifecycle endpoints |
 | Business-module administrators | Move | Owned by each business module, alongside its policies |
-| Support access | Defer | V1 has none, so platform admins have no path into business records |
+| Support access | Defer | V1 has no support feature, but platform admins can step into a tenant to rescue it. See "Platform access to a tenant" under Security considerations |
 | Dynamic agent grants | Simplify | One `agent_grants` table. The grant ID is the execution ID |
 | Change events | Defer | Modules cache org reads for at most 60 seconds. Add an outbox when a module needs a local copy |
 | Admin UI | Moved out | This service serves the JSON routes, and checks every call. Tenant admins work in `workbench`, platform admins in `t10-console`, so each kind of admin has one place |
@@ -161,7 +161,7 @@ Because nothing is verified, a sign-in name proves nothing about who owns it. It
 
 With no verified contact, there is no "forgot password" link. A recovery code allows one password reset, and an account with MFA also needs its TOTP code or a second recovery code. Every reset revokes the user's sessions and agent grants.
 
-A user with no codes needs an admin. A tenant admin can issue a member a single-use reset link valid for 30 minutes, and a platform admin can do the same for a tenant admin. Both are audited. A sole user who loses their password and codes depends on a manual identity check, which may fail.
+A user with no codes needs an admin. A tenant admin can issue a member a single-use reset link valid for 30 minutes, and a platform admin can do the same for any member. Both are audited. A sole user who loses their password and codes depends on a manual identity check, which may fail.
 
 Tokens and module data key on the stable user ID, never on a sign-in name, so a user can add or change names freely. This keeps the intent of the requirement to identify users by issuer and subject.
 
@@ -436,7 +436,7 @@ Credential handling is now the largest risk in the service, so an external secur
 - **Browser requests:** auth pages and the admin UI use a `__Host-` cookie with `SameSite=Lax`, an Origin check on writes and a re-sign-in within 15 minutes for platform actions.
 - **Endpoint enforcement:** every handler declares its required role in the route table, and a test fails if a route has none.
 - **Audit:** changes write audit rows in the same transaction. Denied actions write separately, because their transaction rolled back. The app's database role has no `UPDATE` or `DELETE` on `audit_log`. Proposed: rows carry the platform's shared audit fields from [`contracts/audit/README.md`](../../contracts/audit/README.md), adding `act`, `grant`, `trigger`, `automation` and `turn_id` where a run or request supplies them, so the console and `workbench` can show these rows beside other services' records. These are audit records, not logs, and are never written by logging.
-- **Support access:** none exists in v1. Adding it needs its own design.
+- **Platform access to a tenant:** this is deliberate break-glass, for rescues such as a tenant whose only admin is suspended. A platform admin with a second factor from the last 15 minutes passes every tenant-admin route, whichever tenant their token names, can issue a reset link for any member, and can add any user to a tenant, themselves included, then reach its business records as a member. Nothing stops this, so the control is that the tenant can see it: each write adds a `platform_access.write` row to the tenant's own audit log, reads add at most one `platform_access.read` per admin an hour, and a failed write refuses the request. Someone with both roles working in their own tenant is an ordinary tenant admin and adds no row. A guided support feature, such as time-limited access a tenant approves, would need its own design.
 
 ## Alternatives, open questions and rollout
 

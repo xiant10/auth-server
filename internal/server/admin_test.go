@@ -268,6 +268,65 @@ func TestPlatformAuditIsForPlatformAdmins(t *testing.T) {
 	}
 }
 
+func TestTenantSeesPlatformAdminsStepIn(t *testing.T) {
+	h, _, root, rootToken := platformFixture(t)
+	boss := h.login("boss", "ten_acme")
+	const base = "/v1/tenants/ten_acme"
+	uses := func() (reads, writes int) {
+		t.Helper()
+		status, body := h.do("GET", base+"/audit", boss, nil)
+		h.wantStatus(status, body, http.StatusOK)
+		for _, record := range body["records"].([]any) {
+			row := record.(map[string]any)
+			switch row["action"] {
+			case "platform_access.read":
+				reads++
+			case "platform_access.write":
+				writes++
+			default:
+				continue
+			}
+			if row["actor"] != "user:"+root {
+				t.Errorf("actor: %v", row)
+			}
+		}
+		return reads, writes
+	}
+
+	// The tenant's own admin leaves no such row.
+	status, body := h.do("GET", base+"/members", boss, nil)
+	h.wantStatus(status, body, http.StatusOK)
+	if reads, writes := uses(); reads != 0 || writes != 0 {
+		t.Fatalf("own admin recorded: %d reads, %d writes", reads, writes)
+	}
+
+	// A token with no tenant still reaches the routes, and reads collapse to one row.
+	for _, path := range []string{base + "/members", base + "/units"} {
+		status, body = h.do("GET", path, rootToken, nil)
+		h.wantStatus(status, body, http.StatusOK)
+	}
+	if reads, writes := uses(); reads != 1 || writes != 0 {
+		t.Errorf("after reads: %d reads, %d writes", reads, writes)
+	}
+
+	// Every write has its own row.
+	for range 2 {
+		status, body = h.do("PATCH", base, rootToken, map[string]bool{"require_mfa": false})
+		h.wantStatus(status, body, http.StatusOK)
+	}
+	if reads, writes := uses(); reads != 1 || writes != 2 {
+		t.Errorf("after writes: %d reads, %d writes", reads, writes)
+	}
+
+	// Someone with both roles, working in their own tenant, isn't stepping in.
+	h.platformAdmin(h.userID("boss"))
+	status, body = h.do("GET", base+"/members", h.login("boss", "ten_acme"), nil)
+	h.wantStatus(status, body, http.StatusOK)
+	if reads, writes := uses(); reads != 1 || writes != 2 {
+		t.Errorf("both roles recorded: %d reads, %d writes", reads, writes)
+	}
+}
+
 func TestRuntimesAreForPlatformAdmins(t *testing.T) {
 	h, _, _, rootToken := platformFixture(t)
 	status, body := h.do("GET", "/v1/runtimes", rootToken, nil)

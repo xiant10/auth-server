@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -29,6 +30,9 @@ const (
 	// requestTimeout is shorter than the server's write timeout, so work queued
 	// behind a slow database or a busy hasher is dropped rather than piling up.
 	requestTimeout = 20 * time.Second
+	// platformReadWindow is how often a platform admin's reads in a tenant are
+	// recorded there.
+	platformReadWindow = time.Hour
 )
 
 // access is the permission a route requires.
@@ -48,7 +52,7 @@ const (
 	// accessDevice needs a user token from a mobile app's device session.
 	accessDevice
 	// accessTenantAdmin needs an admin of the {id} tenant whose token is
-	// active in it, or a platform admin.
+	// active in it, or a platform admin, which the tenant's audit log records.
 	accessTenantAdmin
 	// accessPlatformAdmin needs a platform admin whose session proved a second
 	// factor within identity.PlatformMFAWindow. Dev mode waives the factor,
@@ -316,15 +320,18 @@ func (s *Server) allowed(r *http.Request, a access, p identity.Principal) (bool,
 	case accessPlatformAdmin:
 		return s.isPlatformAdmin(r, p)
 	case accessTenantAdmin:
-		platform, err := s.isPlatformAdmin(r, p)
-		if err != nil || platform {
-			return platform, err
-		}
 		tenantID := r.PathValue("id")
-		if p.TenantID != tenantID {
-			return false, nil
+		if p.TenantID == tenantID {
+			admin, err := s.Directory.IsTenantAdmin(r.Context(), p.UserID, tenantID)
+			if err != nil || admin {
+				return admin, err
+			}
 		}
-		return s.Directory.IsTenantAdmin(r.Context(), p.UserID, tenantID)
+		platform, err := s.isPlatformAdmin(r, p)
+		if err != nil || !platform {
+			return false, err
+		}
+		return true, s.auditPlatformAccess(r, p, tenantID)
 	default:
 		return false, nil
 	}
@@ -335,6 +342,32 @@ func (s *Server) isPlatformAdmin(r *http.Request, p identity.Principal) (bool, e
 		return false, nil
 	}
 	return s.Directory.IsPlatformAdmin(r.Context(), p.UserID)
+}
+
+// auditPlatformAccess shows a tenant that a platform admin stepped into its
+// admin routes. Its error refuses the request, so no use goes unrecorded. Every
+// write gets a row, but reads get one per admin an hour, because a console page
+// makes several and a tenant's Activity shows only its newest rows.
+func (s *Server) auditPlatformAccess(r *http.Request, p identity.Principal, tenantID string) error {
+	entry := audit.Entry{
+		Actor: audit.ActorUser(p.UserID), Scope: audit.ScopeTenant(tenantID), Action: "platform_access.write",
+		Target: r.URL.Path, Outcome: audit.Success,
+	}
+	if r.Method == http.MethodGet {
+		entry.Action, entry.Target = "platform_access.read", tenantID
+		var recent bool
+		err := s.Pool.QueryRow(r.Context(),
+			`SELECT EXISTS (SELECT 1 FROM auth.audit_log
+			                WHERE scope = $1 AND actor = $2 AND action = $3 AND at > now() - make_interval(secs => $4))`,
+			entry.Scope, entry.Actor, entry.Action, platformReadWindow.Seconds()).Scan(&recent)
+		if err != nil {
+			return fmt.Errorf("check platform access: %w", err)
+		}
+		if recent {
+			return nil
+		}
+	}
+	return audit.Write(context.WithoutCancel(r.Context()), s.Pool, entry)
 }
 
 // auditDenied writes outside any transaction, so it uses a context that

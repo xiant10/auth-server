@@ -85,6 +85,8 @@ type Deps struct {
 	// ConsoleURL is the platform console, and WorkbenchURL the tenant admins'
 	// client. /admin sends people to them, and an empty one is left out.
 	ConsoleURL, WorkbenchURL string
+	// AppURLs are modules with their own web app, for the landing page.
+	AppURLs map[string]string
 	// TrustProxy reads the client IP from X-Forwarded-For.
 	TrustProxy bool
 }

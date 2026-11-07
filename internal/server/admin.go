@@ -122,7 +122,11 @@ func (s *Server) appsIn(r *http.Request, tenant, user string, tenantAdmin bool) 
 	}
 	for _, id := range modules {
 		if m, ok := s.Roles.Catalog().Module(id); ok && m.App != nil {
-			apps = append(apps, homeApp{ID: m.ID, Label: m.App.Label, LabelZH: m.App.LabelZH, Description: m.App.Description, DescriptionZH: m.App.DescriptionZH, URL: s.tenantURL(tenant) + m.App.Path})
+			address := s.tenantURL(tenant) + m.App.Path
+			if own, ok := s.AppURLs[m.ID]; ok {
+				address = own + "/t/" + url.PathEscape(tenant) + "/"
+			}
+			apps = append(apps, homeApp{ID: m.ID, Label: m.App.Label, LabelZH: m.App.LabelZH, Description: m.App.Description, DescriptionZH: m.App.DescriptionZH, URL: address})
 		}
 	}
 	return apps, nil

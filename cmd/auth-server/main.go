@@ -127,6 +127,7 @@ func run() error {
 		PublicURL:    cfg.PublicURL,
 		ConsoleURL:   cfg.ConsoleURL,
 		WorkbenchURL: cfg.WorkbenchURL,
+		AppURLs:      cfg.AppURLs,
 		TrustProxy:   cfg.TrustProxy,
 	})
 	go purgeLoop(ctx, ids)

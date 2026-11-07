@@ -44,6 +44,9 @@ type Config struct {
 	// WorkbenchURL the client where tenant admins work. /admin and the account
 	// page link to them.
 	ConsoleURL, WorkbenchURL string
+	// AppURLs is AUTH_APP_URLS, module=url comma separated: modules with their own
+	// web app, for the landing page. Any other app link goes through workbench.
+	AppURLs map[string]string
 
 	LiveKitURL       string
 	LiveKitAPIKey    string
@@ -66,6 +69,7 @@ func Load(getenv func(string) string) (Config, error) {
 		TrustProxy:        getenv("AUTH_TRUST_PROXY") == "true",
 		ConsoleURL:        strings.TrimRight(getenv("AUTH_CONSOLE_URL"), "/"),
 		WorkbenchURL:      strings.TrimRight(getenv("AUTH_WORKBENCH_URL"), "/"),
+		AppURLs:           appURLs(getenv("AUTH_APP_URLS")),
 		LiveKitURL:        getenv("LIVEKIT_URL"),
 		LiveKitAPIKey:     getenv("LIVEKIT_API_KEY"),
 		LiveKitAPISecret:  getenv("LIVEKIT_API_SECRET"),
@@ -137,4 +141,14 @@ func (c Config) validate() error {
 
 func isLocalhost(host string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
+func appURLs(raw string) map[string]string {
+	out := map[string]string{}
+	for _, entry := range strings.Split(raw, ",") {
+		if id, address, ok := strings.Cut(strings.TrimSpace(entry), "="); ok && id != "" && address != "" {
+			out[id] = strings.TrimRight(address, "/")
+		}
+	}
+	return out
 }

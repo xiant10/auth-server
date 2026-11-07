@@ -153,6 +153,12 @@ func TestFrontDoorOffersAnAppOnlyWhereSomeoneCanUseIt(t *testing.T) {
 	status, _, body := h.signedIn("boss").get("/")
 	wantPage(t, status, body, http.StatusOK, "Where to?", testWorkbenchURL+"/t/ten_acme/", appURL, "Sales work")
 
+	// A module with its own app links there, not through workbench.
+	h.srv.AppURLs = map[string]string{"deals": "http://deals.test"}
+	status, _, body = h.signedIn("boss").get("/")
+	wantPage(t, status, body, http.StatusOK, "http://deals.test/t/ten_acme/")
+	h.srv.AppURLs = nil
+
 	// A role makes it a choice.
 	role, err := h.srv.Roles.CreateRole(ctx, "test", "ten_acme", roles.NewRole{Name: "Rep", Permissions: []string{"deals:read"}})
 	if err != nil {

@@ -28,6 +28,16 @@ clients:
     secret_sha256: 3b2a1c8150447544142ed749be66a8a5cc8c4c25a0fb17e9b5e596313775cd11
     idle_ttl: 12h
     absolute_ttl: 168h
+  - id: t10-property-web
+    name: t10 property
+    type: confidential
+    tenant: required
+    redirect_uris:
+      - http://127.0.0.1:18075/auth/callback
+    # The hash of a dev secret, "t10-property-web-dev-secret". Replace it outside local development.
+    secret_sha256: 989c446dbbbd589c7365d8a21f8ba12bc20d4e76b42efe92eadfae4056755826
+    idle_ttl: 12h
+    absolute_ttl: 168h
   - id: t10-console
     name: t10 platform console
     type: confidential

@@ -55,7 +55,7 @@ The problems behind those results:
 
 | Destinations | Result |
 | --- | --- |
-| One: a member of one tenant, or a platform admin in no tenant | Redirect there |
+| One: a member of one tenant with no app, or a platform admin in no tenant | Redirect there |
 | Several | A chooser |
 | None | "You're not in a tenant yet. Ask a tenant admin for an invitation link", with Account and Sign out |
 

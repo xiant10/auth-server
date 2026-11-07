@@ -255,7 +255,10 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 {{end}}</ul>{{end}}
 
 {{define "front_door"}}{{template "head" .}}
-{{if .Choices}}<h2 class="choices-head">{{t "Workbench"}}</h2>
+{{if .HasApps}}{{range .Choices}}<h2 class="choices-head">{{.Name}} · {{if eq .Role "admin"}}{{t "Admin"}}{{else}}{{t "Member"}}{{end}}</h2>
+<ul class="choices"><li><a href="{{.Href}}"><strong>{{t "Workbench"}}</strong><span>{{t "Chat, tasks and documents"}}</span></a></li>
+{{range .Apps}}<li><a href="{{.Href}}"><strong>{{.Name}}</strong>{{if .Description}}<span>{{.Description}}</span>{{end}}</a></li>
+{{end}}</ul>{{end}}{{else if .Choices}}<h2 class="choices-head">{{t "Workbench"}}</h2>
 {{template "tenant_rows" .Choices}}{{end}}
 {{if .ConsoleURL}}<h2 class="choices-head">{{t "Platform"}}</h2>
 <ul class="choices"><li><a href="{{.ConsoleURL}}"><strong>{{t "Platform console"}}</strong><span>{{t "On the internal network"}}</span></a></li></ul>{{end}}

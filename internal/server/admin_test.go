@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"t10-auth-server/internal/directory"
+	"t10-auth-server/internal/roles"
 )
 
 // The harness's console and workbench, which /admin and the account page name.
@@ -134,6 +135,61 @@ func TestFrontDoorSendsEachPersonWhereTheyBelong(t *testing.T) {
 	}
 	status, _, body = h.signedIn("root").get("/")
 	wantPage(t, status, body, http.StatusOK, "Where to?", testWorkbenchURL+"/t/ten_acme/", `href="`+testConsoleURL+`"`, "internal network")
+}
+
+func TestFrontDoorOffersAnAppOnlyWhereSomeoneCanUseIt(t *testing.T) {
+	h, member := adminFixture(t, false)
+	deals := dealsModule(1, roles.LifecycleActive)
+	deals.App = &roles.App{Path: "deals", Label: "Deals", LabelZH: "交易", Description: "Sales work", DescriptionZH: "销售工作"}
+	h.deploy(catalogOf(t, deals, crmModule()))
+	ctx := context.Background()
+	appURL := testWorkbenchURL + "/t/ten_acme/deals"
+
+	// No role: one place, so straight there, with nothing to choose.
+	if status, location, _ := h.signedIn("grace").get("/"); status != http.StatusSeeOther || location != testWorkbenchURL+"/t/ten_acme/" {
+		t.Errorf("no role: %d %s", status, location)
+	}
+	// A tenant admin holds no role, and still sees it, in their own tenant only.
+	status, _, body := h.signedIn("boss").get("/")
+	wantPage(t, status, body, http.StatusOK, "Where to?", testWorkbenchURL+"/t/ten_acme/", appURL, "Sales work")
+
+	// A role makes it a choice.
+	role, err := h.srv.Roles.CreateRole(ctx, "test", "ten_acme", roles.NewRole{Name: "Rep", Permissions: []string{"deals:read"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignment, err := h.srv.Roles.Assign(ctx, "test", "ten_acme", member, role.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, _, body = h.signedIn("grace").get("/")
+	wantPage(t, status, body, http.StatusOK, "Where to?", testWorkbenchURL+"/t/ten_acme/", appURL)
+	grace, _ := h.redeem(h.signedIn("grace"))
+	status, homes := h.do("GET", "/v1/me/homes", grace, nil)
+	h.wantStatus(status, homes, http.StatusOK)
+	apps := homes["workbench"].(map[string]any)["tenants"].([]any)[0].(map[string]any)["apps"].([]any)
+	if len(apps) != 1 || apps[0].(map[string]any)["url"] != appURL || apps[0].(map[string]any)["label_zh"] != "交易" {
+		t.Errorf("homes: %v", apps)
+	}
+
+	// A role in one tenant shows nothing in another.
+	both := h.user("both", map[string]string{"ten_acme": directory.RoleMember, "ten_other": directory.RoleMember})
+	if _, err = h.srv.Roles.Assign(ctx, "test", "ten_acme", both, role.ID); err != nil {
+		t.Fatal(err)
+	}
+	status, _, body = h.signedIn("both").get("/")
+	wantPage(t, status, body, http.StatusOK, appURL, testWorkbenchURL+"/t/ten_other/")
+	if strings.Contains(body, testWorkbenchURL+"/t/ten_other/deals") {
+		t.Errorf("an app showed in a tenant with no role in it: %s", body)
+	}
+
+	// Losing the role takes it away on the next visit.
+	if err = h.srv.Roles.Revoke(ctx, "test", "ten_acme", member, assignment.ID, assignment.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if status, location, _ := h.signedIn("grace").get("/"); status != http.StatusSeeOther || location != testWorkbenchURL+"/t/ten_acme/" {
+		t.Errorf("role revoked: %d %s", status, location)
+	}
 }
 
 func TestHomesListOnlyThePersonsOwnPlaces(t *testing.T) {

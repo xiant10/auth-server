@@ -52,11 +52,9 @@ runtimes:
     voice: true
     # A call's grant is the parent of agent-pi's, so it has to hold whatever a
     # tool needs, or the tool disappears on calls.
-    actions: [agent:use, work:read, work:write, knowledge:read]
-    audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read, property:read]
+    audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
   - name: agent-pi
-    # property:read is chat only for now. Calls and automations, whose grants are
-    # parents of this one, don't hold it, so those runs never get property's tools.
     actions: [agent:use, work:read, work:write, knowledge:read, property:read]
     audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
     # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateway.
@@ -78,8 +76,8 @@ runtimes:
   # T10_AUTOMATIONS_SECRET.
   - name: t10-automations
     optional: true
-    actions: [agent:use, work:read, work:write, knowledge:read]
-    audiences: [ai-gateway, agent-pi, agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read, property:read]
+    audiences: [ai-gateway, agent-pi, agent-sales, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
 
 # Services that may exchange a run's token for one with another audience on
 # its grant: the tool gateway, which forwards each tool call to its module with

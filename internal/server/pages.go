@@ -66,12 +66,21 @@ type pageData struct {
 	Wide               bool
 	// Choices are the tenant picker's rows.
 	Choices []tenantChoice
+	// HasApps groups the front door by tenant, because someone has more than one
+	// place in a tenant.
+	HasApps bool
 }
 
 // tenantChoice is one tenant on the picker. Href is this same sign-in, naming it.
 type tenantChoice struct {
 	Name, Role, Href string
 	NeedsFactor      bool
+	Apps             []appChoice
+}
+
+// appChoice is a module on the front door, already in the viewer's language.
+type appChoice struct {
+	Name, Description, Href string
 }
 
 func setPageHeaders(w http.ResponseWriter) {
@@ -527,7 +536,7 @@ func (s *Server) renderAccount(w http.ResponseWriter, r *http.Request, p identit
 		data.ConsoleURL = found.Console.URL
 	}
 	if found.Workbench != nil {
-		data.Choices = choicesFrom(found.Workbench.Tenants)
+		data.Choices = choicesFrom(found.Workbench.Tenants, requestLang(r))
 	}
 	data.Title, data.Account, data.Wide, data.Here = "Your account", account, true, accountPath
 	render(w, r, status, "account", data)

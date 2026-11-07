@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"t10-auth-server/internal/agents"
 	"t10-auth-server/internal/audit"
@@ -65,6 +66,18 @@ type homeTenant struct {
 	Name string `json:"name"`
 	Role string `json:"role"`
 	URL  string `json:"url"`
+	// Apps are the modules this person can use in this tenant that offer themselves
+	// as a place. The labels come in both languages, because workbench keeps its own.
+	Apps []homeApp `json:"apps"`
+}
+
+type homeApp struct {
+	ID            string `json:"id"`
+	Label         string `json:"label"`
+	LabelZH       string `json:"label_zh"`
+	Description   string `json:"description"`
+	DescriptionZH string `json:"description_zh"`
+	URL           string `json:"url"`
 }
 
 type homeLink struct {
@@ -87,10 +100,32 @@ func (s *Server) homesOf(r *http.Request, p identity.Principal) (homes, error) {
 	if s.WorkbenchURL != "" && len(tenants) > 0 {
 		found.Workbench = &homeWorkbench{Tenants: make([]homeTenant, 0, len(tenants))}
 		for _, t := range tenants {
-			found.Workbench.Tenants = append(found.Workbench.Tenants, homeTenant{ID: t.ID, Name: t.Name, Role: t.Role, URL: s.tenantURL(t.ID)})
+			apps, err := s.appsIn(r, t.ID, p.UserID, t.Role == directory.RoleAdmin)
+			if err != nil {
+				return homes{}, err
+			}
+			found.Workbench.Tenants = append(found.Workbench.Tenants, homeTenant{ID: t.ID, Name: t.Name, Role: t.Role, URL: s.tenantURL(t.ID), Apps: apps})
 		}
 	}
 	return found, nil
+}
+
+// appsIn reads each tenant's own roles, so a role elsewhere never shows here.
+func (s *Server) appsIn(r *http.Request, tenant, user string, tenantAdmin bool) ([]homeApp, error) {
+	apps := []homeApp{}
+	if s.Roles == nil {
+		return apps, nil
+	}
+	modules, _, err := s.Roles.Access(r.Context(), tenant, user, tenantAdmin)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range modules {
+		if m, ok := s.Roles.Catalog().Module(id); ok && m.App != nil {
+			apps = append(apps, homeApp{ID: m.ID, Label: m.App.Label, LabelZH: m.App.LabelZH, Description: m.App.Description, DescriptionZH: m.App.DescriptionZH, URL: s.tenantURL(tenant) + m.App.Path})
+		}
+	}
+	return apps, nil
 }
 
 func (s *Server) tenantURL(tenant string) string {
@@ -124,14 +159,15 @@ func (s *Server) handleFrontDoor(w http.ResponseWriter, r *http.Request, p ident
 		tenants = found.Workbench.Tenants
 	}
 	switch {
-	case len(tenants) == 1 && found.Console == nil:
+	case len(tenants) == 1 && found.Console == nil && len(tenants[0].Apps) == 0:
 		http.Redirect(w, r, tenants[0].URL, http.StatusSeeOther)
 	case len(tenants) == 0 && found.Console != nil:
 		http.Redirect(w, r, found.Console.URL, http.StatusSeeOther)
 	case len(tenants) == 0:
 		render(w, r, http.StatusOK, "no_places", pageData{Title: "You're not in a tenant yet", Here: "/"})
 	default:
-		data := pageData{Title: "Where to?", Here: "/", Choices: choicesFrom(tenants)}
+		data := pageData{Title: "Where to?", Here: "/", Choices: choicesFrom(tenants, requestLang(r))}
+		data.HasApps = slices.ContainsFunc(tenants, func(t homeTenant) bool { return len(t.Apps) > 0 })
 		if found.Console != nil {
 			data.ConsoleURL = found.Console.URL
 		}
@@ -139,10 +175,18 @@ func (s *Server) handleFrontDoor(w http.ResponseWriter, r *http.Request, p ident
 	}
 }
 
-func choicesFrom(tenants []homeTenant) []tenantChoice {
+func choicesFrom(tenants []homeTenant, lang string) []tenantChoice {
 	choices := make([]tenantChoice, 0, len(tenants))
 	for _, t := range tenants {
-		choices = append(choices, tenantChoice{Name: t.Name, Role: t.Role, Href: t.URL})
+		choice := tenantChoice{Name: t.Name, Role: t.Role, Href: t.URL}
+		for _, a := range t.Apps {
+			app := appChoice{Name: a.Label, Description: a.Description, Href: a.URL}
+			if lang == langZH {
+				app.Name, app.Description = a.LabelZH, a.DescriptionZH
+			}
+			choice.Apps = append(choice.Apps, app)
+		}
+		choices = append(choices, choice)
 	}
 	return choices
 }

@@ -93,6 +93,7 @@ func pagesFor(lang string) *template.Template {
 var zhText = map[string]string{
 	// Frame and navigation.
 	"Platform console":           "平台控制台",
+	"Chat, tasks and documents":  "对话、任务和文档",
 	"Workbench":                  "工作台",
 	"Platform":                   "平台",
 	"Where to?":                  "去哪里？",

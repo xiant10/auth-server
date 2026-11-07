@@ -106,3 +106,24 @@ func TestEmptyDirMeansNoModules(t *testing.T) {
 		t.Errorf("modules %v, err %v", c.Modules(), err)
 	}
 }
+
+func TestCatalogAppNeedsARelativePathAndBothLabels(t *testing.T) {
+	base := Module{ID: "deals", Prefix: "deals", Version: 1, Permissions: []Permission{{Key: "deals:read", Description: "See", Lifecycle: LifecycleActive}}}
+	for name, app := range map[string]App{
+		"absolute URL": {Path: "https://evil.example", Label: "D", LabelZH: "交"},
+		"parent path":  {Path: "../admin", Label: "D", LabelZH: "交"},
+		"no label":     {Path: "deals", LabelZH: "交"},
+		"no Chinese":   {Path: "deals", Label: "D"},
+	} {
+		m := base
+		m.App = &app
+		if _, err := NewCatalog([]Module{m}); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	m := base
+	m.App = &App{Path: "deals/home", Label: "D", LabelZH: "交"}
+	if _, err := NewCatalog([]Module{m}); err != nil {
+		t.Error(err)
+	}
+}

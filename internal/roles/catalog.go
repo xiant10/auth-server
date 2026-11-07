@@ -32,6 +32,7 @@ var (
 	servicePattern  = regexp.MustCompile(`^[a-z][a-z0-9-]{1,62}$`)
 	keyPattern      = regexp.MustCompile(`^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`)
 	templatePattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,62}$`)
+	appPathPattern  = regexp.MustCompile(`^[a-z0-9-]+(/[a-z0-9-]+)*$`)
 )
 
 // Permission is one action a module lets a role grant.
@@ -61,6 +62,19 @@ type Module struct {
 	Version     int          `yaml:"version" json:"version"`
 	Permissions []Permission `yaml:"permissions" json:"permissions"`
 	Templates   []Template   `yaml:"templates" json:"templates"`
+	// App, when set, offers the module as a place on the landing page, to people
+	// holding a role in it and to tenant admins.
+	App *App `yaml:"app" json:"-"`
+}
+
+// App is how the landing page names a module and where it links. Path is under a
+// tenant in workbench, which is where a module's screens live today.
+type App struct {
+	Path          string `yaml:"path"`
+	Label         string `yaml:"label"`
+	LabelZH       string `yaml:"label_zh"`
+	Description   string `yaml:"description"`
+	DescriptionZH string `yaml:"description_zh"`
 }
 
 // Catalog is what this environment deploys. A module missing from it is
@@ -132,6 +146,8 @@ func validateModule(m Module) error {
 		return fmt.Errorf("module %s: invalid service %q", m.ID, m.Service)
 	case m.Version < 1:
 		return fmt.Errorf("module %s: version must be at least 1", m.ID)
+	case m.App != nil && (!appPathPattern.MatchString(m.App.Path) || m.App.Label == "" || m.App.LabelZH == ""):
+		return fmt.Errorf("module %s: an app needs a relative path and a label in each language", m.ID)
 	case len(m.Permissions) == 0:
 		return fmt.Errorf("module %s: no permissions", m.ID)
 	}

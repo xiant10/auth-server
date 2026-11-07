@@ -127,3 +127,17 @@ func TestCatalogAppNeedsARelativePathAndBothLabels(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestCatalogAgentToolsMustBeComplete(t *testing.T) {
+	base := Module{ID: "deals", Prefix: "deals", Version: 1, Permissions: []Permission{{Key: "deals:read", Description: "See", Lifecycle: LifecycleActive}}}
+	bad := base
+	bad.Agent = &AgentTools{Server: "deals", Audience: "t10-deals"}
+	if _, err := NewCatalog([]Module{bad}); err == nil {
+		t.Error("agent tools with no actions were accepted")
+	}
+	good := base
+	good.Agent = &AgentTools{Server: "deals", Audience: "t10-deals", Actions: []string{"deals:read"}}
+	if _, err := NewCatalog([]Module{good}); err != nil {
+		t.Error(err)
+	}
+}

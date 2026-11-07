@@ -65,6 +65,17 @@ type Module struct {
 	// App, when set, offers the module as a place on the landing page, to people
 	// holding a role in it and to tenant admins.
 	App *App `yaml:"app" json:"-"`
+	// Agent, when set, declares the module's agent tools. Auth grants nothing from it:
+	// clients.yaml decides. The workspace's make check holds the deployment to it.
+	Agent *AgentTools `yaml:"agent" json:"-"`
+}
+
+// AgentTools is what a harness's grant needs to reach a module's tools.
+type AgentTools struct {
+	// Server is the module's name in the tool gateway's TOOL_SERVERS.
+	Server   string   `yaml:"server"`
+	Audience string   `yaml:"audience"`
+	Actions  []string `yaml:"actions"`
 }
 
 // App is how the landing page names a module and where it links. Path is under a
@@ -148,6 +159,8 @@ func validateModule(m Module) error {
 		return fmt.Errorf("module %s: version must be at least 1", m.ID)
 	case m.App != nil && (!appPathPattern.MatchString(m.App.Path) || m.App.Label == "" || m.App.LabelZH == ""):
 		return fmt.Errorf("module %s: an app needs a relative path and a label in each language", m.ID)
+	case m.Agent != nil && (m.Agent.Server == "" || !servicePattern.MatchString(m.Agent.Audience) || len(m.Agent.Actions) == 0):
+		return fmt.Errorf("module %s: agent tools need a server, an audience and actions", m.ID)
 	case len(m.Permissions) == 0:
 		return fmt.Errorf("module %s: no permissions", m.ID)
 	}

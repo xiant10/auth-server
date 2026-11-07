@@ -80,6 +80,13 @@ runtimes:
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
     audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
     tool_audience: ai-gateway-tools
+  # Property's assistant: it turns a person's live token into a grant for their
+  # conversation, after checking and cleaning what they typed. Its account is the
+  # service account it already has.
+  - name: t10-property
+    optional: true
+    actions: [agent:use, knowledge:read, property:read, property:propose]
+    audiences: [ai-gateway, agent-ti, t10-knowledge, t10-property, ai-gateway-tools]
   # Fires automations: it holds a person's standing grant, and makes one child
   # per firing for the harness it calls, through ai-gateway-agent, which has to
   # accept the firing's token. Its account exists only where setup has

@@ -598,6 +598,78 @@ func (s *Service) EntitlementsFor(ctx context.Context, service, tenantID, module
 	return s.entitlements(ctx, tenantID, m, userIDs)
 }
 
+// ModuleRole is a role as its module sees it: only that module's permissions.
+type ModuleRole struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Permissions []string `json:"permissions"`
+}
+
+// ModuleAssignment is an active assignment of one of a module's roles.
+type ModuleAssignment struct {
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
+	RoleID string `json:"role_id"`
+}
+
+// ModuleRoles is what a module may read about its own roles in a tenant.
+type ModuleRoles struct {
+	TenantID    string             `json:"tenant_id"`
+	Module      string             `json:"module"`
+	Roles       []ModuleRole       `json:"roles"`
+	Assignments []ModuleAssignment `json:"assignments"`
+}
+
+// ModuleRolesFor lets a module bind its own scope without tenant admin rights. It holds
+// only enabled roles granting something in that module, and only that module's
+// permissions, so it says nothing about a tenant's other roles.
+func (s *Service) ModuleRolesFor(ctx context.Context, service, tenantID, moduleID string) (ModuleRoles, error) {
+	m, ok := s.catalog.Module(moduleID)
+	if !ok {
+		return ModuleRoles{}, ErrUnknownModule
+	}
+	if m.Service != service {
+		return ModuleRoles{}, ErrNotModuleService
+	}
+	out := ModuleRoles{TenantID: tenantID, Module: m.ID, Roles: []ModuleRole{}, Assignments: []ModuleAssignment{}}
+	roles, err := s.ListRoles(ctx, tenantID)
+	if err != nil {
+		return out, err
+	}
+	kept := map[string]bool{}
+	for _, role := range roles {
+		held := []string{}
+		for _, key := range role.Permissions {
+			if strings.HasPrefix(key, m.Prefix+":") && s.catalog.Grants(key) {
+				held = append(held, key)
+			}
+		}
+		if role.Enabled && len(held) > 0 {
+			kept[role.ID] = true
+			out.Roles = append(out.Roles, ModuleRole{ID: role.ID, Name: role.Name, Permissions: held})
+		}
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT a.id, m.user_id, a.role_id
+		 FROM auth.member_role_assignments a
+		 JOIN auth.memberships m ON m.tenant_id = a.tenant_id AND m.id = a.membership_id
+		 WHERE a.tenant_id = $1 AND a.status = 'active' AND m.status = 'active'
+		 ORDER BY m.user_id, a.id`, tenantID)
+	if err != nil {
+		return out, fmt.Errorf("read assignments: %w", err)
+	}
+	all, err := pgx.CollectRows(rows, pgx.RowToStructByPos[ModuleAssignment])
+	if err != nil {
+		return out, fmt.Errorf("read assignments: %w", err)
+	}
+	for _, a := range all {
+		if kept[a.RoleID] {
+			out.Assignments = append(out.Assignments, a)
+		}
+	}
+	return out, nil
+}
+
 // MyPermissions is a user's own grants in one module, as client hints.
 func (s *Service) MyPermissions(ctx context.Context, tenantID, userID, moduleID string) (UserEntitlement, error) {
 	m, ok := s.catalog.Module(moduleID)

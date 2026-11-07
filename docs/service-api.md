@@ -135,6 +135,8 @@ A module taken out of the catalog keeps its permissions in the database, and ten
 
 One read returns account, membership and tenant status, so it replaces a separate `/v1/org/members/{user}` read for authorization.
 
+**A module's own roles.** `GET /v1/module-roles?tenant=<id>&module=<id>`, with the module's service token, returns the enabled `roles` that grant something in that module, each with only that module's `permissions`, and the active `assignments` of them (`id`, `user_id`, `role_id`). So a module's own administrator can bind scope without tenant admin rights. It says nothing about a tenant's other roles, and any other service answers `403`.
+
 **Tenant admin routes**, under `/v1/tenants/{id}`:
 
 | Route | Does |

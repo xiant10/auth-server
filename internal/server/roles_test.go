@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 
 	"t10-auth-server/internal/roles"
@@ -436,4 +437,46 @@ func TestRetiredPermissionConfersNothing(t *testing.T) {
 	if len(got) != 1 || slices.ContainsFunc(got, func(g string) bool { return g[:11] == "deals:write" }) {
 		t.Errorf("grants with deals:write retired: %v", got)
 	}
+}
+
+func TestAModuleReadsOnlyItsOwnRoles(t *testing.T) {
+	f := newRolesFixture(t)
+	own := f.createRole(map[string]any{"name": "Rep", "permissions": []string{"deals:read"}})
+	mixed := f.createRole(map[string]any{"name": "Mixed", "permissions": []string{"deals:read", "crm:read"}})
+	other := f.createRole(map[string]any{"name": "CRM only", "permissions": []string{"crm:read"}})
+	assignment := f.assign("ana", own)
+	f.assign("ben", mixed)
+	f.assign("ben", other)
+	q := "/v1/module-roles?tenant=ten_acme&module=deals"
+	status, body := f.do("GET", q, f.serviceToken(otherService), nil)
+	f.wantStatus(status, body, http.StatusOK)
+	roles := body["roles"].([]any)
+	if len(roles) != 2 {
+		t.Fatalf("another module's role was listed: %v", roles)
+	}
+	for _, raw := range roles {
+		for _, key := range raw.(map[string]any)["permissions"].([]any) {
+			if !strings.HasPrefix(key.(string), "deals:") {
+				t.Errorf("another module's permission was listed: %v", raw)
+			}
+		}
+	}
+	found := map[string]string{}
+	for _, raw := range body["assignments"].([]any) {
+		a := raw.(map[string]any)
+		found[a["id"].(string)] = a["user_id"].(string)
+		if a["role_id"] == other["id"] {
+			t.Errorf("an assignment of another module's role was listed: %v", a)
+		}
+	}
+	if found[assignment] != f.users["ana"] || len(found) != 2 {
+		t.Errorf("assignments: %v", found)
+	}
+	status, body = f.do("GET", q, f.serviceToken(listedService), nil)
+	f.wantStatus(status, body, http.StatusForbidden)
+	if status, _ := f.do("GET", q, f.login("ana", "ten_acme"), nil); status != http.StatusUnauthorized {
+		t.Errorf("a person's token: %d", status)
+	}
+	status, body = f.do("GET", "/v1/module-roles?tenant=ten_acme", f.serviceToken(otherService), nil)
+	f.wantStatus(status, body, http.StatusBadRequest)
 }

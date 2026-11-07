@@ -202,3 +202,18 @@ func (s *Server) handleEntitlements(w http.ResponseWriter, r *http.Request, p id
 	}
 	writeJSON(w, http.StatusOK, e)
 }
+
+func (s *Server) handleModuleRoles(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	q := r.URL.Query()
+	tenantID, module := q.Get("tenant"), q.Get("module")
+	if tenantID == "" || module == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "tenant and module are required")
+		return
+	}
+	out, err := s.Roles.ModuleRolesFor(r.Context(), p.Service.Name, tenantID, module)
+	if err != nil {
+		writeRolesError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}

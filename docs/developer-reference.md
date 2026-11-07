@@ -93,7 +93,7 @@ auth-server/
 │   ├── roles/             # Business role catalog, permission definitions, assignments
 │   ├── samples/           # Dev-mode seed data and fixtures
 │   ├── server/            # HTTP handlers, route guard matrix, HTML templates, i18n
-│   └── telemetry/         # OpenTelemetry tracing setup (OTLP/gRPC)
+│   └── telemetry/         # OpenTelemetry tracing setup (OTLP/HTTP)
 ├── verifier/              # Go offline token and grant chain verification library
 │   └── ts/                # TypeScript/Node.js equivalent of the verifier
 └── clients.yaml           # Reviewed client definitions, runtimes, and token exchangers
@@ -124,7 +124,7 @@ Configuration is parsed in [`internal/config/config.go`](../internal/config/conf
 | `LIVEKIT_URL` | Yes | - | URL of the LiveKit server instance. |
 | `LIVEKIT_API_KEY` | Yes | - | LiveKit API Key used for room token generation. |
 | `LIVEKIT_API_SECRET` | Yes | - | LiveKit API Secret used for signing room tokens (must be >= 32 characters in prod). |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | - | Optional OTLP gRPC endpoint (`host:port`) for distributed tracing. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | - | Optional OTLP/HTTP URL (`http://collector:4318`) for distributed tracing. |
 
 ---
 

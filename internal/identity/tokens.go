@@ -26,9 +26,10 @@ var ErrInvalidToken = errors.New("invalid token")
 // Claims is the access token payload.
 type Claims struct {
 	jwt.RegisteredClaims
-	TenantID  string `json:"tid,omitempty"`
-	Scope     string `json:"scope,omitempty"`
-	SessionID string `json:"sid,omitempty"`
+	LogoutRedirect string `json:"logout_redirect,omitempty"`
+	TenantID       string `json:"tid,omitempty"`
+	Scope          string `json:"scope,omitempty"`
+	SessionID      string `json:"sid,omitempty"`
 	// Actor and Grant appear only on delegated tokens, with Trigger, which says
 	// why the run is running, and Automation when one started it.
 	Actor      *Actor `json:"act,omitempty"`

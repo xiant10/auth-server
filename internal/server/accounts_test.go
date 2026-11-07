@@ -31,7 +31,7 @@ const (
 )
 
 func testClients() []identity.Client {
-	return []identity.Client{{
+	return []identity.Client{{ID: "test-workbench", Type: identity.ClientConfidential, RedirectURIs: []string{"https://work.example/auth/callback"}, IdleTTL: time.Hour}, {
 		ID: testClientID, Type: identity.ClientPublic, RedirectURIs: []string{"http://127.0.0.1/callback"},
 		IdleTTL: 720 * time.Hour, AbsoluteTTL: 2160 * time.Hour,
 	}, {

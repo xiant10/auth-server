@@ -124,6 +124,8 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/signin", accessPage, s.handleSignInPage},
 		{"POST", "/v1/signin", accessPage, s.handleSignIn},
 		{"POST", "/v1/signout", accessPage, s.handleSignOut},
+		{"GET", "/v1/signout/complete", accessPage, s.handleBrowserLogout},
+		{"POST", "/v1/me/browser-logout", accessUser, s.handleBrowserLogoutTicket},
 		{"POST", "/v1/signin/qr", accessPage, s.handleQRStart},
 		{"POST", "/v1/signin/qr/poll", accessPage, s.handleQRPoll},
 		{"GET", "/v1/register", accessPage, s.handleRegisterPage},

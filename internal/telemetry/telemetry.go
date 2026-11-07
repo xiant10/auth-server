@@ -6,12 +6,14 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"net/url"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -26,11 +28,17 @@ func Setup(ctx context.Context, endpoint string) (func(context.Context) error, e
 	if endpoint == "" {
 		return func(context.Context) error { return nil }, nil
 	}
+	target, err := url.Parse(endpoint)
+	if err != nil || (target.Scheme != "http" && target.Scheme != "https") || target.Host == "" {
+		// Tracing never stops a service, but this has to be visible.
+		slog.Error("traces are off: OTEL_EXPORTER_OTLP_ENDPOINT must be a URL such as http://collector:4318")
+		return func(context.Context) error { return nil }, nil
+	}
 	res, err := resource.New(ctx, resource.WithAttributes(attribute.String("service.name", serviceName)))
 	if err != nil {
 		return nil, fmt.Errorf("build otel resource: %w", err)
 	}
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(endpoint), otlptracegrpc.WithInsecure())
+	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(target.JoinPath("v1/traces").String()))
 	if err != nil {
 		return nil, fmt.Errorf("dial otlp exporter at %q: %w", endpoint, err)
 	}

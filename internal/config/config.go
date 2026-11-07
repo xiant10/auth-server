@@ -12,7 +12,7 @@ import (
 // Config is the validated service configuration.
 type Config struct {
 	ListenAddr string
-	// OTLPEndpoint is an OTLP/gRPC host:port for traces. Empty turns them off.
+	// OTLPEndpoint is an OTLP/HTTP URL, such as http://collector:4318. Empty turns telemetry off.
 	OTLPEndpoint string
 	// ToolGateway is AUTH_TOOL_GATEWAY: where ai-gateway-tools runs, tokens for
 	// runtimes with a tool_audience go only to it.

@@ -55,8 +55,10 @@ runtimes:
     actions: [agent:use, work:read, work:write, knowledge:read]
     audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
   - name: agent-pi
-    actions: [agent:use, work:read, work:write, knowledge:read]
-    audiences: [agent-pi, t10-collab, t10-knowledge, ai-gateway-tools]
+    # property:read is chat only for now. Calls and automations, whose grants are
+    # parents of this one, don't hold it, so those runs never get property's tools.
+    actions: [agent:use, work:read, work:write, knowledge:read, property:read]
+    audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
     # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateway.
     tool_audience: ai-gateway-tools
   - name: agent-sales
@@ -67,8 +69,8 @@ runtimes:
   # optional component: a deployment without it needs no account.
   - name: agent-ti
     optional: true
-    actions: [agent:use, work:read, work:write, knowledge:read]
-    audiences: [agent-ti, t10-collab, t10-knowledge, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, knowledge:read, property:read]
+    audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
     tool_audience: ai-gateway-tools
   # Fires automations: it holds a person's standing grant, and makes one child
   # per firing for the harness it calls, through ai-gateway-agent, which has to

@@ -116,6 +116,9 @@ func (s *Server) routes() []route {
 		{"POST", "/v1/login/recover", accessPublic, s.handleLoginRecover},
 		{"POST", "/v1/login/pair", accessPublic, s.handlePair},
 		{"POST", "/v1/login/pair/poll", accessPublic, s.handlePairPoll},
+		{"POST", "/v1/wechat/signin", accessPublic, s.handleWeChatSignIn},
+		{"POST", "/v1/wechat/refresh", accessPublic, s.handleWeChatRefresh},
+		{"POST", "/v1/wechat/signout", accessPublic, s.handleWeChatSignOut},
 
 		{"GET", "/v1/authorize", accessPage, s.handleAuthorize},
 		{"GET", "/v1/signin", accessPage, s.handleSignInPage},

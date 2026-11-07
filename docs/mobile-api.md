@@ -123,3 +123,15 @@ Five wrong passwords or codes lock an account for 30 seconds, doubling up to an 
 - **No attestation.** The server cannot tell a real phone from a script holding software keys, and cannot see that a key really needs biometrics. Adding App Attest and Play Integrity needs its own decision.
 - **No location.** Claim returns IP and user agent, not a place.
 - **No push.** Approval starts from a scan, by design for v1.
+
+## The WeChat mini-program
+
+The mini-program has no hardware keys, so it uses client ID `t10-miniprogram` and these routes instead of the ones above. Each takes a fresh code from `wx.login`, which works once.
+
+| Route | Does |
+| --- | --- |
+| `POST /v1/wechat/signin` | Checks the password, binds that WeChat identity to the account the first time, and starts a session. Only this starts a session |
+| `POST /v1/wechat/refresh` | A new access token for a live session, if the code belongs to the bound identity. On `invalid_grant`, sign in again |
+| `POST /v1/wechat/signout` | Ends the session. The binding stays |
+
+A week without use comes back to the password. `authctl wechat-unbind --user-id <id>` removes a binding, so the person can bind another WeChat. `WECHAT_APP_ID` and `WECHAT_APP_SECRET` turn this on, and the secret never leaves this service.

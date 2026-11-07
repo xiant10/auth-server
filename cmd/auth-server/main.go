@@ -94,6 +94,9 @@ func run() error {
 		Pool: pool, Hasher: hasher, Issuer: issuer, Tenants: dir, Clients: clients,
 		Region: cfg.DefaultRegion, TOTPKey: totpKey, Limits: identity.DefaultLimits(),
 	})
+	if appID, secret := os.Getenv("WECHAT_APP_ID"), os.Getenv("WECHAT_APP_SECRET"); appID != "" && secret != "" {
+		ids.UseWeChat(identity.WeChatAPI{AppID: appID, Secret: secret, BaseURL: "https://api.weixin.qq.com", HTTP: &http.Client{Timeout: 5 * time.Second}}, appID)
+	}
 	for _, r := range runtimes {
 		exists, err := ids.HasServiceAccount(ctx, r.Name)
 		if err != nil {

@@ -56,6 +56,12 @@ func TestPublicRoutesAreTheExpectedOnes(t *testing.T) {
 		"POST /v1/login/recover":     true,
 		"POST /v1/login/pair":        true,
 		"POST /v1/login/pair/poll":   true,
+
+		"POST /v1/wechat/signin": true,
+
+		"POST /v1/wechat/refresh": true,
+
+		"POST /v1/wechat/signout": true,
 	}
 	for _, rt := range New(Deps{}).routes() {
 		key := rt.method + " " + rt.pattern

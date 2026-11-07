@@ -14,6 +14,13 @@ clients:
     # The only client allowed to take a password itself.
     direct_login: true
     idle_ttl: 2160h
+  # The property employee mini-program. It proves who it is with WeChat's login code,
+  # and a week without use comes back to the password.
+  - id: t10-miniprogram
+    name: 物业员工端
+    type: public
+    wechat: true
+    idle_ttl: 168h
   - id: t10-workbench
     name: t10 workbench
     type: confidential

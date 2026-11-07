@@ -44,6 +44,9 @@ type Client struct {
 	// DirectLogin allows the password API. Only the mobile app may have it,
 	// because it is the one client t10 builds with its own login screen.
 	DirectLogin bool `yaml:"direct_login"`
+	// WeChat means this client is a mini-program, which signs in through WeChat's
+	// login code in place of device keys.
+	WeChat bool `yaml:"wechat"`
 	// Tenant is TenantRequired, TenantNone, or empty for a client that names a
 	// tenant itself when it redeems or refreshes.
 	Tenant string `yaml:"tenant"`

@@ -97,6 +97,9 @@ type Service struct {
 	region  string
 	totpKey []byte
 	limits  Limits
+	// wechat and wechatApp are set in a deployment with a mini-program.
+	wechat    WeChatIdentity
+	wechatApp string
 }
 
 // NewService builds the module.

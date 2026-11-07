@@ -173,6 +173,79 @@ paths:
                   poll_token: {type: string, description: Secret; never show it}
                   expires_in: {type: integer}
         default: {$ref: "#/components/responses/Error"}
+  /v1/wechat/signin:
+    post:
+      summary: Sign in on the mini-program
+      description: |
+        Checks the password, then WeChat's one-time login code, binds that WeChat
+        identity to the account the first time, and starts a session. Only this starts
+        a session, so an idle one comes back to the password. Errors include
+        `wechat_code` (get a new code), `wechat_bound` (this WeChat or account is bound
+        to another) and `wechat_unavailable`.
+      operationId: wechatSignIn
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id, code, name, password]
+              properties:
+                client_id: {type: string}
+                code: {type: string, description: From wx.login}
+                name: {type: string}
+                password: {type: string}
+                totp: {type: string}
+                tenant: {type: string}
+      responses:
+        '200': {description: Tokens and a session ID}
+        '400': {description: wechat_code}
+        '401': {description: Wrong name or password}
+        '403': {description: A second factor or tenant is required}
+        '409': {description: wechat_bound}
+        '503': {description: wechat_unavailable}
+  /v1/wechat/refresh:
+    post:
+      summary: Get a new token with a new WeChat login code
+      operationId: wechatRefresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id, session_id, code]
+              properties:
+                client_id: {type: string}
+                session_id: {type: string}
+                code: {type: string}
+                tenant: {type: string}
+      responses:
+        '200': {description: Tokens}
+        '400': {description: 'invalid_grant: sign in again, or wechat_code'}
+        '503': {description: wechat_unavailable}
+  /v1/wechat/signout:
+    post:
+      summary: End a mini-program session
+      description: The binding stays.
+      operationId: wechatSignOut
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id, session_id, code]
+              properties:
+                client_id: {type: string}
+                session_id: {type: string}
+                code: {type: string}
+      responses:
+        '204': {description: Signed out}
+        '400': {description: 'invalid_grant, or wechat_code'}
   /v1/login/pair/poll:
     post:
       summary: Collect a pairing result
@@ -632,6 +705,9 @@ components:
     ErrorCode:
       type: string
       enum:
+        - wechat_unavailable
+        - wechat_code
+        - wechat_bound
         - already_member
         - device_approval_required
         - device_revoked

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"t10-auth-server/internal/audit"
 	"t10-auth-server/internal/config"
 	"t10-auth-server/internal/db"
 	"t10-auth-server/internal/directory"
@@ -70,6 +71,8 @@ func run(args []string) error {
 		return bootstrap(ctx, args[1:])
 	case "add-user":
 		return addUser(ctx, args[1:])
+	case "wechat-unbind":
+		return wechatUnbind(ctx, args[1:])
 	case "service-add":
 		return serviceAdd(ctx, args[1:])
 	case "service-rotate", "service-finish", "service-disable", "service-enable":
@@ -395,4 +398,33 @@ func readPassword() (string, error) {
 		return "", errors.New("no password: set AUTHCTL_PASSWORD or pipe one line to stdin")
 	}
 	return strings.TrimRight(line, "\r\n"), nil
+}
+
+// wechatUnbind lets a person bind another WeChat, and ends their mini-program sessions.
+func wechatUnbind(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("wechat-unbind", flag.ExitOnError)
+	userID := fs.String("user-id", "", "the user whose binding to remove")
+	fs.Parse(args)
+	if *userID == "" {
+		return errors.New("wechat-unbind needs --user-id")
+	}
+	pool, err := open(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, "UPDATE auth.wechat_bindings SET removed_at = now() WHERE user_id = $1 AND removed_at IS NULL", *userID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return errors.New("that user has no WeChat binding")
+		}
+		_, err = tx.Exec(ctx, `UPDATE auth.sessions s SET revoked_at = now() WHERE s.user_id = $1 AND s.revoked_at IS NULL AND s.device_id IS NULL AND s.client_id = 't10-miniprogram'`, *userID)
+		if err != nil {
+			return err
+		}
+		return audit.Write(ctx, tx, audit.Entry{Actor: "system:authctl", Scope: audit.ScopePlatform, Action: "wechat.unbind", Target: *userID, Outcome: audit.Success})
+	})
 }

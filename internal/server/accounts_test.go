@@ -39,6 +39,8 @@ func testClients() []identity.Client {
 	}, {
 		ID: testNoTenantClient, Type: identity.ClientPublic, RedirectURIs: []string{"http://127.0.0.1/callback"}, IdleTTL: time.Hour, Tenant: identity.TenantNone,
 	}, {
+		ID: testWeChatClient, Name: "mini-program", Type: identity.ClientPublic, WeChat: true, IdleTTL: 168 * time.Hour,
+	}, {
 		ID: testMobileClient, Name: "t10 mobile app", Type: identity.ClientPublic, DirectLogin: true, IdleTTL: 2160 * time.Hour,
 	}}
 }

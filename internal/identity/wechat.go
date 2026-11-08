@@ -118,6 +118,11 @@ func (s *Service) SignInWeChat(ctx context.Context, r WeChatSignIn) (DeviceToken
 	}
 	var tokens DeviceTokens
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if client.WeChatDemo {
+			if err := s.unbindForDemo(ctx, tx, openID, userID); err != nil {
+				return err
+			}
+		}
 		if err := s.bindWeChat(ctx, tx, openID, userID); err != nil {
 			return err
 		}
@@ -186,6 +191,42 @@ func (s *Service) bindWeChat(ctx context.Context, tx pgx.Tx, openID, userID stri
 	return audit.Write(ctx, tx, audit.Entry{
 		Actor: audit.ActorUser(userID), Scope: audit.ScopePlatform, Action: "wechat.bind", Target: id, Outcome: audit.Success,
 	})
+}
+
+// unbindForDemo removes whatever holds this identity or this account to another, so
+// bindWeChat can bind the two. The rows stay, as a removed binding does.
+func (s *Service) unbindForDemo(ctx context.Context, tx pgx.Tx, openID, userID string) error {
+	rows, err := tx.Query(ctx,
+		`UPDATE auth.wechat_bindings SET removed_at = now()
+		 WHERE app_id = $1 AND removed_at IS NULL AND (openid = $2) <> (user_id = $3)
+		 RETURNING id, user_id`, s.wechatApp, openID, userID)
+	if err != nil {
+		return fmt.Errorf("move wechat binding: %w", err)
+	}
+	type moved struct{ id, user string }
+	var all []moved
+	for rows.Next() {
+		var m moved
+		if err := rows.Scan(&m.id, &m.user); err != nil {
+			rows.Close()
+			return fmt.Errorf("move wechat binding: %w", err)
+		}
+		all = append(all, m)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("move wechat binding: %w", err)
+	}
+	for _, m := range all {
+		err := audit.Write(ctx, tx, audit.Entry{
+			Actor: audit.ActorUser(userID), Scope: audit.ScopePlatform, Action: "wechat.unbind", Target: m.id, Outcome: audit.Success,
+			Detail: map[string]any{"demo": true, "user": m.user},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // wechatSession loads a session and checks the code against its binding. Anything wrong

@@ -47,6 +47,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	for _, c := range clients {
+		if c.WeChatDemo && !cfg.DevMode {
+			return fmt.Errorf("client %s: wechat_demo needs dev mode", c.ID)
+		}
+	}
 	shutdownTelemetry, err := telemetry.Setup(ctx, cfg.OTLPEndpoint)
 	if err != nil {
 		return err

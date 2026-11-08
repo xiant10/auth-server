@@ -41,6 +41,8 @@ func testClients() []identity.Client {
 	}, {
 		ID: testWeChatClient, Name: "mini-program", Type: identity.ClientPublic, WeChat: true, IdleTTL: 168 * time.Hour,
 	}, {
+		ID: testWeChatDemoClient, Name: "mini-program demo", Type: identity.ClientPublic, WeChat: true, WeChatDemo: true, IdleTTL: 168 * time.Hour,
+	}, {
 		ID: testMobileClient, Name: "t10 mobile app", Type: identity.ClientPublic, DirectLogin: true, IdleTTL: 2160 * time.Hour,
 	}}
 }

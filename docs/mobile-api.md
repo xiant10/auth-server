@@ -135,3 +135,5 @@ The mini-program has no hardware keys, so it uses client ID `t10-miniprogram` an
 | `POST /v1/wechat/signout` | Ends the session. The binding stays |
 
 A week without use comes back to the password. `authctl wechat-unbind --user-id <id>` removes a binding, so the person can bind another WeChat. `WECHAT_APP_ID` and `WECHAT_APP_SECRET` turn this on, and the secret never leaves this service.
+
+For a local demo, `wechat_demo: true` on the client lets one WeChat move between accounts: signing in to another account removes the old binding, and the account it left has to sign in again. The server refuses to start with it outside dev mode, so it's only for synthetic accounts.

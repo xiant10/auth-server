@@ -47,6 +47,10 @@ type Client struct {
 	// WeChat means this client is a mini-program, which signs in through WeChat's
 	// login code in place of device keys.
 	WeChat bool `yaml:"wechat"`
+	// WeChatDemo lets one WeChat move between accounts, so a demo can try each role
+	// from one phone. Signing in to another account moves the binding, and the
+	// account it left has to sign in again. Only for dev mode, with synthetic accounts.
+	WeChatDemo bool `yaml:"wechat_demo"`
 	// Tenant is TenantRequired, TenantNone, or empty for a client that names a
 	// tenant itself when it redeems or refreshes.
 	Tenant string `yaml:"tenant"`
@@ -78,6 +82,9 @@ func LoadClients(path string) ([]Client, error) {
 		}
 		if c.Tenant != "" && c.Tenant != TenantRequired && c.Tenant != TenantNone {
 			return nil, fmt.Errorf("client %s: tenant must be required or none", c.ID)
+		}
+		if c.WeChatDemo && !c.WeChat {
+			return nil, fmt.Errorf("client %s: wechat_demo needs wechat", c.ID)
 		}
 		if c.IdleTTL <= 0 {
 			return nil, fmt.Errorf("client %s: idle_ttl is required", c.ID)

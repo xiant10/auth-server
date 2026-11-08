@@ -12,7 +12,10 @@ import (
 	"t10-auth-server/internal/identity"
 )
 
-const testWeChatClient = "t10-miniprogram-test"
+const (
+	testWeChatClient     = "t10-miniprogram-test"
+	testWeChatDemoClient = "t10-miniprogram-demo-test"
+)
 
 // fakeWeChat answers codes of the form "<openid>" and refuses "bad".
 type fakeWeChat struct{ calls int }
@@ -127,6 +130,46 @@ func TestWeChatSignIn(t *testing.T) {
 	}
 	if status, _ := wechatRefresh(h, out["session_id"].(string), "wx-ben"); status != http.StatusBadRequest {
 		t.Errorf("a disabled account refreshed: %d", status)
+	}
+}
+
+func TestWeChatDemoMovesTheBinding(t *testing.T) {
+	h, _ := wechatHarness(t)
+	signIn := func(name, code string) (int, map[string]any) {
+		return h.do("POST", "/v1/wechat/signin", "", map[string]any{"client_id": testWeChatDemoClient, "code": code, "name": name, "password": testPassword, "tenant": "ten_acme"})
+	}
+	refresh := func(session, code string) int {
+		status, _ := h.do("POST", "/v1/wechat/refresh", "", map[string]any{"client_id": testWeChatDemoClient, "session_id": session, "code": code})
+		return status
+	}
+	status, out := signIn("ada", "wx-phone")
+	h.wantStatus(status, out, http.StatusOK)
+	adaSession := out["session_id"].(string)
+
+	// The same WeChat takes another account, and the first one has to sign in again.
+	status, out = signIn("ben", "wx-phone")
+	h.wantStatus(status, out, http.StatusOK)
+	if got := refresh(out["session_id"].(string), "wx-phone"); got != http.StatusOK {
+		t.Errorf("the moved binding refreshed: %d", got)
+	}
+	if got := refresh(adaSession, "wx-phone"); got != http.StatusBadRequest {
+		t.Errorf("the account it left refreshed: %d", got)
+	}
+
+	// Another WeChat takes ben, and the first WeChat holds nothing.
+	status, out = signIn("ben", "wx-other")
+	h.wantStatus(status, out, http.StatusOK)
+	var live int
+	if err := h.pool.QueryRow(context.Background(), "SELECT count(*) FROM auth.wechat_bindings WHERE removed_at IS NULL").Scan(&live); err != nil {
+		t.Fatal(err)
+	}
+	if live != 1 {
+		t.Errorf("live bindings = %d, want 1", live)
+	}
+
+	// The ordinary client still refuses.
+	if status, out := wechatSignIn(h, "ada", testPassword, "wx-other"); status != http.StatusConflict {
+		t.Errorf("the ordinary client moved a binding: %d %v", status, out)
 	}
 }
 

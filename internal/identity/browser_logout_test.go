@@ -7,7 +7,7 @@ import (
 
 func TestBrowserLogoutTokenIsScopedAndExpires(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.MintBrowserLogout("user", "https://work.example/signed-out")
+	token, err := issuer.MintBrowserLogout("user", "ses", "https://work.example/signed-out")
 	if err != nil {
 		t.Fatal(err)
 	}

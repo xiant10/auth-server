@@ -66,6 +66,9 @@ type pageData struct {
 	Wide               bool
 	// Choices are the tenant picker's rows.
 	Choices []tenantChoice
+	// SignInName keeps what was typed after a wrong password, and CodeTicket carries
+	// a right password through to the authenticator step.
+	SignInName, CodeTicket string
 	// HasApps groups the front door by tenant, because someone has more than one
 	// place in a tenant.
 	HasApps bool
@@ -187,12 +190,16 @@ func languageNext(next string) string {
 
 func (s *Server) handleLanguage(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	if lang := r.PostFormValue("lang"); validLang(lang) {
-		http.SetCookie(w, &http.Cookie{
-			Name: langCookie, Value: lang, Path: "/", MaxAge: langCookieAge,
-			HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode,
-		})
+		s.setLangCookie(w, lang)
 	}
 	http.Redirect(w, r, languageNext(r.PostFormValue("next")), http.StatusSeeOther)
+}
+
+func (s *Server) setLangCookie(w http.ResponseWriter, lang string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: langCookie, Value: lang, Path: "/", MaxAge: langCookieAge,
+		HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func tenantChoices(q url.Values, tenants []directory.UserTenant, mfa bool) []tenantChoice {
@@ -233,8 +240,25 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 		writeInternal(w, r, err)
 		return
 	}
+	// The app's language counts once, on the way in. It's dropped from what comes
+	// back here, so a choice made on the sign-in page isn't overwritten.
+	lang := ""
+	if c, err := r.Cookie(langCookie); err == nil && validLang(c.Value) {
+		lang = c.Value
+	}
+	if asked := q.Get("ui_locales"); validLang(asked) {
+		lang = asked
+		s.setLangCookie(w, asked)
+	}
+	q.Del("ui_locales")
+	reason := q.Get("reason")
+	q.Del("reason")
 	if !ok {
-		http.Redirect(w, r, "/v1/signin?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusFound)
+		target := url.Values{"next": {"/v1/authorize?" + q.Encode()}}
+		if reason == "signedout" || reason == "ended" {
+			target.Set("reason", reason)
+		}
+		http.Redirect(w, r, "/v1/signin?"+target.Encode(), http.StatusFound)
 		return
 	}
 	tenant := ""
@@ -249,9 +273,14 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 		// settles it. A tenant they don't belong to reads the same as naming none.
 		if slices.ContainsFunc(tenants, func(t directory.UserTenant) bool { return t.ID == named }) {
 			tenant = named
+		} else if last := lastTenant(r, tenants, p.MFA); last != "" {
+			tenant = last
 		} else if len(tenants) > 1 {
-			render(w, r, http.StatusOK, "tenant_picker", pageData{Title: "Choose a tenant", Choices: tenantChoices(q, tenants, p.MFA)})
+			render(w, r, http.StatusOK, "tenant_picker", pageData{Title: "Choose a workspace", Choices: tenantChoices(q, tenants, p.MFA)})
 			return
+		}
+		if tenant != "" {
+			s.rememberTenant(w, tenant)
 		}
 	}
 	code, err := s.Identity.IssueCode(r.Context(), p.SessionID, clientID, redirectURI, challenge, tenant)
@@ -259,18 +288,80 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 		writeInternal(w, r, err)
 		return
 	}
-	redirect(url.Values{"code": {code}})
+	params := url.Values{"code": {code}}
+	// An app shows the language chosen here, including one changed on the sign-in page.
+	if lang != "" {
+		params.Set("lang", lang)
+	}
+	redirect(params)
+}
+
+// lastTenantCookie is the workspace this browser last opened, so someone in several
+// isn't asked again by each app. It holds only an ID, which counts only for a member.
+const lastTenantCookie = "t10_tenant"
+
+const lastTenantAge = 180 * 24 * 60 * 60
+
+func (s *Server) rememberTenant(w http.ResponseWriter, tenant string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: lastTenantCookie, Value: tenant, Path: "/", MaxAge: lastTenantAge,
+		HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// lastTenant is the remembered workspace if it can still be used. One that needs a
+// factor this person lacks goes to the picker, which explains that.
+func lastTenant(r *http.Request, tenants []directory.UserTenant, mfa bool) string {
+	c, err := r.Cookie(lastTenantCookie)
+	if err != nil {
+		return ""
+	}
+	for _, t := range tenants {
+		if t.ID == c.Value && (mfa || !t.RequireMFA) {
+			return t.ID
+		}
+	}
+	return ""
+}
+
+// signInApp names the app a sign-in is for, read from the authorize request in next.
+func (s *Server) signInApp(next string) string {
+	u, err := url.Parse(next)
+	if err != nil || u.Path != "/v1/authorize" {
+		return ""
+	}
+	client, ok := s.Identity.Client(u.Query().Get("client_id"))
+	if !ok {
+		return ""
+	}
+	return client.Name
 }
 
 func (s *Server) handleSignInPage(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	notice := ""
-	switch r.URL.Query().Get("reason") {
+	reason := r.URL.Query().Get("reason")
+	switch reason {
 	case "stepup":
 		notice = "Sign in again to confirm it's you. Platform actions need an authenticator code from the last 15 minutes."
 	case "signedout":
-		notice = "You're signed out."
+		notice = "You've signed out of all t10 apps on this browser."
+	case "ended":
+		notice = "You've been signed out. Sign in to pick up where you left off."
 	}
-	s.renderSignIn(w, r, http.StatusOK, safeNext(r.URL.Query().Get("next")), "", notice)
+	next := safeNext(r.URL.Query().Get("next"))
+	// Someone already signed in has nothing to do here, unless being asked again is the point.
+	if reason != "stepup" {
+		_, ok, err := s.browserPrincipal(r)
+		if err != nil {
+			writeInternal(w, r, err)
+			return
+		}
+		if ok {
+			http.Redirect(w, r, next, http.StatusSeeOther)
+			return
+		}
+	}
+	s.renderSignIn(w, r, http.StatusOK, next, "", notice, "")
 }
 
 // newNonce returns a value for a page's script-src.
@@ -282,22 +373,44 @@ func newNonce() string {
 
 // renderSignIn allows one script, by nonce, and images from data URIs: the
 // sign-in page alone needs them, to show and poll a QR code.
-func (s *Server) renderSignIn(w http.ResponseWriter, r *http.Request, status int, next, problem, notice string) {
+func (s *Server) renderSignIn(w http.ResponseWriter, r *http.Request, status int, next, problem, notice, name string) {
 	encoded := newNonce()
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'none'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; script-src 'nonce-"+encoded+"'")
 	render(w, r, status, "signin", pageData{
-		Title: "Sign in", Next: next, Error: problem, Notice: notice, Nonce: encoded,
+		Title: s.signInTitle(r, next), Next: next, Error: problem, Notice: notice, Nonce: encoded, SignInName: name,
 		Here: "/v1/signin?next=" + url.QueryEscape(next),
 	})
 }
 
+// signInTitle is translated here, because it holds a name the catalog can't list.
+func (s *Server) signInTitle(r *http.Request, next string) string {
+	lang := requestLang(r)
+	if app := s.signInApp(next); app != "" {
+		return translate(lang, "Sign in to %s", translate(lang, app))
+	}
+	return translate(lang, "Sign in")
+}
+
 func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	next := safeNext(r.PostFormValue("next"))
-	userID, mfa, err := s.Identity.VerifyCredentials(r.Context(),
-		r.PostFormValue("name"), r.PostFormValue("password"), r.PostFormValue("code"), s.clientIP(r))
+	if ticket := r.PostFormValue("code_ticket"); ticket != "" {
+		s.handleSignInCode(w, r, ticket, next)
+		return
+	}
+	name := r.PostFormValue("name")
+	userID, mfa, err := s.Identity.VerifyCredentials(r.Context(), name, r.PostFormValue("password"), r.PostFormValue("code"), s.clientIP(r))
+	if errors.Is(err, identity.ErrMFARequired) {
+		ticket, err := s.Identity.StartSignInCode(r.Context(), name)
+		if err != nil {
+			writeInternal(w, r, err)
+			return
+		}
+		render(w, r, http.StatusOK, "signin_code", pageData{Title: "Enter your code", Next: next, CodeTicket: ticket})
+		return
+	}
 	if msg, status := signInProblem(err); msg != "" {
-		s.renderSignIn(w, r, status, next, msg, "")
+		s.renderSignIn(w, r, status, next, msg, "", name)
 		return
 	}
 	if err != nil {
@@ -310,13 +423,36 @@ func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request, _ identity
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
+// handleSignInCode is the second step, for an account with an authenticator.
+func (s *Server) handleSignInCode(w http.ResponseWriter, r *http.Request, ticket, next string) {
+	userID, err := s.Identity.FinishSignInCode(r.Context(), ticket, r.PostFormValue("code"), s.clientIP(r))
+	if errors.Is(err, identity.ErrSignInCodeExpired) {
+		s.renderSignIn(w, r, http.StatusUnauthorized, next, "That took too long. Enter your password again.", "", "")
+		return
+	}
+	if errors.Is(err, identity.ErrInvalidCredentials) {
+		render(w, r, http.StatusUnauthorized, "signin_code", pageData{Title: "Enter your code", Next: next, CodeTicket: ticket, Error: "That code didn't work. Try the newest one."})
+		return
+	}
+	if msg, status := signInProblem(err); msg != "" {
+		s.renderSignIn(w, r, status, next, msg, "", "")
+		return
+	}
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	if !s.startBrowserSession(w, r, userID, true) {
+		return
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
 // signInProblem turns a credential error into page text and status.
 func signInProblem(err error) (string, int) {
 	switch {
 	case errors.Is(err, identity.ErrInvalidCredentials):
-		return "Wrong sign-in name, password or code.", http.StatusUnauthorized
-	case errors.Is(err, identity.ErrMFARequired):
-		return "Enter your password again, with your authenticator code.", http.StatusUnauthorized
+		return "Wrong sign-in name or password.", http.StatusUnauthorized
 	case errors.Is(err, identity.ErrRateLimited):
 		return "Too many attempts. Try again later.", http.StatusTooManyRequests
 	}
@@ -340,7 +476,7 @@ func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request, _ identit
 		return
 	}
 	if ok {
-		if err := s.Identity.EndSession(r.Context(), p.UserID, p.SessionID); err != nil {
+		if err := s.Identity.EndBrowser(r.Context(), p.UserID, p.SessionID); err != nil {
 			writeInternal(w, r, err)
 			return
 		}

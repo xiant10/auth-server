@@ -74,8 +74,8 @@ func (s *Service) authenticateClient(id, secret string) (Client, error) {
 }
 
 // RedeemCode exchanges a code for a new session belonging to the client. The
-// browser session stays separate, so each keeps its own lifetime and signing
-// out of one leaves the other. A refused redemption rolls back and leaves the
+// browser session stays separate with its own lifetime, and remembers the link, so
+// signing out of the browser ends this too. A refused redemption rolls back and leaves the
 // code unspent; a replayed code revokes the session it already produced.
 func (s *Service) RedeemCode(ctx context.Context, r Redemption) (Tokens, error) {
 	client, err := s.authenticateClient(r.ClientID, r.ClientSecret)
@@ -141,6 +141,9 @@ func (s *Service) RedeemCode(ctx context.Context, r Redemption) (Tokens, error) 
 		if _, err := tx.Exec(ctx, "UPDATE auth.auth_codes SET used_at = now(), issued_session_id = $2 WHERE code_hash = $1",
 			hashSecret(r.Code), sessionID); err != nil {
 			return fmt.Errorf("spend code: %w", err)
+		}
+		if _, err := tx.Exec(ctx, "UPDATE auth.sessions SET browser_session_id = $2 WHERE id = $1", sessionID, browserSession); err != nil {
+			return fmt.Errorf("link browser session: %w", err)
 		}
 		access, expiresAt, err := s.issuer.MintAccess(userID, tenantID, sessionID)
 		if err != nil {
@@ -324,6 +327,16 @@ func (s *Service) Refresh(ctx context.Context, r Refreshing) (Tokens, error) {
 			sessionID, hashSecret(next), previous, retired, idle, nullable(tenantID))
 		if err != nil {
 			return fmt.Errorf("rotate session: %w", err)
+		}
+		// Working in an app keeps the browser's sign-in alive, so opening the next
+		// app doesn't ask for a password. Its absolute limit still stands.
+		_, err = tx.Exec(ctx,
+			`UPDATE auth.sessions b SET idle_expires_at = LEAST(now() + $2::interval, b.absolute_expires_at)
+			 FROM auth.sessions c
+			 WHERE c.id = $1 AND b.id = c.browser_session_id AND b.revoked_at IS NULL AND b.idle_expires_at > now()`,
+			sessionID, fmt.Sprintf("%d seconds", int(browserIdleTTL.Seconds())))
+		if err != nil {
+			return fmt.Errorf("extend browser session: %w", err)
 		}
 		// Using t10 keeps a person's consent to their automations.
 		if err := agents.RenewStanding(ctx, tx, row.userID); err != nil {

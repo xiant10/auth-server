@@ -22,7 +22,7 @@ clients:
     wechat: true
     idle_ttl: 168h
   - id: t10-workbench
-    name: t10 workbench
+    name: Workbench
     type: confidential
     tenant: required
     # Confidential clients match exactly, so each deployment lists its own.
@@ -36,7 +36,7 @@ clients:
     idle_ttl: 12h
     absolute_ttl: 168h
   - id: t10-property-web
-    name: t10 property
+    name: Property
     type: confidential
     tenant: required
     redirect_uris:
@@ -46,7 +46,7 @@ clients:
     idle_ttl: 12h
     absolute_ttl: 168h
   - id: t10-console
-    name: t10 platform console
+    name: Platform console
     type: confidential
     # Its routes check the platform role, and no tenant's policy should stop it.
     tenant: none

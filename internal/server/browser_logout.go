@@ -45,7 +45,6 @@ func (s *Server) handleBrowserLogoutTicket(w http.ResponseWriter, r *http.Reques
 // client is on another site. A short-lived, user-bound ticket authorizes this
 // request; plain GETs and other users' tickets cannot sign a browser out.
 func (s *Server) handleBrowserLogout(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
-	w.Header().Set("Referrer-Policy", "no-referrer")
 	claims, err := s.Issuer.VerifyBrowserLogout(r.URL.Query().Get("ticket"))
 	if err != nil || claims.Subject == "" || claims.LogoutRedirect == "" {
 		render(w, r, http.StatusBadRequest, "signout_again", pageData{Title: "Sign out of t10?", Error: "That sign-out link ran out. Sign out here instead."})
@@ -71,6 +70,10 @@ func (s *Server) handleBrowserLogout(w http.ResponseWriter, r *http.Request, _ i
 		}
 	}
 	s.setSessionCookie(w, "", -1)
+	// Only on the way back to the app, so the ticket in this URL doesn't follow it there.
+	// The pages above keep the usual same-origin policy: under no-referrer a browser
+	// posts their Sign out with "Origin: null", which sameOrigin refuses.
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	http.Redirect(w, r, claims.LogoutRedirect, http.StatusSeeOther)
 }
 

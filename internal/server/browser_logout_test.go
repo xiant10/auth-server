@@ -237,3 +237,28 @@ func TestBrowserLogoutEndsOnlyMatchingBrowser(t *testing.T) {
 		t.Fatalf("unauthenticated issuance: %d", status)
 	}
 }
+
+// A sign-out link that can't finish offers Sign out on a page whose post must carry
+// this origin, so only the redirect back to the app hides the ticket from Referer.
+func TestSignOutAgainPageCanPost(t *testing.T) {
+	h := newHarness(t, true)
+	b := h.browser()
+	b.register("ada", "")
+	access, _ := h.redeem(b)
+	policy := func(path string) (int, string) {
+		t.Helper()
+		resp, err := b.client.Get(h.url + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode, resp.Header.Get("Referrer-Policy")
+	}
+	if status, got := policy("/v1/signout/complete?ticket=expired"); status != http.StatusBadRequest || got != "same-origin" {
+		t.Errorf("sign out again: %d %q", status, got)
+	}
+	_, body := h.do("POST", "/v1/me/browser-logout", access, map[string]string{"client_id": "test-workbench", "return_to": "https://work.example/signed-out"})
+	if status, got := policy("/v1/signout/complete?ticket=" + url.QueryEscape(body["ticket"].(string))); status != http.StatusSeeOther || got != "no-referrer" {
+		t.Errorf("back to the app: %d %q", status, got)
+	}
+}

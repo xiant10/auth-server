@@ -1,6 +1,6 @@
 # Sign-in, landing and moving between apps
 
-Nov 6, 2026, revised Nov 7 · Status: the front door, tenant picker and switcher (sections 1 to 3) built. One sign-out and the sign-in page changes (sections 5 and 7) built on branch `feat/one-sign-out`, not merged. Deep links and `max_auth_age` are proposed. Decided Nov 7, replacing Nov 6's app-only sign-out: Sign out from any web app ends every t10 web app in the browser. Decided Nov 6: the console asks for a password again after an hour away. Spans `auth-server`, `workbench`, `t10-console`, `t10-property` and the web kit in `t10-modkit`. It keeps the two addresses in "Admin surfaces" in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+Nov 6, 2026, revised Nov 7 · Status: the front door, tenant picker and switcher (sections 1 to 3) built. One sign-out and the sign-in page changes (sections 5 and 7) built and merged Nov 8. Deep links and `max_auth_age` are proposed. Decided Nov 7, replacing Nov 6's app-only sign-out: Sign out from any web app ends every t10 web app in the browser. Decided Nov 6: the console asks for a password again after an hour away. Spans `auth-server`, `workbench`, `t10-console`, `t10-property` and the web kit in `t10-modkit`. It keeps the two addresses in "Admin surfaces" in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 ## Summary
 

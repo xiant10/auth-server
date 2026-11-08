@@ -553,7 +553,9 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 |---|---|---|---|
 | `GET` | `/v1/authorize` | `accessPage` | OAuth 2.0 PKCE authorization handler. |
 | `GET` / `POST` | `/v1/signin` | `accessPage` | Hosted sign-in page and credential verification. |
-| `POST` | `/v1/signout` | `accessPage` | Sign out browser session. |
+| `GET` | `/v1/signout/complete` | `accessPage` | Spends a sign-out ticket: ends the browser sign-in and its web apps, then returns to the app. |
+| `GET` | `/v1/signout` | `accessPage` | Asks "Sign out of t10?", for an app with no session left to get a ticket. |
+| `POST` | `/v1/signout` | `accessPage` | Sign out the browser session and every web app's session started from it. |
 | `POST` | `/v1/signin/qr` | `accessPage` | Generate QR code payload for mobile sign-in. |
 | `POST` | `/v1/signin/qr/poll` | `accessPage` | Poll status of QR sign-in. |
 | `GET` / `POST` | `/v1/register` | `accessPage` | Hosted registration page (invite-only in prod). |
@@ -570,6 +572,8 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 | `POST` | `/v1/rooms/admission`| `accessUser` | Mint LiveKit room token & create voice agent grant. |
 | `GET` | `/v1/me` | `accessUser` | Current user profile, active tenant, and memberships. |
 | `GET` | `/v1/me/access` | `accessUser` | Effective platform and tenant admin rights. |
+| `GET` | `/v1/me/session` | `accessUser` | 200 while the session behind the token stands. Apps ask it to notice a sign-out elsewhere. |
+| `POST` | `/v1/me/browser-logout` | `accessUser` | A one-minute ticket that ends the browser sign-in behind this session, for a registered `/signed-out` return. |
 | `GET` | `/v1/me/permissions` | `accessUser` | Active business permissions in the active tenant. |
 | `PATCH` | `/v1/me` | `accessUser` | Update display name. |
 | `POST` | `/v1/logout` | `accessUser` | Revoke current user session. |

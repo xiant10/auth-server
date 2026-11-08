@@ -31,7 +31,7 @@ const (
 )
 
 func testClients() []identity.Client {
-	return []identity.Client{{ID: "test-workbench", Type: identity.ClientConfidential, RedirectURIs: []string{"https://work.example/auth/callback"}, IdleTTL: time.Hour}, {
+	return []identity.Client{{ID: testWebClient, Name: "Workbench", Type: identity.ClientConfidential, SecretSHA256: testWebSecretHash(), RedirectURIs: []string{testRedirect}, IdleTTL: time.Hour}, {ID: "test-workbench", Type: identity.ClientConfidential, RedirectURIs: []string{"https://work.example/auth/callback"}, IdleTTL: time.Hour}, {
 		ID: testClientID, Type: identity.ClientPublic, RedirectURIs: []string{"http://127.0.0.1/callback"},
 		IdleTTL: 720 * time.Hour, AbsoluteTTL: 2160 * time.Hour,
 	}, {
@@ -539,7 +539,8 @@ func TestTOTP(t *testing.T) {
 	b.register("ada", "")
 	secret := b.enrollTOTP()
 
-	if st := h.browser().signIn("ada", testPassword, ""); st != http.StatusUnauthorized {
+	// The password alone reaches the code step, and no further.
+	if st := h.browser().signIn("ada", testPassword, ""); st != http.StatusOK {
 		t.Errorf("no code: %d", st)
 	}
 	if st := h.browser().signIn("ada", testPassword, "000000"); st != http.StatusUnauthorized {
@@ -726,7 +727,7 @@ func TestRecoveryWithMFA(t *testing.T) {
 	if status, _, body := h.browser().post("/v1/recover", withTOTP); status != http.StatusOK {
 		t.Fatalf("with TOTP: %d %s", status, body)
 	}
-	if st := h.browser().signIn("ada", newPassword, ""); st != http.StatusUnauthorized {
+	if st := h.browser().signIn("ada", newPassword, ""); st != http.StatusOK {
 		t.Errorf("factor was dropped: %d", st)
 	}
 

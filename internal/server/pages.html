@@ -136,11 +136,9 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 <form method="post" action="/v1/signin">
 <input type="hidden" name="next" value="{{.Next}}">
 <label for="name">{{t "Username, phone or email"}}</label>
-<input id="name" name="name" autocomplete="username" required autofocus>
+<input id="name" name="name" autocomplete="username" required{{if .SignInName}} value="{{.SignInName}}"{{else}} autofocus{{end}}>
 <label for="password">{{t "Password"}}</label>
-<input id="password" name="password" type="password" autocomplete="current-password" required>
-<label for="code">{{t "Authenticator code (if enabled)"}}</label>
-<input id="code" name="code" inputmode="numeric" autocomplete="one-time-code">
+<input id="password" name="password" type="password" autocomplete="current-password" required{{if .SignInName}} autofocus{{end}}>
 <button>{{t "Sign in"}}</button>
 </form>
 <p class="links"><a href="/v1/register?next={{.Next}}">{{t "Create an account"}}</a> · <a href="/v1/recover">{{t "Lost your password?"}}</a></p>
@@ -155,6 +153,8 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
   var image = document.getElementById("qr-image");
   var status = document.getElementById("qr-status");
   var timer;
+  // A phone can't scan its own screen.
+  if (window.matchMedia("(max-width: 759px)").matches) return;
   function post(path, body) {
     return fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)})
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
@@ -179,6 +179,23 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
   start();
 })();
 </script>
+{{template "foot"}}{{end}}
+
+{{define "signin_code"}}{{template "head" .}}
+<p>{{t "Open your authenticator app and enter the 6-digit code for t10."}}</p>
+<form method="post" action="/v1/signin">
+<input type="hidden" name="next" value="{{.Next}}">
+<input type="hidden" name="code_ticket" value="{{.CodeTicket}}">
+<label for="code">{{t "Authenticator code"}}</label>
+<input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus>
+<button>{{t "Continue"}}</button>
+</form>
+<p class="links"><a href="/v1/signin?next={{.Next}}">{{t "Start over"}}</a></p>
+{{template "foot"}}{{end}}
+
+{{define "signout_again"}}{{template "head" .}}
+<form method="post" action="/v1/signout"><button>{{t "Sign out"}}</button></form>
+<p class="links"><a href="/">{{t "Stay signed in"}}</a></p>
 {{template "foot"}}{{end}}
 
 {{define "register"}}{{template "head" .}}
@@ -246,7 +263,7 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 {{define "problem"}}{{template "head" .}}{{template "foot"}}{{end}}
 
 {{define "tenant_picker"}}{{template "head" .}}
-<p>{{t "You belong to several tenants. Which one do you want to open?"}}</p>
+<p>{{t "You belong to several workspaces. Which one do you want to open?"}}</p>
 {{template "tenant_rows" .Choices}}
 {{template "foot"}}{{end}}
 

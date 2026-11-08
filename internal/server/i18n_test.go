@@ -50,9 +50,13 @@ func TestChineseCatalogIsComplete(t *testing.T) {
 	for _, text := range handlerText(t, "admin.go", "handleAdmin", "handleFrontDoor") {
 		used[text] = true
 	}
-	for _, text := range handlerText(t, "pages.go") {
-		used[text] = true
+	for _, file := range []string{"pages.go", "browser_logout.go"} {
+		for _, text := range handlerText(t, file) {
+			used[text] = true
+		}
 	}
+	// App names come from clients.yaml, and reach the page through signInTitle.
+	used["Property"] = true
 	delete(used, "Origin") // A header, read in pages.go.
 	// Stored values reach the page through {{t .Status}} and the like.
 	for _, value := range []string{
@@ -134,7 +138,7 @@ func TestLanguageSwitchWorksSignedOut(t *testing.T) {
 	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "或使用 t10 应用扫码", "批准前，请先在应用中核对登录请求。")
 
 	status, _, body = b.post("/v1/signin", url.Values{"name": {"nobody"}, "password": {"wrong-password"}})
-	wantPage(t, status, body, http.StatusUnauthorized, "登录名、密码或验证码错误", `action="/v1/language"`)
+	wantPage(t, status, body, http.StatusUnauthorized, "登录名或密码错误", `action="/v1/language"`)
 }
 
 func TestLanguageSwitchLeavesSignedOutPagesOnTheSite(t *testing.T) {

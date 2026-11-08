@@ -32,7 +32,7 @@ func (s *Server) handleBrowserLogoutTicket(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_request", "unregistered sign-out destination")
 		return
 	}
-	ticket, err := s.Issuer.MintBrowserLogout(p.UserID, body.ReturnTo)
+	ticket, err := s.Issuer.MintBrowserLogout(p.UserID, p.SessionID, body.ReturnTo)
 	if err != nil {
 		writeInternal(w, r, err)
 		return
@@ -48,7 +48,7 @@ func (s *Server) handleBrowserLogout(w http.ResponseWriter, r *http.Request, _ i
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	claims, err := s.Issuer.VerifyBrowserLogout(r.URL.Query().Get("ticket"))
 	if err != nil || claims.Subject == "" || claims.LogoutRedirect == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "sign-out link expired or invalid; retry from Workbench")
+		render(w, r, http.StatusBadRequest, "signout_again", pageData{Title: "Sign out of t10?", Error: "That sign-out link ran out. Sign out here instead."})
 		return
 	}
 	p, ok, err := s.browserPrincipal(r)
@@ -56,16 +56,42 @@ func (s *Server) handleBrowserLogout(w http.ResponseWriter, r *http.Request, _ i
 		writeInternal(w, r, err)
 		return
 	}
+	if ok && p.UserID != claims.Subject {
+		render(w, r, http.StatusForbidden, "signout_again", pageData{Title: "Sign out of t10?", Error: "This browser is signed in to t10 with a different account. Sign out of that one too?"})
+		return
+	}
+	if err := s.Identity.EndBrowser(r.Context(), claims.Subject, claims.SessionID); err != nil {
+		writeInternal(w, r, err)
+		return
+	}
 	if ok {
-		if p.UserID != claims.Subject {
-			writeError(w, http.StatusForbidden, "forbidden", "sign-out belongs to a different account")
-			return
-		}
-		if err := s.Identity.EndSession(r.Context(), p.UserID, p.SessionID); err != nil {
+		if err := s.Identity.EndBrowser(r.Context(), p.UserID, p.SessionID); err != nil {
 			writeInternal(w, r, err)
 			return
 		}
 	}
 	s.setSessionCookie(w, "", -1)
 	http.Redirect(w, r, claims.LogoutRedirect, http.StatusSeeOther)
+}
+
+// handleSignOutPage is for an app whose own session has already gone, so it can't
+// get a ticket. The post is same-origin, so nothing but this page can send it.
+func (s *Server) handleSignOutPage(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
+	_, ok, err := s.browserPrincipal(r)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	if !ok {
+		http.Redirect(w, r, "/v1/signin?reason=signedout", http.StatusSeeOther)
+		return
+	}
+	render(w, r, http.StatusOK, "signout_again", pageData{Title: "Sign out of t10?", Notice: "This signs you out of every t10 app on this browser."})
+}
+
+// handleSessionAlive answers an app checking that the sign-in behind its session
+// hasn't ended. accessUser has already checked that against the database.
+func (s *Server) handleSessionAlive(w http.ResponseWriter, _ *http.Request, _ identity.Principal) {
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

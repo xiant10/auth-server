@@ -55,7 +55,7 @@ func TestPickerListsTenantsAndTheChoiceReachesTheToken(t *testing.T) {
 	h := pickerFixture(t)
 	b := h.signedIn("both")
 	status, location, body := b.get(authorizeFor(testPickerClient, ""))
-	wantPage(t, status, body, http.StatusOK, "Choose a tenant", "ten_acme", "ten_other")
+	wantPage(t, status, body, http.StatusOK, "Choose a workspace", "ten_acme", "ten_other")
 	if location != "" {
 		t.Fatalf("picker redirected to %q", location)
 	}
@@ -86,7 +86,7 @@ func TestPickerTreatsSomeoneElsesTenantAsNamingNone(t *testing.T) {
 	// With several, they're asked. The page says nothing about the tenant they named.
 	several := h.signedIn("both")
 	status, _, body := several.get(authorizeFor(testPickerClient, "ten_third"))
-	wantPage(t, status, body, http.StatusOK, "Choose a tenant")
+	wantPage(t, status, body, http.StatusOK, "Choose a workspace")
 	if strings.Contains(body, "ten_third") && !strings.Contains(body, "tenant=ten_acme") {
 		t.Errorf("no way forward: %s", body)
 	}

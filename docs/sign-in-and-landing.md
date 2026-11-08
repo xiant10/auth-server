@@ -1,6 +1,6 @@
 # Sign-in, landing and moving between apps
 
-Nov 6, 2026 · Status: the front door, tenant picker and switcher (sections 1 to 3), and the sign-out wording in section 5, built and deployed locally, uncommitted. Deep links and `max_auth_age` are proposed. Decided Nov 6: Sign out ends only the app you're in, and the console asks for a password again after an hour away. Spans `auth-server`, `workbench` and `t10-console`. It keeps the two addresses in "Admin surfaces" in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+Nov 6, 2026, revised Nov 7 · Status: the front door, tenant picker and switcher (sections 1 to 3) built. One sign-out and the sign-in page changes (sections 5 and 7) built on branch `feat/one-sign-out`, not merged. Deep links and `max_auth_age` are proposed. Decided Nov 7, replacing Nov 6's app-only sign-out: Sign out from any web app ends every t10 web app in the browser. Decided Nov 6: the console asks for a password again after an hour away. Spans `auth-server`, `workbench`, `t10-console`, `t10-property` and the web kit in `t10-modkit`. It keeps the two addresses in "Admin surfaces" in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 ## Summary
 
@@ -12,8 +12,9 @@ Six changes close this:
 2. **A tenant picker that lists tenants.** Nobody types a tenant ID, and the console stops asking for a tenant it doesn't use.
 3. **One switcher.** Both apps show the same list of places, from one `auth-server` read.
 4. **Links that keep your place.** The console's page for a tenant and that tenant's Administration link to each other.
-5. **Sign-out says what it did.** It ends only the app you're in, and both apps now tell you that the browser is still signed in.
+5. **One sign-out.** Sign out from any app ends every t10 web app in the browser, and the next sign-in asks for a password.
 6. **The console asks again after an hour away.** Its idle limit becomes a real password prompt.
+7. **A sign-in page that asks less.** It names the app, asks for a code only from accounts that have one, and remembers the last workspace.
 
 The console stays a separate app off the public ingress, and each app keeps its own cookie. This adds no new way into a tenant. A platform admin's existing break-glass access stays, and the tenant's audit log records it, as "Platform access to a tenant" in [`design.md`](design.md#security-considerations) describes.
 
@@ -122,7 +123,7 @@ A tenant requiring a second factor still refuses at redemption, and `workbench` 
 
 `console` appears only for platform admins. This read is for showing links only. Each service still checks every call, as it does now.
 
-Both apps offer the same places with the same words: tenants, Platform console, Account, and Sign out of this app. In `workbench` they're in the account menu, which lost its tenant `<select>`. In the console they're at the foot of the sidebar, cached for 60 seconds, and replace "Open workbench". Pages with no list to show, such as a refusal, link to the front door, which works out the rest.
+Both apps offer the same places with the same words: tenants, Platform console, Account, and Sign out. In `workbench` they're in the account menu, which lost its tenant `<select>`. In the console they're at the foot of the sidebar, cached for 60 seconds, and replace "Open workbench". Pages with no list to show, such as a refusal, link to the front door, which works out the rest.
 
 - **Same tab everywhere.** The browser's Back button then works, and a modified click still opens a new tab. Conversations run on after a page closes, and `workbench` keeps a typed draft.
 - **One word for each place.** "Workbench", "Platform console", "Account". A tenant's admin area is always "Administration", which removes "Organization settings".
@@ -144,24 +145,34 @@ Both apps offer the same places with the same words: tenants, Platform console, 
 
 A platform admin who isn't a member of the tenant gets no link. This design adds no impersonation or support feature, and these links don't change the break-glass access [`design.md`](design.md#security-considerations) describes.
 
-### 5. Sign-out ends only the app you're in
+### 5. One sign-out
 
-Sign out in `workbench` or the console ends that app's session and nothing else. Today's session model already works this way, so this needs no migration and no new route.
+Decided Nov 7. Sign out in `workbench`, Property or the console ends every t10 web app in this browser, and the browser's own sign-in. The next sign-in asks for a password. Native apps (Mac, mobile, the mini-program) sign in for themselves and stay signed in.
 
 | Action | Ends | Leaves running |
 | --- | --- | --- |
-| Sign out in `workbench` | `workbench`'s session | The console, the browser's sign-in |
-| Sign out in the console | The console's session | `workbench`, the browser's sign-in |
-| Sign out on `auth-server`'s pages | The browser's sign-in, so any app must ask for a password next time | App sessions already open, until they expire |
+| Sign out in any web app | That app, the browser's sign-in, and every web app's session started from it | Native apps, and other browsers |
+| Sign out on `auth-server`'s pages | The same | The same |
 | "Sign out everywhere" on the account page | All the person's sessions, on every browser and device | Nothing |
 
-Because the browser stays signed in, signing back in to an app asks for no password. Both apps should say so:
+**How the apps hear about it.** Each app session remembers the browser sign-in it came from (`auth.sessions.browser_session_id`, migration 0011). Ending a browser sign-in revokes it and those sessions in one transaction, for confidential (web) clients only. The apps learn of it in two ways, with no call from `auth-server` to the apps:
 
-- **`workbench`.** `/signed-out` keeps its existing note and its link to the account page.
-- **The console.** "Signed out" gains the same note and link. It needs a `zhControl` entry in `t10-console/internal/server/i18n.go`.
-- **The switcher.** Its entry reads "Sign out of Workbench" or "Sign out of Platform console", so the scope is clear before anyone clicks.
+- **The same app, in other tabs:** at once, through a `BroadcastChannel`. They wait a second, so the tab that signed out finishes first, then go to `/signed-out`.
+- **Other apps:** each app's `GET /auth/session` asks `auth-server`'s `GET /v1/me/session`, which checks the session row. The page asks when someone comes back to it (focus, a visible tab, Back) and every 30 seconds while someone is using it. An ended session sends the page to sign-in, saying "You've been signed out", and back to the same place after. An unattended page doesn't ask, because asking refreshes the token and so keeps an idle session alive. Other API calls keep working until the access token's 5 minutes run out, as they already did after "Sign out everywhere".
 
-**What this leaves open.** On a shared computer, leaving completely takes signing out of each app and then signing out on the account page, or using "Sign out everywhere", which also ends the person's other devices. Section 6 limits this for the console, but `workbench` can be re-entered with no password until the browser's sign-in expires.
+**The steps.** The app ends its own session first, whatever happens next, then sends the browser on:
+
+| What the app finds | Where the browser goes |
+| --- | --- |
+| A session, and `auth-server` gives a ticket | `/v1/signout/complete?ticket=`, which ends the browser sign-in and its web apps, then `<app>/signed-out` |
+| No session left to ask with | `auth-server`'s `GET /v1/signout`, which asks "Sign out of t10?" if the browser is still signed in |
+| `auth-server` not answering | `<app>/signed-out?reason=incomplete`, which says other apps may still be signed in, with Finish signing out |
+
+`<app>/signed-out` with no reason goes straight to the sign-in page, which names the app and says "You've signed out of all t10 apps on this browser." Refused sign-ins (`mfa`, `no_access`, `failed`) keep the app's own page, which now links to the account page or offers "Use a different account".
+
+**Shared computers.** Signing out clears the app's saved drafts, and an app clears drafts written by another account when someone new signs in.
+
+**Working keeps the sign-in alive.** Refreshing an app's token extends the browser sign-in's idle limit too, up to its absolute limit, so someone who works in `workbench` all day can open Property without a password.
 
 ### 6. The console asks again after an hour away
 
@@ -175,14 +186,22 @@ Add `max_auth_age` per client in `clients.yaml`, and set it to `1h` on `t10-cons
 | Back after more than an hour idle | Password |
 | Signed in to `workbench` over an hour ago, opening the console for the first time | **Password.** This is the one place the two apps aren't seamless, and it's the point of the setting |
 | Signed in within the hour, opening the console | No password |
-| Signed out of the console, reopened within the hour of signing in | No password, because sign-out covers only the app |
+| Signed out of the console, then reopened | Password, because sign-out ends the browser's sign-in |
 
 Step-up doesn't change. Publishing and identity pages still need a second factor from the last 15 minutes.
 
-## Smaller changes
+## 7. The sign-in page
 
-- **Sign-in names the app.** The hosted page says "Sign in" with no app named. Reading `client_id` from `next` lets it say "Sign in to Workbench", using `name` from `clients.yaml`.
-- **Language follows the person.** It's stored separately in `auth-server`'s cookie, the console's cookie and `workbench`'s local storage, so a choice at sign-in doesn't carry over. Pass it as `ui_locales` to `/v1/authorize` and as `lang` on switcher links. A stored account preference could come later.
+Built with section 5.
+
+- **It names the app.** "Sign in to Workbench", from `name` in `clients.yaml`, read from the authorize request in `next`. The names are now "Workbench", "Property" and "Platform console".
+- **A code only when there is one.** The page asks for name and password. An account with an authenticator gets a second step asking for the code alone, carried by a 5-minute signed ticket that's no use without the code. A wrong code stays on that step and counts toward the lockout, as before.
+- **It keeps the name after a wrong password**, and puts the cursor in the password field.
+- **No QR code on a phone,** which can't scan its own screen. Wider screens keep it.
+- **A browser already signed in skips it,** except when it's asking again on purpose (step-up).
+- **It says why it's here:** after a sign-out, or after the session ended elsewhere.
+- **One workspace question per browser.** The workspace someone picks or opens is remembered in an `auth-server` cookie, and used next time if they're still a member and meet its second-factor rule. Each app switches workspace in its own menu, so nobody is asked again by each app. "Tenant" is "workspace" on these pages.
+- **Language follows the person.** An app sends the language someone chose as `ui_locales`, and `auth-server` sends the page's language back as `lang` on the code redirect, which the app's callback hands to the page once.
 
 ## Security
 
@@ -203,7 +222,8 @@ Step-up doesn't change. Publishing and identity pages still need a second factor
 | A shared parent-domain cookie | It ties the apps' domains together, and doesn't work across a public and an internal address. Sign-in already works without it |
 | A chooser for everyone after each sign-in | It would add a click to every sign-in for people with one place to go |
 | Remember the last destination and skip the chooser | Only people who arrive at `auth-server` directly see the chooser, so this adds state for little gain |
-| Sign out ends the whole browser | It would protect shared computers better, but signing out of the console would also leave `workbench`. Decided against on Nov 6 |
+| Sign out ends only the app | Chosen on Nov 6, then replaced on Nov 7: signing back in asked no password, so sign-out looked broken, and a shared computer stayed signed in to the other apps |
+| `auth-server` calls each app to end its session (OIDC back-channel) | Needs a route from `auth-server` to every app, including the console on the internal network, and retries. Asking on focus needs neither |
 | A separate portal service | It would add a service to render one list that `auth-server` already has the data for |
 
 ## Order of work

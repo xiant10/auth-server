@@ -20,6 +20,7 @@ clients:
     name: 物业员工端
     type: public
     wechat: true
+    wechat_demo: true
     idle_ttl: 168h
   - id: t10-workbench
     name: Workbench

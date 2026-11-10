@@ -101,9 +101,10 @@ func (s *Server) handleTenantUnits(w http.ResponseWriter, r *http.Request, _ ide
 }
 
 type unitRequest struct {
-	Name     string `json:"name"`
-	Kind     string `json:"kind"`
-	ParentID string `json:"parent_id"`
+	Name       string `json:"name"`
+	Kind       string `json:"kind"`
+	ParentID   string `json:"parent_id"`
+	LeadUserID string `json:"lead_user_id"`
 }
 
 func (s *Server) handleCreateUnit(w http.ResponseWriter, r *http.Request, p identity.Principal) {
@@ -125,16 +126,23 @@ func (s *Server) handleUpdateUnit(w http.ResponseWriter, r *http.Request, p iden
 		return
 	}
 	id := r.PathValue("unit")
-	err := s.Directory.UpdateUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), id, req.Name, req.Kind, req.ParentID)
+	err := s.Directory.UpdateUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), id, req.Name, req.Kind, req.ParentID, req.LeadUserID)
 	if err != nil {
 		writeDirectoryError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, directory.Unit{ID: id, ParentID: req.ParentID, Name: strings.TrimSpace(req.Name), Kind: req.Kind})
+	writeJSON(w, http.StatusOK, directory.Unit{ID: id, ParentID: req.ParentID, Name: strings.TrimSpace(req.Name), Kind: req.Kind, LeadUserID: req.LeadUserID})
 }
 
+// handleDeleteUnit takes move=up to move the unit's members and child units to
+// its parent first. Without it, a unit in use is refused.
 func (s *Server) handleDeleteUnit(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	err := s.Directory.DeleteUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("unit"))
+	move := r.URL.Query().Get("move")
+	if move != "" && move != "up" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "move is invalid")
+		return
+	}
+	err := s.Directory.DeleteUnit(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("unit"), move == "up")
 	if err != nil {
 		writeDirectoryError(w, r, err)
 		return
@@ -165,4 +173,19 @@ func (s *Server) handleSetPlacement(w http.ResponseWriter, r *http.Request, p id
 		return
 	}
 	s.handleGetPlacement(w, r, p)
+}
+
+// handleSetPlacements places several members in one change, all or none.
+func (s *Server) handleSetPlacements(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	var req struct {
+		Placements []directory.Placement `json:"placements"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := s.Directory.SetPlacements(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), req.Placements); err != nil {
+		writeDirectoryError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

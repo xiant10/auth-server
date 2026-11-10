@@ -210,6 +210,7 @@ func (s *Server) routes() []route {
 		{"DELETE", "/v1/tenants/{id}/units/{unit}", accessTenantAdmin, s.handleDeleteUnit},
 		{"GET", "/v1/tenants/{id}/members/{user}/placement", accessTenantAdmin, s.handleGetPlacement},
 		{"PUT", "/v1/tenants/{id}/members/{user}/placement", accessTenantAdmin, s.handleSetPlacement},
+		{"PUT", "/v1/tenants/{id}/placements", accessTenantAdmin, s.handleSetPlacements},
 		{"GET", "/v1/tenants/{id}/grants", accessTenantAdmin, s.handleTenantGrants},
 		{"POST", "/v1/tenants/{id}/grants/{grant}/revoke", accessTenantAdmin, s.handleTenantRevokeGrant},
 		{"GET", "/v1/tenants/{id}/audit", accessTenantAdmin, s.handleTenantAudit},

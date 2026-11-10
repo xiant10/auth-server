@@ -36,8 +36,11 @@ type Unit struct {
 	ParentID string `json:"parent_id,omitempty"`
 	Name     string `json:"name"`
 	Kind     string `json:"kind"`
-	Depth    int    `json:"-"`
-	Members  int    `json:"-"`
+	// LeadUserID is the unit's lead as an admin set them, who may have left since.
+	LeadUserID string `json:"lead_user_id,omitempty"`
+	Depth      int    `json:"-"`
+	// Members counts the unit's own active members, not those of units beneath it.
+	Members int `json:"members"`
 }
 
 // OrgMember is one member's place in the organization.
@@ -182,8 +185,9 @@ func (s *Service) CreateUnit(ctx context.Context, actor, tenantID, name, kind, p
 	return u, nil
 }
 
-// UpdateUnit renames a unit or moves it to another parent.
-func (s *Service) UpdateUnit(ctx context.Context, actor, tenantID, id, name, kind, parentID string) error {
+// UpdateUnit renames a unit, moves it to another parent or changes its lead.
+// An empty leadUserID clears the lead.
+func (s *Service) UpdateUnit(ctx context.Context, actor, tenantID, id, name, kind, parentID, leadUserID string) error {
 	name, err := cleanUnit(name, kind)
 	if err != nil {
 		return err
@@ -205,9 +209,13 @@ func (s *Service) UpdateUnit(ctx context.Context, actor, tenantID, id, name, kin
 				return ErrCycle
 			}
 		}
+		leadID, err := unitLead(ctx, tx, tenantID, id, leadUserID)
+		if err != nil {
+			return err
+		}
 		tag, err := tx.Exec(ctx,
-			"UPDATE auth.org_units SET name = $3, kind = $4, parent_id = $5 WHERE tenant_id = $1 AND id = $2",
-			tenantID, id, name, kind, nullable(parentID))
+			"UPDATE auth.org_units SET name = $3, kind = $4, parent_id = $5, lead_id = $6 WHERE tenant_id = $1 AND id = $2",
+			tenantID, id, name, kind, nullable(parentID), leadID)
 		if err != nil {
 			return translate(err, "update unit")
 		}
@@ -216,15 +224,49 @@ func (s *Service) UpdateUnit(ctx context.Context, actor, tenantID, id, name, kin
 		}
 		return audit.Write(ctx, tx, audit.Entry{
 			Actor: actor, Scope: audit.ScopeTenant(tenantID), Action: "org_unit.update", Target: id, Outcome: audit.Success,
-			Detail: map[string]any{"name": name, "kind": kind, "parent": parentID},
+			Detail: map[string]any{"name": name, "kind": kind, "parent": parentID, "lead": leadUserID},
 		})
 	})
 }
 
-// DeleteUnit removes an empty unit. It refuses one with members or children,
-// because moving them is a choice only the admin can make.
-func (s *Service) DeleteUnit(ctx context.Context, actor, tenantID, id string) error {
+// unitLead finds the membership a unit's lead names. An unchanged lead needs
+// no check, as with a manager: they may have left since it was set.
+func unitLead(ctx context.Context, tx pgx.Tx, tenantID, unitID, leadUserID string) (*string, error) {
+	if leadUserID == "" {
+		return nil, nil
+	}
+	var id string
+	err := tx.QueryRow(ctx,
+		`SELECT b.id FROM auth.org_units o JOIN auth.memberships b ON b.tenant_id = o.tenant_id AND b.id = o.lead_id
+		 WHERE o.tenant_id = $1 AND o.id = $2 AND b.user_id = $3`, tenantID, unitID, leadUserID).Scan(&id)
+	if err == nil {
+		return &id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("read current lead: %w", err)
+	}
+	err = tx.QueryRow(ctx,
+		`SELECT m.id FROM auth.memberships m JOIN auth.users u ON u.id = m.user_id
+		 WHERE m.tenant_id = $1 AND m.user_id = $2 AND m.status = 'active' AND u.status = 'active'`,
+		tenantID, leadUserID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrInvalid
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read lead: %w", err)
+	}
+	return &id, nil
+}
+
+// DeleteUnit removes a unit. Without moveUp it refuses one with members or
+// children, because moving them is a choice only the admin can make. With it,
+// the members and child units move to the unit's parent, and members of a unit
+// at the top are left without one.
+func (s *Service) DeleteUnit(ctx context.Context, actor, tenantID, id string, moveUp bool) error {
 	return s.orgTx(ctx, tenantID, func(tx pgx.Tx) error {
+		if moveUp {
+			return deleteMovingUp(ctx, tx, actor, tenantID, id)
+		}
 		var inUse bool
 		err := tx.QueryRow(ctx,
 			`SELECT EXISTS (SELECT 1 FROM auth.org_units WHERE tenant_id = $1 AND parent_id = $2)
@@ -248,6 +290,39 @@ func (s *Service) DeleteUnit(ctx context.Context, actor, tenantID, id string) er
 	})
 }
 
+func deleteMovingUp(ctx context.Context, tx pgx.Tx, actor, tenantID, id string) error {
+	var parentID *string
+	err := tx.QueryRow(ctx, "SELECT parent_id FROM auth.org_units WHERE tenant_id = $1 AND id = $2", tenantID, id).Scan(&parentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read unit: %w", err)
+	}
+	members, err := tx.Exec(ctx, "UPDATE auth.memberships SET org_unit_id = $3 WHERE tenant_id = $1 AND org_unit_id = $2", tenantID, id, parentID)
+	if err != nil {
+		return fmt.Errorf("move unit members: %w", err)
+	}
+	children, err := tx.Exec(ctx, "UPDATE auth.org_units SET parent_id = $3 WHERE tenant_id = $1 AND parent_id = $2", tenantID, id, parentID)
+	if err != nil {
+		return fmt.Errorf("move child units: %w", err)
+	}
+	if _, err := tx.Exec(ctx, "DELETE FROM auth.org_units WHERE tenant_id = $1 AND id = $2", tenantID, id); err != nil {
+		return fmt.Errorf("delete unit: %w", err)
+	}
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor: actor, Scope: audit.ScopeTenant(tenantID), Action: "org_unit.delete", Target: id, Outcome: audit.Success,
+		Detail: map[string]any{"moved_to": deref(parentID), "members": members.RowsAffected(), "units": children.RowsAffected()},
+	})
+}
+
+func deref(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
 // ListUnits returns a tenant's units as a tree, each parent before its children.
 func (s *Service) ListUnits(ctx context.Context, tenantID string) ([]Unit, error) {
 	rows, err := s.pool.Query(ctx,
@@ -258,7 +333,10 @@ func (s *Service) ListUnits(ctx context.Context, tenantID string) ([]Unit, error
 			SELECT u.id, u.parent_id, u.name, u.kind, t.depth + 1, t.path || ARRAY[lower(u.name), u.id]
 			FROM auth.org_units u JOIN tree t ON u.tenant_id = $1 AND u.parent_id = t.id
 		)
-		SELECT t.id, COALESCE(t.parent_id, ''), t.name, t.kind, t.depth,
+		SELECT t.id, COALESCE(t.parent_id, ''), t.name, t.kind,
+		       COALESCE((SELECT b.user_id FROM auth.org_units o JOIN auth.memberships b ON b.tenant_id = o.tenant_id AND b.id = o.lead_id
+		                 WHERE o.tenant_id = $1 AND o.id = t.id), ''),
+		       t.depth,
 		       (SELECT count(*) FROM auth.memberships m JOIN auth.users mu ON mu.id = m.user_id
 		        WHERE m.tenant_id = $1 AND m.org_unit_id = t.id AND m.status = 'active' AND mu.status = 'active')
 		FROM tree t ORDER BY t.path`, tenantID)
@@ -267,7 +345,7 @@ func (s *Service) ListUnits(ctx context.Context, tenantID string) ([]Unit, error
 	}
 	units, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Unit, error) {
 		var u Unit
-		err := row.Scan(&u.ID, &u.ParentID, &u.Name, &u.Kind, &u.Depth, &u.Members)
+		err := row.Scan(&u.ID, &u.ParentID, &u.Name, &u.Kind, &u.LeadUserID, &u.Depth, &u.Members)
 		return u, err
 	})
 	if err != nil {
@@ -280,39 +358,71 @@ func (s *Service) ListUnits(ctx context.Context, tenantID string) ([]Unit, error
 // and both optional. Tokens carry neither, so this needs no revocation.
 func (s *Service) SetPlacement(ctx context.Context, actor, tenantID, userID, managerUserID, unitID string) error {
 	return s.orgTx(ctx, tenantID, func(tx pgx.Tx) error {
-		var memberID string
-		err := tx.QueryRow(ctx, "SELECT id FROM auth.memberships WHERE tenant_id = $1 AND user_id = $2", tenantID, userID).Scan(&memberID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		if err != nil {
-			return fmt.Errorf("read member: %w", err)
-		}
-		// An unchanged manager needs no check. They may have left since it was
-		// set, and refusing would make every unit change also cut the chain.
-		var managerID *string
-		err = tx.QueryRow(ctx,
-			`SELECT b.id FROM auth.memberships m JOIN auth.memberships b ON b.tenant_id = m.tenant_id AND b.id = m.manager_id
-			 WHERE m.tenant_id = $1 AND m.id = $2 AND b.user_id = $3`, tenantID, memberID, managerUserID).Scan(&managerID)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("read current manager: %w", err)
-		}
-		if managerID == nil && managerUserID != "" {
-			id, err := managerMembership(ctx, tx, tenantID, memberID, managerUserID)
-			if err != nil {
+		return place(ctx, tx, actor, tenantID, Placement{UserID: userID, ManagerUserID: managerUserID, OrgUnitID: unitID})
+	})
+}
+
+// Placement is one member's manager and unit, as SetPlacements sets them.
+type Placement struct {
+	UserID        string `json:"user_id"`
+	ManagerUserID string `json:"manager_user_id"`
+	OrgUnitID     string `json:"org_unit_id"`
+}
+
+// MaxPlacements is the most members one SetPlacements call places.
+const MaxPlacements = 500
+
+// SetPlacements places several members at once, in order: all of them or, if
+// one is refused, none. Each still gets its own audit row. Later placements see
+// earlier ones, so moving a team and its lead together can't make a cycle.
+func (s *Service) SetPlacements(ctx context.Context, actor, tenantID string, placements []Placement) error {
+	if len(placements) == 0 || len(placements) > MaxPlacements {
+		return ErrInvalid
+	}
+	return s.orgTx(ctx, tenantID, func(tx pgx.Tx) error {
+		for _, p := range placements {
+			if err := place(ctx, tx, actor, tenantID, p); err != nil {
 				return err
 			}
-			managerID = &id
 		}
-		_, err = tx.Exec(ctx, "UPDATE auth.memberships SET manager_id = $3, org_unit_id = $4 WHERE tenant_id = $1 AND id = $2",
-			tenantID, memberID, managerID, nullable(unitID))
+		return nil
+	})
+}
+
+func place(ctx context.Context, tx pgx.Tx, actor, tenantID string, p Placement) error {
+	userID, managerUserID, unitID := p.UserID, p.ManagerUserID, p.OrgUnitID
+	var memberID string
+	err := tx.QueryRow(ctx, "SELECT id FROM auth.memberships WHERE tenant_id = $1 AND user_id = $2", tenantID, userID).Scan(&memberID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read member: %w", err)
+	}
+	// An unchanged manager needs no check. They may have left since it was
+	// set, and refusing would make every unit change also cut the chain.
+	var managerID *string
+	err = tx.QueryRow(ctx,
+		`SELECT b.id FROM auth.memberships m JOIN auth.memberships b ON b.tenant_id = m.tenant_id AND b.id = m.manager_id
+		 WHERE m.tenant_id = $1 AND m.id = $2 AND b.user_id = $3`, tenantID, memberID, managerUserID).Scan(&managerID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("read current manager: %w", err)
+	}
+	if managerID == nil && managerUserID != "" {
+		id, err := managerMembership(ctx, tx, tenantID, memberID, managerUserID)
 		if err != nil {
-			return translate(err, "update placement")
+			return err
 		}
-		return audit.Write(ctx, tx, audit.Entry{
-			Actor: actor, Scope: audit.ScopeTenant(tenantID), Action: "membership.placement", Target: userID, Outcome: audit.Success,
-			Detail: map[string]any{"manager": managerUserID, "unit": unitID},
-		})
+		managerID = &id
+	}
+	_, err = tx.Exec(ctx, "UPDATE auth.memberships SET manager_id = $3, org_unit_id = $4 WHERE tenant_id = $1 AND id = $2",
+		tenantID, memberID, managerID, nullable(unitID))
+	if err != nil {
+		return translate(err, "update placement")
+	}
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor: actor, Scope: audit.ScopeTenant(tenantID), Action: "membership.placement", Target: userID, Outcome: audit.Success,
+		Detail: map[string]any{"manager": managerUserID, "unit": unitID},
 	})
 }
 

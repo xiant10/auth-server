@@ -377,7 +377,7 @@ Managers are a nullable self-reference on `memberships`, and org units are a par
 | `auth_codes` | `code_hash`, `session_id`, `client_id`, `code_challenge`, `redirect_uri`, `expires_at`, `used_at` | Single use, 60 seconds |
 | `tenants` | `id`, `name`, `status` | Suspending a tenant blocks minting |
 | `memberships` | `id`, `tenant_id`, `user_id`, `role`, `status`, `manager_id`, `org_unit_id` | Role is `member` or `admin` |
-| `org_units` | `id`, `tenant_id`, `parent_id`, `name`, `kind` | `kind` includes department |
+| `org_units` | `id`, `tenant_id`, `parent_id`, `name`, `kind`, `lead_id` | `kind` includes department. `lead_id` is an optional membership |
 | `invitations` | `tenant_id`, `role`, `token_hash`, `expires_at`, `accepted_at` | Link-based, single use, 7 days |
 | `platform_admins` | `user_id`, `granted_by`, `granted_at` | Grants no tenant membership |
 | `service_accounts` | `id`, `name`, `secret_hash`, `next_secret_hash`, `status` | Two hashes allow rotation without downtime |

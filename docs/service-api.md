@@ -94,7 +94,7 @@ These routes take a service token, and every one needs `tenant=<id>`.
 
 | Route | Returns |
 | --- | --- |
-| `GET /v1/org/units` | The tenant's units |
+| `GET /v1/org/units` | The tenant's units, each with `members` (its own active members) and `lead_user_id` when it has a lead |
 | `GET /v1/org/members` | One page of `members` in user ID order, with `next_cursor`, empty on the last page. Each has the fields below, including inactive and suspended members unless `status=active`. Takes `limit` (up to 500, default 100), `cursor`, `unit`, and `q`, which matches display names only |
 | `GET /v1/org/units/{id}/members` | `user_ids` of active members, leaving out suspended accounts. Add `transitive=true` for the units beneath it |
 | `GET /v1/org/members/{user}` | `user_id`, `role`, `status` (the membership), `user_status` (the account), `manager_user_id` (the nearest active manager), `assigned_manager_user_id` (the link as set, which can name someone who left), `org_unit_id` and `display_name` |

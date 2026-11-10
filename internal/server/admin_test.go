@@ -294,11 +294,14 @@ func TestTenantMembersCarryNamesAndPlacement(t *testing.T) {
 	boss := h.login("boss", "ten_acme")
 	unit := h.unit("Sales", "")
 	h.mustPlace(member, h.userID("boss"), unit)
+	if _, err := h.pool.Exec(context.Background(), "UPDATE auth.users SET display_name = CASE id WHEN $1 THEN 'Grace Hopper' ELSE 'The Boss' END WHERE id IN ($1, $2)", member, h.userID("boss")); err != nil {
+		t.Fatal(err)
+	}
 	status, body := h.do("GET", "/v1/tenants/ten_acme/members", boss, nil)
 	h.wantStatus(status, body, http.StatusOK)
 	for _, m := range body["members"].([]any) {
 		row := m.(map[string]any)
-		if row["user_id"] == member && (row["name"] != "grace" || row["manager_name"] != "boss" || row["org_unit_name"] != "Sales" || row["user_status"] != "active") {
+		if row["user_id"] == member && (row["name"] != "grace" || row["display_name"] != "Grace Hopper" || row["manager_name"] != "boss" || row["manager_display_name"] != "The Boss" || row["org_unit_name"] != "Sales" || row["user_status"] != "active") {
 			t.Errorf("member row: %v", row)
 		}
 	}

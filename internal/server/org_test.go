@@ -221,13 +221,13 @@ func TestUnitsStayInsideOneTenant(t *testing.T) {
 		t.Errorf("a parent from another tenant: %v", err)
 	}
 	mine := h.unit("Mine", "")
-	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", mine, "Mine", directory.UnitTeam, foreign.ID); !errors.Is(err, directory.ErrNotFound) {
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", mine, "Mine", directory.UnitTeam, foreign.ID, ""); !errors.Is(err, directory.ErrNotFound) {
 		t.Errorf("moving under another tenant: %v", err)
 	}
-	if err := h.dir.UpdateUnit(ctx, "test", "ten_other", mine, "Taken", directory.UnitTeam, ""); !errors.Is(err, directory.ErrNotFound) {
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_other", mine, "Taken", directory.UnitTeam, "", ""); !errors.Is(err, directory.ErrNotFound) {
 		t.Errorf("editing another tenant's unit: %v", err)
 	}
-	if err := h.dir.DeleteUnit(ctx, "test", "ten_other", mine); !errors.Is(err, directory.ErrNotFound) {
+	if err := h.dir.DeleteUnit(ctx, "test", "ten_other", mine, false); !errors.Is(err, directory.ErrNotFound) {
 		t.Errorf("deleting another tenant's unit: %v", err)
 	}
 	var mixed string
@@ -266,20 +266,20 @@ func TestUnitTree(t *testing.T) {
 		t.Errorf("transitive: %v", body)
 	}
 
-	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales", directory.UnitDepartment, east); !errors.Is(err, directory.ErrCycle) {
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales", directory.UnitDepartment, east, ""); !errors.Is(err, directory.ErrCycle) {
 		t.Errorf("a unit under its own child: %v", err)
 	}
-	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales", directory.UnitDepartment, sales); !errors.Is(err, directory.ErrCycle) {
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales", directory.UnitDepartment, sales, ""); !errors.Is(err, directory.ErrCycle) {
 		t.Errorf("a unit under itself: %v", err)
 	}
-	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", sales); !errors.Is(err, directory.ErrUnitInUse) {
+	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", sales, false); !errors.Is(err, directory.ErrUnitInUse) {
 		t.Errorf("deleting a parent: %v", err)
 	}
-	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", east); !errors.Is(err, directory.ErrUnitInUse) {
+	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", east, false); !errors.Is(err, directory.ErrUnitInUse) {
 		t.Errorf("deleting a unit with members: %v", err)
 	}
 	h.mustPlace(u["grace"], "", "")
-	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", east); err != nil {
+	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", east, false); err != nil {
 		t.Errorf("deleting an empty unit: %v", err)
 	}
 	if _, err := h.dir.CreateUnit(ctx, "test", "ten_acme", "  ", directory.UnitTeam, ""); !errors.Is(err, directory.ErrInvalid) {
@@ -311,4 +311,124 @@ func (h *harness) userID(name string) string {
 		h.t.Fatal(fmt.Errorf("user %s: %w", name, err))
 	}
 	return id
+}
+
+func TestUnitLeads(t *testing.T) {
+	h := newHarness(t, true)
+	ctx := context.Background()
+	u := h.orgUsers("ada", "gone")
+	sales := h.unit("Sales", "")
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales", directory.UnitDepartment, "", u["gone"]); err != nil {
+		t.Fatal(err)
+	}
+	h.mustPlace(u["ada"], "", sales)
+	if _, err := h.dir.UpdateMember(ctx, "test", "ten_acme", u["gone"], directory.MemberUpdate{Status: new(directory.MemberInactive)}); err != nil {
+		t.Fatal(err)
+	}
+	// A lead who left is kept on an unrelated change, so reinstating them restores it.
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales EU", directory.UnitDepartment, "", u["gone"]); err != nil {
+		t.Errorf("keeping a lead who left: %v", err)
+	}
+	units, err := h.dir.ListUnits(ctx, "ten_acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(units) != 1 || units[0].LeadUserID != u["gone"] || units[0].Members != 1 {
+		t.Fatalf("units: %+v", units)
+	}
+	other := h.unit("Other", "")
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", other, "Other", directory.UnitTeam, "", u["gone"]); !errors.Is(err, directory.ErrInvalid) {
+		t.Errorf("a new lead who left: %v", err)
+	}
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", other, "Other", directory.UnitTeam, "", "usr_nobody"); !errors.Is(err, directory.ErrInvalid) {
+		t.Errorf("a lead who isn't a member: %v", err)
+	}
+	if err := h.dir.UpdateUnit(ctx, "test", "ten_acme", sales, "Sales EU", directory.UnitDepartment, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if units, _ := h.dir.ListUnits(ctx, "ten_acme"); units[1].LeadUserID != "" {
+		t.Errorf("a cleared lead: %+v", units[1])
+	}
+}
+
+func TestPlacementsAreAllOrNone(t *testing.T) {
+	h := newHarness(t, true)
+	ctx := context.Background()
+	u := h.orgUsers("ada", "grace", "boss")
+	sales := h.unit("Sales", "")
+	h.mustPlace(u["boss"], u["ada"], "")
+	err := h.dir.SetPlacements(ctx, "test", "ten_acme", []directory.Placement{
+		{UserID: u["grace"], ManagerUserID: u["boss"], OrgUnitID: sales},
+		{UserID: u["ada"], ManagerUserID: u["boss"], OrgUnitID: sales},
+	})
+	if !errors.Is(err, directory.ErrCycle) {
+		t.Fatalf("a batch with a cycle: %v", err)
+	}
+	if m, _ := h.dir.OrgMember(ctx, "ten_acme", u["grace"]); m.OrgUnitID != "" {
+		t.Error("a refused batch placed someone")
+	}
+	// Later placements see earlier ones: freeing ada first lets her report to boss.
+	err = h.dir.SetPlacements(ctx, "test", "ten_acme", []directory.Placement{
+		{UserID: u["boss"], OrgUnitID: sales},
+		{UserID: u["ada"], ManagerUserID: u["boss"], OrgUnitID: sales},
+		{UserID: u["grace"], ManagerUserID: u["boss"], OrgUnitID: sales},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports, err := h.dir.Reports(ctx, "ten_acme", u["boss"], false)
+	if err != nil || !sameIDs(reports, u["ada"], u["grace"]) {
+		t.Errorf("reports: %v %v", reports, err)
+	}
+	if h.auditCount("membership.placement", "success") != 4 {
+		t.Error("a batch didn't audit each placement")
+	}
+	if err := h.dir.SetPlacements(ctx, "test", "ten_acme", nil); !errors.Is(err, directory.ErrInvalid) {
+		t.Errorf("an empty batch: %v", err)
+	}
+
+	admin := h.adminToken("ten_acme")
+	status, body := h.do("PUT", "/v1/tenants/ten_acme/placements", admin, map[string]any{"placements": []map[string]string{{"user_id": u["grace"]}}})
+	h.wantStatus(status, body, http.StatusNoContent)
+	if m, _ := h.dir.OrgMember(ctx, "ten_acme", u["grace"]); m.OrgUnitID != "" || m.ManagerUserID != "" {
+		t.Errorf("placing over HTTP: %+v", m)
+	}
+}
+
+func TestDeletingAUnitCanMoveItsContentsUp(t *testing.T) {
+	h := newHarness(t, true)
+	ctx := context.Background()
+	u := h.orgUsers("ada", "grace")
+	sales := h.unit("Sales", "")
+	east := h.unit("East", sales)
+	north := h.unit("North", east)
+	h.mustPlace(u["ada"], "", east)
+	h.mustPlace(u["grace"], "", sales)
+	admin := h.adminToken("ten_acme")
+	status, body := h.do("DELETE", "/v1/tenants/ten_acme/units/"+east+"?move=sideways", admin, nil)
+	h.wantStatus(status, body, http.StatusBadRequest)
+	status, body = h.do("DELETE", "/v1/tenants/ten_acme/units/"+east+"?move=up", admin, nil)
+	h.wantStatus(status, body, http.StatusNoContent)
+	if m, _ := h.dir.OrgMember(ctx, "ten_acme", u["ada"]); m.OrgUnitID != sales {
+		t.Errorf("a member wasn't moved up: %+v", m)
+	}
+	units, err := h.dir.ListUnits(ctx, "ten_acme")
+	if err != nil || len(units) != 2 || units[1].ID != north || units[1].ParentID != sales {
+		t.Fatalf("a child unit wasn't moved up: %+v %v", units, err)
+	}
+	if err := h.dir.DeleteUnit(ctx, "test", "ten_acme", sales, true); err != nil {
+		t.Fatal(err)
+	}
+	if m, _ := h.dir.OrgMember(ctx, "ten_acme", u["grace"]); m.OrgUnitID != "" {
+		t.Errorf("a member of a top unit kept it: %+v", m)
+	}
+	if units, _ := h.dir.ListUnits(ctx, "ten_acme"); len(units) != 1 || units[0].ParentID != "" {
+		t.Errorf("a child of a top unit: %+v", units)
+	}
+}
+
+func (h *harness) adminToken(tenant string) string {
+	h.t.Helper()
+	h.user("chief", map[string]string{tenant: directory.RoleAdmin})
+	return h.login("chief", tenant)
 }

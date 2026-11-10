@@ -184,7 +184,7 @@ erDiagram
 
 1. **`auth.users` & `auth.user_identifiers`**: A user has a `status` (`active`, `suspended`). Identifiers (`username`, `phone`, `email`) are normalized and strictly unique. Phones are stored in E.164 format.
 2. **`auth.tenants` & `auth.memberships`**: Composite foreign keys `(tenant_id, user_id)` and `(tenant_id, id)` ensure cross-tenant references cannot occur in the database. A membership role is either `member` or `admin`.
-3. **`auth.org_units` & `auth.memberships`**: Units are structured as an adjacency tree with `kind` (`department`, `team`). A member's `manager_id` points to another membership record within the same tenant.
+3. **`auth.org_units` & `auth.memberships`**: Units are structured as an adjacency tree with `kind` (`department`, `team`). A member's `manager_id` points to another membership record within the same tenant, and so does a unit's optional `lead_id`. Admin tools set a member's manager to their unit's lead by default; the server stores only what they send.
 4. **`auth.sessions`**: Tracks active client sessions. Stores `secret_hash` (current refresh token SHA-256), `prev_secret_hash` (to tolerate network drops on rotation), and `retired_secret_hashes` (replaying any retired hash triggers immediate session revocation).
 5. **`auth.devices`**: Stores enrolled mobile hardware keys (`approval_public_key` and `session_public_key` as raw uncompressed P-256 points). `mfa_capable` is set only if enrolled with a second factor.
 6. **`auth.agent_grants`**: Represents execution authorization for runtimes (`t10-livekit-agent`, `agent-pi`, etc.). Enforces a maximum chain depth of 4 (`depth BETWEEN 1 AND 4`). Supports triggers (`user`, `voice`, `schedule`, `event`, `webhook`, `agent`) and 90-day standing grants (`standing: true`).
@@ -618,8 +618,9 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 | `POST` | `/v1/tenants/{id}/members/{user}/reset-link` | `accessTenantAdmin` | Generate password reset link (single-tenant accounts only). |
 | `POST` | `/v1/tenants/{id}/invitations` | `accessTenantAdmin` | Create an invitation token for a new member. |
 | `GET` / `POST` | `/v1/tenants/{id}/units` | `accessTenantAdmin` | List or create organizational units. |
-| `PUT` / `DELETE`| `/v1/tenants/{id}/units/{unit}` | `accessTenantAdmin` | Update or delete an org unit. |
+| `PUT` / `DELETE`| `/v1/tenants/{id}/units/{unit}` | `accessTenantAdmin` | Update an org unit (name, kind, parent, lead) or delete it. `DELETE ?move=up` first moves its members and child units to its parent. |
 | `GET` / `PUT` | `/v1/tenants/{id}/members/{user}/placement` | `accessTenantAdmin` | Read or set member's unit and manager placement. |
+| `PUT` | `/v1/tenants/{id}/placements` | `accessTenantAdmin` | Place up to 500 members in one change, all or none, with an audit row each. |
 | `GET` | `/v1/tenants/{id}/grants` | `accessTenantAdmin` | List running agent grants in the tenant. |
 | `POST` | `/v1/tenants/{id}/grants/{grant}/revoke` | `accessTenantAdmin` | Terminate an active agent grant. |
 | `GET` | `/v1/tenants/{id}/audit` | `accessTenantAdmin` | View tenant-scoped audit event log. |

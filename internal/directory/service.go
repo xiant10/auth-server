@@ -336,6 +336,8 @@ func (s *Service) ListMembers(ctx context.Context, tenantID string) ([]Member, e
 type MemberDetail struct {
 	Member
 	Name string `json:"name"`
+	// DisplayName is the person's own name, which can be empty or the same as Name.
+	DisplayName string `json:"display_name"`
 	// UserStatus is the account's own status, set by a platform admin.
 	UserStatus string    `json:"user_status"`
 	JoinedAt   time.Time `json:"joined_at"`
@@ -343,8 +345,10 @@ type MemberDetail struct {
 	// display.
 	ManagerUserID string `json:"manager_user_id,omitempty"`
 	ManagerName   string `json:"manager_name,omitempty"`
-	UnitID        string `json:"org_unit_id,omitempty"`
-	UnitName      string `json:"org_unit_name,omitempty"`
+	// ManagerDisplayName is the manager's own name, for display.
+	ManagerDisplayName string `json:"manager_display_name,omitempty"`
+	UnitID             string `json:"org_unit_id,omitempty"`
+	UnitName           string `json:"org_unit_name,omitempty"`
 }
 
 // ListMemberDetails returns a tenant's memberships for the admin UI.
@@ -353,9 +357,10 @@ func (s *Service) ListMemberDetails(ctx context.Context, tenantID string) ([]Mem
 		`SELECT m.id, m.tenant_id, m.user_id, m.role, m.status, m.created_at,
 		        COALESCE((SELECT i.value FROM auth.user_identifiers i
 		                  WHERE i.user_id = m.user_id ORDER BY i.created_at, i.value LIMIT 1), ''),
-		        mu.status, COALESCE(boss.user_id, ''),
+		        mu.display_name, mu.status, COALESCE(boss.user_id, ''),
 		        COALESCE((SELECT i.value FROM auth.user_identifiers i
 		                  WHERE i.user_id = boss.user_id ORDER BY i.created_at, i.value LIMIT 1), ''),
+		        COALESCE((SELECT bu.display_name FROM auth.users bu WHERE bu.id = boss.user_id), ''),
 		        COALESCE(m.org_unit_id, ''), COALESCE(u.name, '')
 		 FROM auth.memberships m
 		 JOIN auth.users mu ON mu.id = m.user_id
@@ -368,7 +373,7 @@ func (s *Service) ListMemberDetails(ctx context.Context, tenantID string) ([]Mem
 	members, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (MemberDetail, error) {
 		var m MemberDetail
 		err := row.Scan(&m.ID, &m.TenantID, &m.UserID, &m.Role, &m.Status, &m.JoinedAt, &m.Name,
-			&m.UserStatus, &m.ManagerUserID, &m.ManagerName, &m.UnitID, &m.UnitName)
+			&m.DisplayName, &m.UserStatus, &m.ManagerUserID, &m.ManagerName, &m.ManagerDisplayName, &m.UnitID, &m.UnitName)
 		return m, err
 	})
 	if err != nil {

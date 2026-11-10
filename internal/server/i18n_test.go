@@ -212,7 +212,7 @@ func TestAccountFollowsTheBrowserLanguage(t *testing.T) {
 
 	h.user("alone", nil)
 	status, body = h.signedIn("alone").getIn(t, "/", "zh")
-	wantPage(t, status, body, http.StatusOK, "你还没有加入任何租户")
+	wantPage(t, status, body, http.StatusOK, "您还没有加入任何租户")
 }
 
 // choose presses the language switch and returns where it was sent.

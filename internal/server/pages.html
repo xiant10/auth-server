@@ -103,6 +103,53 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 .stack form { margin: 0; }
 @media (max-width: 480px) { main.card { margin: 0; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; padding: 1.5rem 1rem; } }
 </style>
+{{if .Wide}}<style>
+:root { --panel: #edf2f9; --surface: #fff; --hover: rgb(15 23 42 / .055); --line-strong: #cbd5e4; --accent-hover: #0052cc; --warn: #92500a; --warn-soft: #fdf1df; --shadow-sm: 0 1px 2px rgb(15 23 42 / .05); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --panel: #111620; --surface: #151b26; --hover: rgb(236 240 248 / .07); --line-strong: #364359; --accent-hover: #7bb9ff; --warn: #fbbf72; --warn-soft: #33261a; --shadow-sm: 0 1px 2px rgb(0 0 0 / .3); } }
+:root[data-theme=dark] { --panel: #111620; --surface: #151b26; --hover: rgb(236 240 248 / .07); --line-strong: #364359; --accent-hover: #7bb9ff; --warn: #fbbf72; --warn-soft: #33261a; --shadow-sm: 0 1px 2px rgb(0 0 0 / .3); }
+h1 { font-size: 1.4rem; font-weight: 650; }
+h2 { font-size: .76rem; color: var(--muted); font-weight: 600; letter-spacing: .02em; margin: 0 0 .45rem; }
+main.page { padding: 2rem clamp(1rem, 3vw, 2.5rem) 3rem; display: flex; flex-direction: column; gap: .85rem; max-width: 52rem; }
+.page-head p { color: var(--muted); font-size: .92rem; margin: .1rem 0 0; }
+main.page section { margin: .5rem 0 0; }
+main.page .error, main.page .notice { margin: 0; border-radius: 10px; padding: .55rem .8rem; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+.card > .setting:not(:last-child), .card > details.setting:not(:last-child) { border-bottom: 1px solid var(--line); }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .65rem .95rem; flex-wrap: wrap; margin: 0; }
+.setting-text { display: flex; flex-direction: column; flex: 1; min-width: min(220px, 100%); font-weight: 500; font-size: .93rem; overflow-wrap: anywhere; }
+.setting-text .hint { font-weight: 400; }
+details.setting { display: block; padding: 0; }
+details.setting > summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .65rem .95rem; list-style: none; color: var(--text); font-size: .93rem; font-weight: 500; }
+details.setting > summary::-webkit-details-marker { display: none; }
+details.setting > summary:hover { background: var(--hover); }
+details.setting > summary .act { color: var(--accent); font-size: .85rem; font-weight: 550; white-space: nowrap; }
+details.setting[open] > summary .act { color: var(--muted); }
+details.setting > form { padding: .25rem .95rem .95rem; display: grid; gap: .6rem; max-width: 26rem; }
+details.setting > form > button { justify-self: start; margin: 0; width: auto; }
+.card > form { padding: .85rem .95rem; margin: 0; display: grid; gap: .6rem; }
+.card > form.add-row { display: flex; align-items: flex-end; gap: .5rem; }
+.add-row > div { flex: 1; display: grid; gap: .3rem; }
+.card label { margin: 0; font-size: .82rem; color: var(--muted); font-weight: 500; }
+.card form > label, form > label { margin-top: 0; }
+.card form > input:not([type=hidden]) { width: 100%; }
+.card form > button { width: auto; margin-top: 0; justify-self: start; }
+input, select { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 9px; padding: .5rem .7rem; min-height: 0; transition: border-color .12s, box-shadow .12s; }
+input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+button { font-size: .9rem; font-weight: 550; line-height: 1.4; min-height: 0; border-radius: 9px; padding: .45rem .85rem; white-space: nowrap; }
+button:hover { background: var(--accent-hover); border-color: var(--accent-hover); filter: none; }
+button.quiet { background: var(--surface); border-color: var(--line-strong); }
+button.quiet:hover { background: var(--sunken); border-color: var(--line-strong); }
+button.danger { background: var(--surface); color: var(--danger); border-color: var(--line-strong); }
+button.danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+.pill { display: inline-block; font-size: .74rem; font-weight: 550; border-radius: 999px; padding: .05rem .55rem; background: var(--sunken); color: var(--muted); white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.accent { background: var(--accent-soft); color: var(--accent); }
+.inline-form { margin: 0; }
+.inline-form button { padding: .25rem .6rem; font-size: .82rem; border-radius: 8px; }
+.empty { padding: 1.25rem .95rem; color: var(--muted); font-size: .9rem; }
+.shell .brand { font-size: .98rem; }
+</style>{{end}}
 </head>
 <body>
 {{if .Wide}}<div class="shell">
@@ -115,14 +162,17 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 {{template "frame-apps" .Places}}
 <div class="sidebar-foot">{{template "frame-account" .Menu}}</div>
 </aside>
-<div class="content"><main class="wide">
+<div class="content"><main class="page">
 {{with .BackURL}}<a class="frame-back" href="{{.}}">{{template "frame-icon" "back"}}{{t "Back to %s" $.BackLabel}}</a>{{end}}
-{{else}}<main class="card{{if .Nonce}} split{{end}}">
-<div class="brand"><img class="mark" src="{{logo}}" alt="t10">{{if .Here}}{{template "lang_switch" .Here}}{{end}}</div>{{end}}
-<h1>{{.Title}}</h1>
+<div class="page-head"><div><h1>{{.Title}}</h1><p>{{t "Your name, how you sign in, and your devices."}}</p></div></div>
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
 {{if .Notice}}<p class="notice" role="status">{{.Notice}}</p>{{end}}
-{{end}}
+{{else}}<main class="card{{if .Nonce}} split{{end}}">
+<div class="brand"><img class="mark" src="{{logo}}" alt="t10">{{if .Here}}{{template "lang_switch" .Here}}{{end}}</div>{{end}}
+{{if not .Wide}}<h1>{{.Title}}</h1>
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+{{if .Notice}}<p class="notice" role="status">{{.Notice}}</p>{{end}}
+{{end}}{{end}}
 
 {{define "lang_switch"}}<form class="lang" method="post" action="/v1/language" role="group" aria-label="{{t "Language"}}">
 <input type="hidden" name="next" value="{{.}}">
@@ -325,19 +375,17 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 {{template "account_panels" .}}
 {{template "foot_wide"}}{{end}}
 
-{{define "account_panels"}}<section class="panel">
-<h2>{{t "Your name"}}</h2>
-<form method="post" action="/v1/account">
+{{define "account_panels"}}<section>
+<h2>{{t "Profile"}}</h2>
+<div class="card">
+<form method="post" action="/v1/account" class="add-row">
 <input type="hidden" name="action" value="display_name">
-<label for="display-name">{{t "Name teammates see"}}</label>
-<input id="display-name" name="display_name" value="{{.Account.DisplayName}}" maxlength="100" required>
+<div><label for="display-name">{{t "Name teammates see"}}</label>
+<input id="display-name" name="display_name" value="{{.Account.DisplayName}}" maxlength="100" required></div>
 <button>{{t "Save"}}</button>
 </form>
-</section>
-<section class="panel">
-<h2>{{t "Sign-in names"}}</h2>
-<ul class="items">{{range .Account.Names}}<li>{{.Value}} <span class="tag">{{t "%s, unverified" (t .Kind)}}</span></li>{{end}}</ul>
-<details><summary>{{t "Add a name"}}</summary>
+{{range .Account.Names}}<div class="setting"><div class="setting-text">{{.Value}}</div><span class="pill">{{t "%s, unverified" (t .Kind)}}</span></div>{{end}}
+<details class="setting"><summary>{{t "Add a name"}}<span class="act">{{t "Add"}}</span></summary>
 <form method="post" action="/v1/account">
 <input type="hidden" name="action" value="name_add">
 <label for="new-name">{{t "New name"}}</label>
@@ -346,7 +394,7 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 <button>{{t "Add name"}}</button>
 </form>
 </details>
-<details><summary>{{t "Remove a name"}}</summary>
+<details class="setting"><summary>{{t "Remove a name"}}<span class="act">{{t "Remove"}}</span></summary>
 <form method="post" action="/v1/account">
 <input type="hidden" name="action" value="name_remove">
 <label for="old-name">{{t "Name to remove"}}</label>
@@ -355,10 +403,12 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 <button class="danger">{{t "Remove name"}}</button>
 </form>
 </details>
+</div>
 </section>
-<section class="panel">
-<h2>{{t "Password"}}</h2>
-<details><summary>{{t "Change your password"}}</summary>
+<section>
+<h2>{{t "Security"}}</h2>
+<div class="card">
+<details class="setting"><summary><span class="setting-text">{{t "Password"}}</span><span class="act">{{t "Change your password"}}</span></summary>
 <form method="post" action="/v1/account">
 <input type="hidden" name="action" value="password">
 {{template "reauth" "pw"}}
@@ -367,49 +417,46 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 <button>{{t "Change password"}}</button>
 </form>
 </details>
-</section>
-<section class="panel">
-<div class="head"><h2>{{t "Authenticator"}}</h2><p>{{if .Account.TOTP}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</p></div>
-<details><summary>{{if .Account.TOTP}}{{t "Turn off"}}{{else}}{{t "Set up an authenticator"}}{{end}}</summary>
+<details class="setting"><summary><span class="setting-text">{{t "Authenticator"}}</span><span class="pill {{if .Account.TOTP}}ok{{end}}">{{if .Account.TOTP}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</span><span class="act">{{if .Account.TOTP}}{{t "Turn off"}}{{else}}{{t "Set up an authenticator"}}{{end}}</span></summary>
 <form method="post" action="/v1/account">
 <input type="hidden" name="action" value="{{if .Account.TOTP}}totp_disable{{else}}totp_start{{end}}">
 {{template "reauth" "totp"}}
 <button{{if .Account.TOTP}} class="danger"{{end}}>{{if .Account.TOTP}}{{t "Turn off"}}{{else}}{{t "Continue"}}{{end}}</button>
 </form>
 </details>
-</section>
-<section class="panel">
-<h2>{{t "Devices"}}</h2>
-{{if .Account.Devices}}<ul class="items">{{range .Account.Devices}}<li>{{.Name}} <span class="tag">{{.Platform}}</span>
-<details><summary>{{t "Remove this device"}}</summary>
-<form method="post" action="/v1/account">
-<input type="hidden" name="action" value="device_revoke">
-<input type="hidden" name="device_id" value="{{.ID}}">
-{{template "reauth" .ID}}
-<button class="danger">{{t "Remove device"}}</button>
-</form>
-</details></li>{{end}}</ul>
-{{else}}<p class="hint">{{t "No app enrolled."}}</p>{{end}}
-</section>
-<section class="panel">
-<div class="head"><h2>{{t "Recovery codes"}}</h2><p>{{t "%d left" .Account.RecoveryCodes}}</p></div>
-<details><summary>{{t "Replace all codes"}}</summary>
+<details class="setting"><summary><span class="setting-text">{{t "Recovery codes"}}</span><span class="pill">{{t "%d left" .Account.RecoveryCodes}}</span><span class="act">{{t "Replace all codes"}}</span></summary>
 <form method="post" action="/v1/account">
 <input type="hidden" name="action" value="codes">
 {{template "reauth" "rc"}}
 <button>{{t "Replace all codes"}}</button>
 </form>
 </details>
+</div>
 </section>
-<section class="panel" id="sessions">
-<h2>{{t "Sessions"}}</h2>
-<ul class="items">{{range .SignIns}}<li><div class="head"><span>{{if eq .ID $.CurrentSignIn}}<b>{{t "This browser"}}</b>{{else}}{{t "Another browser"}}{{end}} <span class="tag">{{ago .StartedAt}}</span></span>
-{{if ne .ID $.CurrentSignIn}}<form method="post" action="/v1/account"><input type="hidden" name="action" value="signin_end"><input type="hidden" name="signin" value="{{.ID}}"><button class="quiet">{{t "Sign out"}}</button></form>{{end}}</div>
-<p class="hint">{{if .Apps}}{{t "Open: %s" (join .Apps)}}{{else}}{{t "No app open"}}{{end}}</p></li>
-{{end}}</ul>
-<p class="hint">{{t "Signs you out here and on your other browsers and clients."}}</p>
+<section>
+<h2>{{t "Devices"}}</h2>
+<div class="card">
+{{range .Account.Devices}}<details class="setting"><summary><span class="setting-text">{{.Name}}</span><span class="pill">{{.Platform}}</span><span class="act">{{t "Remove this device"}}</span></summary>
 <form method="post" action="/v1/account">
+<input type="hidden" name="action" value="device_revoke">
+<input type="hidden" name="device_id" value="{{.ID}}">
+{{template "reauth" .ID}}
+<button class="danger">{{t "Remove device"}}</button>
+</form>
+</details>{{else}}<p class="empty">{{t "No app enrolled."}}</p>{{end}}
+</div>
+</section>
+<section id="sessions">
+<h2>{{t "Sessions"}}</h2>
+<div class="card">
+{{range .SignIns}}<div class="setting"><div class="setting-text"><span>{{if eq .ID $.CurrentSignIn}}{{t "This browser"}}{{else}}{{t "Another browser"}}{{end}} <span class="hint">{{ago .StartedAt}}</span></span>
+<span class="hint">{{if .Apps}}{{t "Open: %s" (join .Apps)}}{{else}}{{t "No app open"}}{{end}}</span></div>
+{{if ne .ID $.CurrentSignIn}}<form method="post" action="/v1/account" class="inline-form"><input type="hidden" name="action" value="signin_end"><input type="hidden" name="signin" value="{{.ID}}"><button class="quiet">{{t "Sign out"}}</button></form>{{end}}</div>
+{{end}}
+<form method="post" action="/v1/account" class="add-row">
+<p class="hint" style="flex:1">{{t "Signs you out here and on your other browsers and clients."}}</p>
 <input type="hidden" name="action" value="signout_all">
 <button class="quiet">{{t "Sign out everywhere"}}</button>
 </form>
+</div>
 </section>{{end}}

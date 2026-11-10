@@ -109,6 +109,8 @@ flowchart TD
 
 A tenant requiring a second factor still refuses at redemption, and `workbench` shows its existing message. The picker marks such tenants when the person has no factor.
 
+**A sign-in for a business app** (one whose redirect goes to an origin in `AUTH_APP_URLS`, so no client is named) prefers the workspaces where the person can use that app. A remembered workspace without the app isn't used for it. If exactly one workspace has it, sign-in goes there without asking. Otherwise the picker lists the workspaces with the app first, and each of the rest links to its Workbench, marked "Opens in Workbench", instead of to an app that would refuse them. Added Nov 9, with [`workbench/docs/one-system.md`](../../workbench/docs/one-system.md) step 6.
+
 ### 3. One list of places, one switcher
 
 `GET /v1/me/homes`, for a signed-in user:

@@ -139,6 +139,7 @@ func (s *Server) routes() []route {
 
 		{"GET", "/v1/account", accessBrowser, s.handleAccountPage},
 		{"POST", "/v1/account", accessBrowser, s.handleAccount},
+		{"POST", "/v1/theme", accessBrowser, s.handleTheme},
 		{"GET", "/v1/join", accessBrowser, s.handleJoinPage},
 		{"POST", "/v1/join", accessBrowser, s.handleJoin},
 		{"GET", "/{$}", accessBrowser, s.handleFrontDoor},
@@ -162,6 +163,8 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/me", accessUser, s.handleMe},
 		{"GET", "/v1/me/access", accessUser, s.handleMeAccess},
 		{"GET", "/v1/me/homes", accessUser, s.handleMyHomes},
+		{"GET", "/v1/me/preferences", accessUser, s.handleMyPreferences},
+		{"PUT", "/v1/me/preferences", accessUser, s.handleSetMyPreferences},
 		{"GET", "/v1/me/session", accessUser, s.handleSessionAlive},
 		{"GET", "/v1/me/permissions", accessUser, s.handleMyPermissions},
 		{"PATCH", "/v1/me", accessUser, s.handleUpdateMe},

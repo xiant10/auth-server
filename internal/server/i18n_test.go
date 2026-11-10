@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xiant10/t10-modkit/frame"
+
 	"t10-auth-server/internal/audit"
 	"t10-auth-server/internal/directory"
 )
@@ -44,13 +46,17 @@ func handlerText(t *testing.T, file string, funcs ...string) []string {
 
 func TestChineseCatalogIsComplete(t *testing.T) {
 	used := map[string]bool{}
-	for _, m := range regexp.MustCompile(`\bt "((?:[^"\\]|\\.)*)"`).FindAllStringSubmatch(pagesHTML, -1) {
+	// The shared frame's Apps list and account menu are drawn in the page's language too.
+	for _, m := range regexp.MustCompile(`\bt "((?:[^"\\]|\\.)*)"`).FindAllStringSubmatch(pagesHTML+frame.Templates, -1) {
 		used[m[1]] = true
 	}
 	for _, text := range handlerText(t, "admin.go", "handleAdmin", "handleFrontDoor") {
 		used[text] = true
 	}
-	for _, file := range []string{"pages.go", "browser_logout.go"} {
+	for _, text := range handlerText(t, "i18n.go", "ago") {
+		used[text] = true
+	}
+	for _, file := range []string{"pages.go", "browser_logout.go", "account_frame.go"} {
 		for _, text := range handlerText(t, file) {
 			used[text] = true
 		}

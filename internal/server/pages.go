@@ -8,6 +8,7 @@ import (
 	"errors"
 	"html/template"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	qrcode "github.com/skip2/go-qrcode"
+	"github.com/xiant10/t10-modkit/frame"
 
 	"t10-auth-server/internal/audit"
 	"t10-auth-server/internal/directory"
@@ -32,9 +34,10 @@ var logoDataURL = template.URL("data:image/png;base64," + base64.StdEncoding.Enc
 
 // pages is the English set, and pagesZH its copy for Chinese. A set's t function
 // is fixed when it is built, so no template passes the language around.
-var pages = template.Must(template.New("pages").Funcs(template.FuncMap{
-	"logo": func() template.URL { return logoDataURL },
-}).Funcs(translator(langEN)).Parse(pagesHTML))
+var pages = template.Must(template.Must(template.New("pages").Funcs(template.FuncMap{
+	"logo":     func() template.URL { return logoDataURL },
+	"frameCSS": func() template.CSS { return template.CSS(frame.CSS) },
+}).Funcs(translator(langEN)).Parse(pagesHTML)).Parse(frame.Templates))
 
 var pagesZH = template.Must(pages.Clone()).Funcs(translator(langZH))
 
@@ -72,13 +75,23 @@ type pageData struct {
 	// HasApps groups the front door by tenant, because someone has more than one
 	// place in a tenant.
 	HasApps bool
+	// Places, Menu and Theme are the frame every t10 app draws, on the account page.
+	// BackURL and BackLabel go back to the app it was opened from.
+	Places             []frame.Place
+	Menu               frame.Menu
+	Theme              string
+	BackURL, BackLabel string
+	SignIns            []identity.SignIn
+	CurrentSignIn      string
 }
 
 // tenantChoice is one tenant on the picker. Href is this same sign-in, naming it.
 type tenantChoice struct {
 	Name, Role, Href string
 	NeedsFactor      bool
-	Apps             []appChoice
+	// InWorkbench is a workspace without the app being signed in to, so Href is its Workbench.
+	InWorkbench bool
+	Apps        []appChoice
 }
 
 // appChoice is a module on the front door, already in the viewer's language.
@@ -191,8 +204,52 @@ func languageNext(next string) string {
 func (s *Server) handleLanguage(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	if lang := r.PostFormValue("lang"); validLang(lang) {
 		s.setLangCookie(w, lang)
+		// Signed in, it's saved with the account at once. Signed out, as on the sign-in
+		// page, it's marked as just chosen, and saved when the sign-in finishes.
+		p, ok, err := s.browserPrincipal(r)
+		switch {
+		case err != nil:
+			slog.Warn("language not saved", "error", err)
+		case ok:
+			if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Language: lang}); err != nil {
+				slog.Warn("language not saved", "error", err)
+			}
+		default:
+			http.SetCookie(w, &http.Cookie{Name: langChosenCookie, Value: "1", Path: "/", MaxAge: langChosenAge, HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
+		}
 	}
 	http.Redirect(w, r, languageNext(r.PostFormValue("next")), http.StatusSeeOther)
+}
+
+// accountLanguage is the language an app opens in after sign-in. One chosen on a page
+// just now wins and is saved with the account; otherwise the account's wins over
+// whatever this browser or the app last had; with neither, a language the person
+// chose before is saved, so the next app agrees.
+func (s *Server) accountLanguage(w http.ResponseWriter, r *http.Request, p identity.Principal, lang string) string {
+	if _, err := r.Cookie(langChosenCookie); err == nil && validLang(lang) {
+		http.SetCookie(w, &http.Cookie{Name: langChosenCookie, Value: "", Path: "/", MaxAge: -1})
+		if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Language: lang}); err != nil {
+			slog.Warn("language not saved", "error", err)
+		}
+		return lang
+	}
+	saved, err := s.Identity.GetPreferences(r.Context(), p.UserID)
+	if err != nil {
+		slog.Warn("language not read", "error", err)
+		return lang
+	}
+	if saved.Language != "" {
+		if saved.Language != lang {
+			s.setLangCookie(w, saved.Language)
+		}
+		return saved.Language
+	}
+	if validLang(lang) {
+		if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Language: lang}); err != nil {
+			slog.Warn("language not saved", "error", err)
+		}
+	}
+	return lang
 }
 
 func (s *Server) setLangCookie(w http.ResponseWriter, lang string) {
@@ -200,6 +257,76 @@ func (s *Server) setLangCookie(w http.ResponseWriter, lang string) {
 		Name: langCookie, Value: lang, Path: "/", MaxAge: langCookieAge,
 		HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// pickerChoices are the workspaces the picker offers. For a business app, those with
+// the app come first, and the rest open in Workbench, where every member has a place,
+// instead of in an app that would refuse them.
+func (s *Server) pickerChoices(q url.Values, tenants []directory.UserTenant, mfa bool, app string, withApp []string) []tenantChoice {
+	choices := tenantChoices(q, tenants, mfa)
+	if app == "" || s.WorkbenchURL == "" {
+		return choices
+	}
+	for i, t := range tenants {
+		if !slices.Contains(withApp, t.ID) {
+			choices[i].Href, choices[i].InWorkbench = s.tenantURL(t.ID), true
+		}
+	}
+	slices.SortStableFunc(choices, func(a, b tenantChoice) int {
+		switch {
+		case a.InWorkbench == b.InWorkbench:
+			return 0
+		case b.InWorkbench:
+			return -1
+		}
+		return 1
+	})
+	return choices
+}
+
+// appAt is the business app whose own address a redirect goes to, or "" for any other
+// client. Apps are known from AUTH_APP_URLS, so no client is named here.
+func (s *Server) appAt(redirectURI string) string {
+	target, err := url.Parse(redirectURI)
+	if err != nil {
+		return ""
+	}
+	for _, id := range slices.Sorted(maps.Keys(s.AppURLs)) {
+		if base, err := url.Parse(s.AppURLs[id]); err == nil && base.Scheme == target.Scheme && base.Host == target.Host {
+			return id
+		}
+	}
+	return ""
+}
+
+// tenantsWithApp are the tenants in which this person can use the app.
+func (s *Server) tenantsWithApp(r *http.Request, user string, tenants []directory.UserTenant, app string) ([]string, error) {
+	found := []string{}
+	for _, t := range tenants {
+		apps, err := s.appsIn(r, t.ID, user, t.Role == directory.RoleAdmin)
+		if err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(apps, func(a homeApp) bool { return a.ID == app }) {
+			found = append(found, t.ID)
+		}
+	}
+	return found, nil
+}
+
+// onlyUsable is the one tenant with the app that this sign-in can open, if there's
+// exactly one. One that asks for a second factor this sign-in lacks goes to the picker,
+// which says so.
+func onlyUsable(tenants []directory.UserTenant, withApp []string, mfa bool) string {
+	if len(withApp) != 1 {
+		return ""
+	}
+	for _, t := range tenants {
+		if t.ID == withApp[0] && (mfa || !t.RequireMFA) {
+			return t.ID
+		}
+	}
+	return ""
 }
 
 func tenantChoices(q url.Values, tenants []directory.UserTenant, mfa bool) []tenantChoice {
@@ -253,6 +380,9 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 	q.Del("ui_locales")
 	reason := q.Get("reason")
 	q.Del("reason")
+	if ok {
+		lang = s.accountLanguage(w, r, p, lang)
+	}
 	if !ok {
 		target := url.Values{"next": {"/v1/authorize?" + q.Encode()}}
 		if reason == "signedout" || reason == "ended" {
@@ -269,14 +399,27 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 			return
 		}
 		named := q.Get("tenant")
+		// A sign-in for a business app prefers the workspaces where this person has it,
+		// so opening the app never lands on a refusal when somewhere else would do.
+		app := s.appAt(redirectURI)
+		withApp := []string{}
+		if app != "" && len(tenants) > 1 {
+			if withApp, err = s.tenantsWithApp(r, p.UserID, tenants, app); err != nil {
+				writeInternal(w, r, err)
+				return
+			}
+		}
+		hasApp := func(id string) bool { return app == "" || len(tenants) < 2 || slices.Contains(withApp, id) }
 		// Someone with one tenant or none has nothing to pick, and redeeming the code
 		// settles it. A tenant they don't belong to reads the same as naming none.
 		if slices.ContainsFunc(tenants, func(t directory.UserTenant) bool { return t.ID == named }) {
 			tenant = named
-		} else if last := lastTenant(r, tenants, p.MFA); last != "" {
+		} else if last := lastTenant(r, tenants, p.MFA); last != "" && hasApp(last) {
 			tenant = last
+		} else if only := onlyUsable(tenants, withApp, p.MFA); app != "" && only != "" {
+			tenant = only
 		} else if len(tenants) > 1 {
-			render(w, r, http.StatusOK, "tenant_picker", pageData{Title: "Choose a workspace", Choices: tenantChoices(q, tenants, p.MFA)})
+			render(w, r, http.StatusOK, "tenant_picker", pageData{Title: "Choose a workspace", Choices: s.pickerChoices(q, tenants, p.MFA, app, withApp)})
 			return
 		}
 		if tenant != "" {
@@ -668,12 +811,17 @@ func (s *Server) renderAccount(w http.ResponseWriter, r *http.Request, p identit
 		writeInternal(w, r, err)
 		return
 	}
-	if found.Console != nil {
-		data.ConsoleURL = found.Console.URL
+	signIns, err := s.Identity.BrowserSignIns(r.Context(), p.UserID)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
 	}
-	if found.Workbench != nil {
-		data.Choices = choicesFrom(found.Workbench.Tenants, requestLang(r))
+	name := account.DisplayName
+	if name == "" && len(account.Names) > 0 {
+		name = account.Names[0].Value
 	}
+	s.framed(r, p, found, name, &data)
+	data.SignIns, data.CurrentSignIn = signIns, p.SessionID
 	data.Title, data.Account, data.Wide, data.Here = "Your account", account, true, accountPath
 	render(w, r, status, "account", data)
 }
@@ -694,6 +842,7 @@ func (s *Server) renderTOTP(w http.ResponseWriter, r *http.Request, enrollment i
 }
 
 func (s *Server) handleAccountPage(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	s.rememberBack(w, r)
 	s.renderAccount(w, r, p, http.StatusOK, pageData{})
 }
 
@@ -708,6 +857,12 @@ func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request, p identit
 	case "display_name":
 		err = s.Identity.SetDisplayName(ctx, p.UserID, r.PostFormValue("display_name"))
 		notice = "Name saved."
+	case "signin_end":
+		// Another browser of this person's. This one signs out with Sign out.
+		if id := r.PostFormValue("signin"); id != p.SessionID {
+			err = s.Identity.EndBrowser(ctx, p.UserID, id)
+		}
+		notice = "That browser is signed out."
 	case "password":
 		err = s.Identity.ChangePassword(ctx, p.UserID, p.SessionID, r.PostFormValue("new_password"), reauth)
 		notice = "Password changed. Your other sessions have ended."

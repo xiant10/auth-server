@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"t10-auth-server/internal/directory"
+	"t10-auth-server/internal/roles"
 )
 
 func authorizeFor(client, tenant string) string {
@@ -174,5 +175,56 @@ func TestClientThatNamesItsOwnTenantIsUnchanged(t *testing.T) {
 	h.wantStatus(status, tokens, http.StatusOK)
 	if got := h.activeTenant(tokens["access_token"]); got != "ten_acme" {
 		t.Errorf("active tenant = %v", got)
+	}
+}
+
+// appPickerFixture makes the picker's client a business app, deals, which "both" has
+// only in ten_other, where they're a tenant admin.
+func appPickerFixture(t *testing.T) *harness {
+	t.Helper()
+	h := pickerFixture(t)
+	deals := dealsModule(1, roles.LifecycleActive)
+	deals.App = &roles.App{Path: "deals", Label: "Deals", LabelZH: "交易"}
+	h.deploy(catalogOf(t, deals, crmModule()))
+	u, _ := url.Parse(testRedirect)
+	h.srv.AppURLs = map[string]string{"deals": "http://" + u.Host}
+	return h
+}
+
+func activeAfter(t *testing.T, h *harness, b *browser, tenant string) any {
+	t.Helper()
+	status, location, body := b.get(authorizeFor(testPickerClient, tenant))
+	status, tokens := h.redeemAs(testPickerClient, codeFrom(t, status, location, body))
+	h.wantStatus(status, tokens, http.StatusOK)
+	return h.activeTenant(tokens["access_token"])
+}
+
+func TestAnAppOpensWhereThePersonHasIt(t *testing.T) {
+	h := appPickerFixture(t)
+	b := h.signedIn("both")
+	if got := activeAfter(t, h, b, ""); got != "ten_other" {
+		t.Errorf("the one workspace with the app: %v", got)
+	}
+	// Naming a workspace still wins, and is remembered, but a remembered one without
+	// the app isn't used for it.
+	if got := activeAfter(t, h, b, "ten_acme"); got != "ten_acme" {
+		t.Errorf("named: %v", got)
+	}
+	if got := activeAfter(t, h, b, ""); got != "ten_other" {
+		t.Errorf("remembered without the app: %v", got)
+	}
+}
+
+func TestThePickerPutsTheAppsWorkspacesFirst(t *testing.T) {
+	h := appPickerFixture(t)
+	h.tenant("ten_third")
+	h.user("trio", map[string]string{"ten_acme": directory.RoleMember, "ten_other": directory.RoleAdmin, "ten_third": directory.RoleAdmin})
+	status, _, body := h.signedIn("trio").get(authorizeFor(testPickerClient, ""))
+	wantPage(t, status, body, http.StatusOK, "Choose a workspace", "tenant=ten_other", "tenant=ten_third", testWorkbenchURL+"/t/ten_acme/", "Opens in Workbench")
+	if strings.Index(body, "ten_acme") < strings.Index(body, "ten_third") {
+		t.Errorf("a workspace without the app came first: %s", body)
+	}
+	if strings.Count(body, "Opens in Workbench") != 1 {
+		t.Errorf("only ten_acme opens in Workbench: %s", body)
 	}
 }

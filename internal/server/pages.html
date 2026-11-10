@@ -7,12 +7,18 @@
   --shadow: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 16px rgb(15 23 42 / 5%);
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme=light]) {
     --bg: #0c1017; --panel: #151b26; --sunken: #1c2433; --text: #eaf0f8; --muted: #9aa7bc; --line: #273142;
     --accent: #5ca8ff; --accent-soft: #172b47; --on-accent: #091321; --danger: #fca5a5; --danger-soft: #3a1c20; --ok: #86efac; --ok-soft: #16322a;
     --platform: #fbbf72; --platform-soft: #33261a; --tenant: #7bb9ff; --tenant-soft: #152742;
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
   }
+}
+:root[data-theme=dark] {
+  --bg: #0c1017; --panel: #151b26; --sunken: #1c2433; --text: #eaf0f8; --muted: #9aa7bc; --line: #273142;
+  --accent: #5ca8ff; --accent-soft: #172b47; --on-accent: #091321; --danger: #fca5a5; --danger-soft: #3a1c20; --ok: #86efac; --ok-soft: #16322a;
+  --platform: #fbbf72; --platform-soft: #33261a; --tenant: #7bb9ff; --tenant-soft: #152742;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -42,13 +48,14 @@ form.lang > button[aria-pressed=true] { background: var(--panel); color: var(--t
 </style>{{end}}
 
 {{define "head"}}<!doctype html>
-<html lang="{{lang}}">
+<html lang="{{lang}}"{{if or (eq .Theme "light") (eq .Theme "dark")}} data-theme="{{.Theme}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="{{logo}}">
 <title>{{.Title}} · t10</title>
 {{template "theme"}}
+{{if .Wide}}<style>{{frameCSS}}</style>{{end}}
 <style>
 body { min-height: 100vh; }
 main.card { max-width: 25rem; margin: 3rem auto; padding: 2rem; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
@@ -64,10 +71,6 @@ main.wide { max-width: 44rem; margin: 0 auto; padding: 1.75rem 1rem 3rem; }
 .brand { display: flex; align-items: center; justify-content: space-between; gap: .55rem; font-weight: 700; margin: 0 0 1.25rem; }
 main.card h1 { margin-bottom: 1rem; }
 main.wide h1 { margin-bottom: 1.25rem; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .6rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); }
-.bar .home { display: flex; align-items: center; gap: .55rem; margin-right: auto; font-weight: 700; color: inherit; text-decoration: none; }
-.bar form { margin: 0; }
-.bar form:not(.lang) > button { width: auto; min-height: 2.25rem; margin: 0; padding: .25rem .8rem; }
 form > label { margin-top: .9rem; }
 form > input:not([type=hidden]) { width: 100%; }
 form > button { width: 100%; margin-top: 1.15rem; }
@@ -102,14 +105,18 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 </style>
 </head>
 <body>
-{{if .Wide}}<header class="bar">
-<a class="home" href="/v1/account"><img class="mark" src="{{logo}}" alt="t10"> {{t "Account"}}</a>
-{{range .Choices}}<a href="{{.Href}}">{{.Name}}</a>
-{{end}}{{if .ConsoleURL}}<a href="{{.ConsoleURL}}">{{t "Platform console"}}</a>{{end}}
-{{if .Here}}{{template "lang_switch" .Here}}{{end}}
-<form method="post" action="/v1/signout"><button class="quiet">{{t "Sign out"}}</button></form>
-</header>
-<main class="wide">
+{{if .Wide}}<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="/v1/account"><img src="{{logo}}" alt=""> {{t "Account"}}</a>
+<nav class="nav-links" aria-label="{{t "Account"}}">
+<a class="nav-link" href="/v1/account" aria-current="page">{{template "frame-icon" "user"}}{{t "Your account"}}</a>
+<a class="nav-link" href="/v1/account#sessions">{{template "frame-icon" "sessions"}}{{t "Sessions"}}</a>
+</nav>
+{{template "frame-apps" .Places}}
+<div class="sidebar-foot">{{template "frame-account" .Menu}}</div>
+</aside>
+<div class="content"><main class="wide">
+{{with .BackURL}}<a class="frame-back" href="{{.}}">{{template "frame-icon" "back"}}{{t "Back to %s" $.BackLabel}}</a>{{end}}
 {{else}}<main class="card{{if .Nonce}} split{{end}}">
 <div class="brand"><img class="mark" src="{{logo}}" alt="t10">{{if .Here}}{{template "lang_switch" .Here}}{{end}}</div>{{end}}
 <h1>{{.Title}}</h1>
@@ -124,6 +131,8 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 </form>{{end}}
 
 {{define "foot"}}</main></body></html>{{end}}
+
+{{define "foot_wide"}}</main></div></div></body></html>{{end}}
 
 {{define "reauth"}}
 <label for="{{.}}-password">{{t "Current password"}}</label>
@@ -268,7 +277,7 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 {{template "foot"}}{{end}}
 
 {{define "tenant_rows"}}<ul class="choices">
-{{range .}}<li><a href="{{.Href}}"><strong>{{.Name}}</strong><span>{{if eq .Role "admin"}}{{t "Admin"}}{{else}}{{t "Member"}}{{end}}{{if .NeedsFactor}} · {{t "Needs a second factor"}}{{end}}</span></a></li>
+{{range .}}<li><a href="{{.Href}}"><strong>{{.Name}}</strong><span>{{if eq .Role "admin"}}{{t "Admin"}}{{else}}{{t "Member"}}{{end}}{{if .NeedsFactor}} · {{t "Needs a second factor"}}{{end}}{{if .InWorkbench}} · {{t "Opens in Workbench"}}{{end}}</span></a></li>
 {{end}}</ul>{{end}}
 
 {{define "front_door"}}{{template "head" .}}
@@ -314,7 +323,7 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 
 {{define "account"}}{{template "head" .}}
 {{template "account_panels" .}}
-{{template "foot"}}{{end}}
+{{template "foot_wide"}}{{end}}
 
 {{define "account_panels"}}<section class="panel">
 <h2>{{t "Your name"}}</h2>
@@ -392,8 +401,12 @@ summary { color: var(--accent); font-size: .9rem; font-weight: 600; padding: .2r
 </form>
 </details>
 </section>
-<section class="panel">
+<section class="panel" id="sessions">
 <h2>{{t "Sessions"}}</h2>
+<ul class="items">{{range .SignIns}}<li><div class="head"><span>{{if eq .ID $.CurrentSignIn}}<b>{{t "This browser"}}</b>{{else}}{{t "Another browser"}}{{end}} <span class="tag">{{ago .StartedAt}}</span></span>
+{{if ne .ID $.CurrentSignIn}}<form method="post" action="/v1/account"><input type="hidden" name="action" value="signin_end"><input type="hidden" name="signin" value="{{.ID}}"><button class="quiet">{{t "Sign out"}}</button></form>{{end}}</div>
+<p class="hint">{{if .Apps}}{{t "Open: %s" (join .Apps)}}{{else}}{{t "No app open"}}{{end}}</p></li>
+{{end}}</ul>
 <p class="hint">{{t "Signs you out here and on your other browsers and clients."}}</p>
 <form method="post" action="/v1/account">
 <input type="hidden" name="action" value="signout_all">

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // The pages' languages. English strings are the keys of each catalog, so
@@ -20,6 +21,12 @@ const (
 const langCookie = "t10_locale"
 
 const langCookieAge = 365 * 24 * 60 * 60
+
+// langChosenCookie marks a language chosen while signed out, so the sign-in that
+// follows saves it with the account. It holds no value of its own.
+const langChosenCookie = "t10_locale_chosen"
+
+const langChosenAge = 30 * 60
 
 func validLang(lang string) bool { return lang == langEN || lang == langZH }
 
@@ -77,7 +84,28 @@ func translator(lang string) template.FuncMap {
 	return template.FuncMap{
 		"t":    func(msg string, args ...any) string { return translate(lang, msg, args...) },
 		"lang": func() string { return lang },
+		"ago":  func(at time.Time) string { return ago(lang, time.Since(at)) },
+		"join": func(items []string) string {
+			if lang == langZH {
+				return strings.Join(items, "、")
+			}
+			return strings.Join(items, ", ")
+		},
 	}
+}
+
+// ago says how long ago something started, which needs no time zone. Pages here run
+// no script that could show the viewer's own clock.
+func ago(lang string, since time.Duration) string {
+	switch {
+	case since < time.Minute:
+		return translate(lang, "Started just now")
+	case since < time.Hour:
+		return translate(lang, "Started %d min ago", int(since.Minutes()))
+	case since < 24*time.Hour:
+		return translate(lang, "Started %d h ago", int(since.Hours()))
+	}
+	return translate(lang, "Started %d days ago", int(since.Hours()/24))
 }
 
 // pagesFor returns the template set for lang.
@@ -92,20 +120,36 @@ func pagesFor(lang string) *template.Template {
 // must be here: TestChineseCatalogIsComplete fails on a string that isn't.
 var zhText = map[string]string{
 	// Frame and navigation.
-	"Platform console":           "平台控制台",
-	"Chat, tasks and documents":  "对话、任务和文档",
-	"Workbench":                  "工作台",
-	"Platform":                   "平台",
-	"Where to?":                  "去哪里？",
-	"On the internal network":    "仅限内部网络",
-	"You're not in a tenant yet": "你还没有加入任何租户",
+	"Platform console":            "平台控制台",
+	"Apps":                        "应用",
+	"Theme":                       "主题",
+	"System":                      "跟随系统",
+	"Light":                       "浅色",
+	"Dark":                        "深色",
+	"Back to %s":                  "返回%s",
+	"This browser":                "当前浏览器",
+	"Another browser":             "其他浏览器",
+	"Open: %s":                    "已打开：%s",
+	"No app open":                 "没有打开的应用",
+	"Started just now":            "刚刚登录",
+	"Started %d min ago":          "%d 分钟前登录",
+	"Started %d h ago":            "%d 小时前登录",
+	"Started %d days ago":         "%d 天前登录",
+	"That browser is signed out.": "已退出该浏览器。",
+	"Chat, tasks and documents":   "对话、任务和文档",
+	"Workbench":                   "工作台",
+	"Platform":                    "平台",
+	"Where to?":                   "去哪里？",
+	"On the internal network":     "仅限内部网络",
+	"You're not in a tenant yet":  "您还没有加入任何租户",
 	"Ask a tenant admin for an invitation link.": "请联系租户管理员获取邀请链接。",
 	"Choose a workspace":                         "选择工作空间",
 	"Admin":                                      "管理员",
 	"Member":                                     "成员",
-	"You belong to several workspaces. Which one do you want to open?": "你属于多个工作空间。要打开哪一个？",
+	"You belong to several workspaces. Which one do you want to open?": "您属于多个工作空间。要打开哪一个？",
 	"Needs a second factor": "需要第二验证因素",
-	"You administer the platform and a tenant. Each has its own place.": "你同时管理平台和租户，两者各有入口。",
+	"Opens in Workbench":    "在工作台中打开",
+	"You administer the platform and a tenant. Each has its own place.": "您同时管理平台和租户，两者各有入口。",
 	"Administration":                         "管理入口",
 	"Language":                               "语言",
 	"Sign-in names":                          "登录名",

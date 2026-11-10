@@ -115,7 +115,7 @@ h2 { font-size: .76rem; color: var(--muted); font-weight: 600; letter-spacing: .
 :lang(zh-Hans) h2 { font-size: .8rem; letter-spacing: 0; }
 html { scroll-padding-top: 1.5rem; }
 main.page { padding: 2rem clamp(1rem, 3vw, 2.5rem) 3rem; display: flex; flex-direction: column; gap: .85rem; }
-main.page > * { width: 100%; max-width: 880px; margin-inline: auto; }
+main.page > * { width: 100%; max-width: 1180px; margin-inline: auto; }
 main.page .error, main.page .notice { margin-block: 0; border-radius: 10px; padding: .55rem .8rem; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: .9rem 1.1rem .3rem; box-shadow: var(--shadow-sm); }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding: .6rem 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; margin: 0; }
@@ -129,6 +129,14 @@ details.setting > summary::-webkit-details-marker { display: none; }
 details.setting > form { display: grid; gap: .6rem; max-width: 26rem; margin: .75rem 0 .35rem; }
 details.setting > form > label + input { margin-top: -.4rem; }
 details.setting[open] > summary .when-closed, details.setting:not([open]) > summary .when-open { display: none; }
+.tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { padding: .55rem .95rem; color: var(--muted); font-size: .92rem; font-weight: 550; text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab:hover { color: var(--text); }
+/* Tabs need no script: the address fragment picks the panel, and Profile shows when none is picked. */
+.panel { display: none; }
+.panel:target, main.page:not(:has(.panel:target)) #profile { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr)); gap: .85rem; align-items: start; }
+main.page:has(#profile:target) a[href="#profile"], main.page:not(:has(.panel:target)) a[href="#profile"], main.page:has(#security:target) a[href="#security"], main.page:has(#devices:target) a[href="#devices"], main.page:has(#sessions:target) a[href="#sessions"] { color: var(--accent); border-bottom-color: var(--accent); }
+.panel > .card { margin: 0; }
 .who { display: flex; align-items: center; gap: .9rem; flex: 1; min-width: min(220px, 100%); }
 .who-avatar { width: 52px; height: 52px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-size: 1.35rem; font-weight: 650; }
 .who-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
@@ -163,7 +171,7 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <aside class="sidebar">
 <a class="brand" href="/v1/account"><img src="{{logo}}" alt=""> {{t "Account"}}</a>
 <nav class="nav-links" aria-label="{{t "Account"}}">
-<a class="nav-link" href="/v1/account" aria-current="page">{{template "frame-icon" "user"}}{{t "Your account"}}</a>
+<a class="nav-link" href="/v1/account#profile" aria-current="page">{{template "frame-icon" "user"}}{{t "Your account"}}</a>
 <a class="nav-link" href="/v1/account#security">{{template "account-icon" "security"}}{{t "Security"}}</a>
 <a class="nav-link" href="/v1/account#devices">{{template "account-icon" "devices"}}{{t "Devices"}}</a>
 <a class="nav-link" href="/v1/account#sessions">{{template "frame-icon" "sessions"}}{{t "Sessions"}}</a>
@@ -172,7 +180,6 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <div class="sidebar-foot">{{template "frame-account" .Menu}}</div>
 </aside>
 <div class="content"><main class="page">
-{{with .BackURL}}<a class="frame-back" href="{{.}}">{{template "frame-icon" "back"}}{{t "Back to %s" $.BackLabel}}</a>{{end}}
 <header class="page-head"><h1>{{.Title}}</h1></header>
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
 {{if .Notice}}<p class="notice" role="status">{{.Notice}}</p>{{end}}
@@ -388,11 +395,12 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 
 {{define "act"}}<span class="act"><span class="when-closed">{{.}}</span><span class="when-open">{{t "Cancel"}}</span></span>{{end}}
 
-{{define "account_panels"}}<section class="card" aria-labelledby="profile">
-<h2 id="profile">{{t "Profile"}}</h2>
+{{define "account_panels"}}<nav class="tabs" aria-label="{{t "Account"}}"><a class="tab" href="#profile">{{t "Profile"}}</a><a class="tab" href="#security">{{t "Security"}}</a><a class="tab" href="#devices">{{t "Devices"}}</a><a class="tab" href="#sessions">{{t "Sessions"}}</a></nav>
+<div class="panel" id="profile"><section class="card" aria-labelledby="profile-head">
+<h2 id="profile-head">{{t "Profile"}}</h2>
 <details class="setting"><summary><span class="who"><span class="who-avatar" aria-hidden="true">{{.Menu.Initial}}</span>
 <span class="who-text"><strong>{{.Menu.Name}}</strong><span class="hint">{{t "Name teammates see"}}</span></span></span>{{template "act" (t "Edit")}}</summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#profile">
 <input type="hidden" name="action" value="display_name">
 <label for="display-name">{{t "Name teammates see"}}</label>
 <input id="display-name" name="display_name" value="{{.Account.DisplayName}}" maxlength="100" autocomplete="name" required>
@@ -404,7 +412,7 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <h2 id="names">{{t "Sign-in names"}}</h2>
 {{$removable := gt (len .Account.Names) 1}}
 {{range $i, $n := .Account.Names}}{{if $removable}}<details class="setting"><summary><span class="setting-text">{{$n.Value}}<span class="hint">{{t "%s, unverified" (t $n.Kind)}}</span></span>{{template "act" (t "Remove")}}</summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#profile">
 <input type="hidden" name="action" value="name_remove">
 <input type="hidden" name="name" value="{{$n.Value}}">
 {{template "reauth" (printf "rm%d" $i)}}
@@ -412,7 +420,7 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 </form>
 </details>{{else}}<div class="setting"><span class="setting-text">{{$n.Value}}<span class="hint">{{t "%s, unverified" (t $n.Kind)}}</span></span></div>{{end}}
 {{end}}<details class="setting"><summary><span class="setting-text">{{t "Add a name"}}<span class="hint">{{t "Another username, phone or email to sign in with."}}</span></span>{{template "act" (t "Add")}}</summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#profile">
 <input type="hidden" name="action" value="name_add">
 <label for="new-name">{{t "New name"}}</label>
 <input id="new-name" name="name" autocomplete="off" required>
@@ -421,10 +429,11 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 </form>
 </details>
 </section>
-<section class="card" id="security" aria-labelledby="security-head">
+</div>
+<div class="panel" id="security"><section class="card" aria-labelledby="security-head">
 <h2 id="security-head">{{t "Security"}}</h2>
 <details class="setting"><summary><span class="setting-text">{{t "Password"}}<span class="hint">{{t "Changing it signs you out everywhere else."}}</span></span>{{template "act" (t "Change")}}</summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#security">
 <input type="hidden" name="action" value="password">
 {{template "reauth" "pw"}}
 <label for="new-password">{{t "New password"}}</label>
@@ -434,7 +443,7 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 </details>
 <details class="setting"><summary><span class="setting-text">{{t "Authenticator"}}<span class="hint">{{t "Asks for a code from an app on your phone when you sign in."}}</span></span>
 <span class="setting-side"><span class="pill{{if .Account.TOTP}} ok{{end}}">{{if .Account.TOTP}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</span>{{if .Account.TOTP}}{{template "act" (t "Turn off")}}{{else}}{{template "act" (t "Set up")}}{{end}}</span></summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#security">
 <input type="hidden" name="action" value="{{if .Account.TOTP}}totp_disable{{else}}totp_start{{end}}">
 {{template "reauth" "totp"}}
 <button{{if .Account.TOTP}} class="danger"{{end}}>{{if .Account.TOTP}}{{t "Turn off"}}{{else}}{{t "Continue"}}{{end}}</button>
@@ -442,17 +451,18 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 </details>
 <details class="setting"><summary><span class="setting-text">{{t "Recovery codes"}}<span class="hint">{{t "Each gets you back in once if you lose your password."}}</span></span>
 <span class="setting-side"><span class="pill{{if lt .Account.RecoveryCodes 3}} warn{{end}}">{{t "%d left" .Account.RecoveryCodes}}</span>{{template "act" (t "Replace")}}</span></summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#security">
 <input type="hidden" name="action" value="codes">
 {{template "reauth" "rc"}}
 <button>{{t "Replace all codes"}}</button>
 </form>
 </details>
 </section>
-<section class="card" id="devices" aria-labelledby="devices-head">
+</div>
+<div class="panel" id="devices"><section class="card" aria-labelledby="devices-head">
 <h2 id="devices-head">{{t "Devices"}}</h2>
 {{range .Account.Devices}}<details class="setting"><summary><span class="setting-text">{{.Name}}<span class="hint">{{.Platform}}</span></span>{{template "act" (t "Remove")}}</summary>
-<form method="post" action="/v1/account">
+<form method="post" action="/v1/account#devices">
 <input type="hidden" name="action" value="device_revoke">
 <input type="hidden" name="device_id" value="{{.ID}}">
 {{template "reauth" .ID}}
@@ -460,11 +470,12 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 </form>
 </details>{{else}}<div class="setting"><span class="setting-text">{{t "No app enrolled."}}<span class="hint">{{t "Sign in to the t10 app on your phone to add it here."}}</span></span></div>{{end}}
 </section>
-<section class="card" id="sessions" aria-labelledby="sessions-head">
+</div>
+<div class="panel" id="sessions"><section class="card" aria-labelledby="sessions-head">
 <h2 id="sessions-head">{{t "Sessions"}}</h2>
 {{range .SignIns}}<div class="setting"><span class="setting-text">{{if eq .ID $.CurrentSignIn}}{{t "This browser"}}{{else}}{{t "Another browser"}}{{end}}
 <span class="hint">{{ago .StartedAt}} · {{if .Apps}}{{t "Open: %s" (join .Apps)}}{{else}}{{t "No app open"}}{{end}}</span></span>
-{{if eq .ID $.CurrentSignIn}}<span class="pill accent">{{t "Current"}}</span>{{else}}<form method="post" action="/v1/account" class="inline-form"><input type="hidden" name="action" value="signin_end"><input type="hidden" name="signin" value="{{.ID}}"><button class="quiet small">{{t "Sign out"}}</button></form>{{end}}</div>
+{{if eq .ID $.CurrentSignIn}}<span class="pill accent">{{t "Current"}}</span>{{else}}<form method="post" action="/v1/account#sessions" class="inline-form"><input type="hidden" name="action" value="signin_end"><input type="hidden" name="signin" value="{{.ID}}"><button class="quiet small">{{t "Sign out"}}</button></form>{{end}}</div>
 {{end}}<div class="setting"><span class="setting-text">{{t "Sign out everywhere"}}<span class="hint">{{t "Signs you out here and on your other browsers and clients."}}</span></span>
-<form method="post" action="/v1/account" class="inline-form"><input type="hidden" name="action" value="signout_all"><button class="quiet danger small">{{t "Sign out everywhere"}}</button></form></div>
-</section>{{end}}
+<form method="post" action="/v1/account#sessions" class="inline-form"><input type="hidden" name="action" value="signout_all"><button class="quiet danger small">{{t "Sign out everywhere"}}</button></form></div>
+</section></div>{{end}}

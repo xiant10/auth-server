@@ -21,21 +21,14 @@ func TestTheAccountPageWearsTheFrame(t *testing.T) {
 	}
 }
 
-func TestTheAccountPageGoesBackOnlyToThisDeploymentsApps(t *testing.T) {
+func TestTheAccountPageHasNoBackLinkAndShowsTabs(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("grace")
 	back := testWorkbenchURL + "/t/ten_acme/tasks"
 	status, _, body := b.get(accountPath + "?return_to=" + url.QueryEscape(back))
-	wantPage(t, status, body, http.StatusOK, `href="`+back+`"`, "Back to Workbench")
-	// A form posted on the page keeps the way back.
-	_, _, body = b.post(accountPath, url.Values{"action": {"display_name"}, "display_name": {"Grace"}})
-	if !strings.Contains(body, "Back to Workbench") {
-		t.Errorf("lost after a change")
-	}
-	other := h.signedIn("grace")
-	_, _, body = other.get(accountPath + "?return_to=" + url.QueryEscape("https://evil.example/"))
-	if strings.Contains(body, "evil.example") || strings.Contains(body, "Back to") {
-		t.Errorf("went back to another site")
+	wantPage(t, status, body, http.StatusOK, `class="tabs"`, `href="#security"`, `id="sessions"`)
+	if strings.Contains(body, "Back to") {
+		t.Errorf("the account page still offers a way back")
 	}
 }
 

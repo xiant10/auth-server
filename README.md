@@ -1,8 +1,19 @@
-# t10 auth server
+# t10 Auth Server
 
-The only JWT issuer for t10: accounts, tenants, memberships and room admission. See [docs/developer-reference.md](docs/developer-reference.md) for the developer reference and [docs/design.md](docs/design.md) for system design.
+The central identity, authentication, and JWT issuer service for the t10 multi-tenant AI platform.
 
-**Status:** rollout steps 1 to 3 and 5 to 8 are built, with these still to do: step 4's external review, and in step 6 the services that don't exist yet and closing public access at an ingress. [docs/security-review.md](docs/security-review.md) is the reviewers' brief. See [docs/mobile-api.md](docs/mobile-api.md) and [docs/openapi.yaml](docs/openapi.yaml) to integrate an app, and [docs/service-api.md](docs/service-api.md) for a runtime or microservice. Outside dev mode, registration needs an invitation, because public registration waits on the security review and a CAPTCHA.
+## Project Description
+
+**t10 Auth Server** is the identity backbone and single source of truth for accounts, tenant organizations, memberships, delegated agent grants, and WebRTC room admissions across the t10 ecosystem. All platform services verify caller identity and delegated permissions against tokens and public keys issued by this service.
+
+### Key Capabilities
+
+- **Multi-Tenant Identity & Organizations**: First-class support for multi-tenant accounts, organizational units (departments and teams), manager hierarchies, and invitations.
+- **Cryptographic Token Issuance**: Issues ES256 JSON Web Tokens (JWT) and publishes a standard JWKS endpoint (`/.well-known/jwks.json`).
+- **Delegated Agent Grants**: Issues scoped, principal-bound delegated tokens and standing grants for automated and interactive agent runs.
+- **WebRTC Room Admission**: Generates signed LiveKit room admission tokens bound to tenant-namespaced rooms and user identities.
+- **Multi-Language Authentication**: Built-in localized sign-in, registration, recovery, and account management pages in English and Simplified Chinese.
+- **Administrative Access Control**: Granular separation between tenant administration (members, units, security) and platform administration (tenant lifecycle, user suspension, audit logs).
 
 ## Run locally
 

@@ -120,7 +120,7 @@ Configuration is parsed in [`internal/config/config.go`](../internal/config/conf
 | `AUTH_TRUST_PROXY` | No | `false` | When `true`, takes client IP from the rightmost `X-Forwarded-For` entry added by an ingress reverse proxy. |
 | `AUTH_CONSOLE_URL` | No | - | Base URL for `t10-console` (platform admin redirection). |
 | `AUTH_WORKBENCH_URL` | No | - | Base URL for `workbench` (tenant admin redirection). |
-| `AUTH_TOOL_GATEWAY` | No | `false` | When `true`, runtimes with `tool_audience` in `clients.yaml` receive tokens valid only at `ai-gateway-tools`. |
+| `AUTH_TOOL_GATEWAY` | No | `false` | When `true`, runtimes with `tool_audience` in `clients.yaml` receive tokens valid only at `ai-gateway-tools`, and at `ai-gateway-llm` for a runtime with `model_audience`. |
 | `LIVEKIT_URL` | Yes | - | URL of the LiveKit server instance. |
 | `LIVEKIT_API_KEY` | Yes | - | LiveKit API Key used for room token generation. |
 | `LIVEKIT_API_SECRET` | Yes | - | LiveKit API Secret used for signing room tokens (must be >= 32 characters in prod). |

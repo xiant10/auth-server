@@ -407,13 +407,17 @@ func (s *Service) Exchange(ctx context.Context, caller Caller, grantID string) (
 }
 
 // tokenAudiences is who a grant's tokens are for: its runtime's tool gateway
-// alone when the runtime sets one, so a harness can reach a module only through
-// it, and otherwise the grant's audiences.
+// when the runtime sets one, so a harness can reach a module only through it,
+// plus its model gateway, and otherwise the grant's audiences.
 func (s *Service) tokenAudiences(g Grant) []string {
 	// A grant made before its runtime listed the gateway can't be checked
 	// there, so its tokens keep the grant's audiences until it ends.
 	if runtime, ok := s.runtimeByID(g.RuntimeID); ok && runtime.ToolAudience != "" && s.toolGateway && slices.Contains(g.Audiences, runtime.ToolAudience) {
-		return []string{runtime.ToolAudience}
+		audiences := []string{runtime.ToolAudience}
+		if runtime.ModelAudience != "" && slices.Contains(g.Audiences, runtime.ModelAudience) {
+			audiences = append(audiences, runtime.ModelAudience)
+		}
+		return audiences
 	}
 	return g.Audiences
 }

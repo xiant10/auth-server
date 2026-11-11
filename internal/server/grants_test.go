@@ -24,6 +24,7 @@ const (
 	firingRuntime = agents.StandingRuntime
 	gatedRuntime  = "agent-gated"
 	toolGateway   = "ai-gateway-tools"
+	modelGateway  = "ai-gateway-llm"
 	listedService = "crm-mcp"
 	otherService  = "deals"
 )
@@ -31,7 +32,7 @@ const (
 var testRuntimes = []agents.Runtime{
 	{Name: voiceRuntime, Voice: true, Actions: []string{"agent:use"}, Audiences: []string{piRuntime}},
 	{Name: piRuntime, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, listedService}},
-	{Name: gatedRuntime, ToolAudience: toolGateway, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{gatedRuntime, listedService, toolGateway}},
+	{Name: gatedRuntime, ToolAudience: toolGateway, ModelAudience: modelGateway, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{gatedRuntime, listedService, toolGateway, modelGateway}},
 	{Name: firingRuntime, Optional: true, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, listedService}},
 }
 

@@ -71,16 +71,19 @@ runtimes:
     # A call's grant is the parent of agent-pi's, so it has to hold whatever a
     # tool needs, or the tool disappears on calls.
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
-    audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
+    audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   - name: agent-pi
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
-    audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
-    # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateway.
+    audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateways.
     tool_audience: ai-gateway-tools
+    # Its model calls carry the run's token, so ai-gateway-llm knows the tenant.
+    model_audience: ai-gateway-llm
   - name: agent-sales
     actions: [agent:use, work:read, work:write, knowledge:read]
-    audiences: [agent-sales, t10-collab, t10-knowledge, ai-gateway-tools]
+    audiences: [agent-sales, t10-collab, t10-knowledge, ai-gateway-tools, ai-gateway-llm]
     tool_audience: ai-gateway-tools
+    model_audience: ai-gateway-llm
   # The Rust harness, serving the `ti` pool. Optional, as agent-ti is an
   # optional component: a deployment without it needs no account.
   - name: agent-ti
@@ -88,16 +91,18 @@ runtimes:
     # work:send serves agent teammates only: t10-collab offers its send, accept,
     # decline and claim tools only to runs whose principal is an agent account.
     actions: [agent:use, work:read, work:write, work:send, knowledge:read, property:read, property:propose]
-    audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
+    audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
     tool_audience: ai-gateway-tools
+    model_audience: ai-gateway-llm
   # The property agent agent-ti hosts beside ti. A runtime of its own, so a token
   # names exactly one agent, and the gateways apply property's tool lists and
   # policy to its runs, not ti's. Optional, as agent-ti is.
   - name: agent-ti-property
     optional: true
     actions: [agent:use, knowledge:read, property:read, property:propose]
-    audiences: [agent-ti-property, t10-knowledge, t10-property, ai-gateway-tools]
+    audiences: [agent-ti-property, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
     tool_audience: ai-gateway-tools
+    model_audience: ai-gateway-llm
   # Property's assistant: it turns a person's live token into a grant for their
   # conversation, after checking and cleaning what they typed. Its account is the
   # service account it already has.
@@ -105,7 +110,7 @@ runtimes:
     optional: true
     actions: [agent:use, knowledge:read, property:read, property:propose]
     # agent-ti-property, so the property agent's runtime may build on its grants.
-    audiences: [ai-gateway, agent-ti, agent-ti-property, t10-knowledge, t10-property, ai-gateway-tools]
+    audiences: [ai-gateway, agent-ti, agent-ti-property, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   # Fires automations: it holds a person's standing grant, and makes one child
   # per firing for the harness it calls, through ai-gateway-agent, which has to
   # accept the firing's token. Its account exists only where setup has
@@ -114,7 +119,7 @@ runtimes:
     optional: true
     actions: [agent:use, work:read, work:write, work:send, knowledge:read, property:read, property:propose]
     # agent-ti, for automations on ti, such as an agent teammate's intake.
-    audiences: [ai-gateway, agent-pi, agent-sales, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
+    audiences: [ai-gateway, agent-pi, agent-sales, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
 
 # Services that may exchange a run's token for one with another audience on
 # its grant: the tool gateway, which forwards each tool call to its module with

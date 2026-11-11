@@ -62,7 +62,7 @@ A grant ID is safe to store, because it's useless without the runtime's secret. 
 
 `ai-gateway-tools` trades a run's token, which is good only at the gateway, for one a module accepts: `POST /v1/token` with `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, `client_id` and `client_secret`, `subject_token` and `audience`. The caller must be listed under `exchangers` in `clients.yaml` and named in the subject token's `aud`, and `audience` must be on the token's grant. The chain is checked as for any mint. The answer has the same `sub`, `tid`, `scope`, `act`, `grant`, `trg` and `automation`, an `aud` of that module alone, and ends no later than the subject token.
 
-Where `AUTH_TOOL_GATEWAY=true`, a runtime with `tool_audience` in `clients.yaml` gets tokens whose only audience is that, when its grant lists it. A grant made before the runtime listed the gateway keeps its audiences until it ends, within 24 hours. Compose, Light and quickstart leave it off.
+Where `AUTH_TOOL_GATEWAY=true`, a runtime with `tool_audience` in `clients.yaml` gets tokens whose only audience is that, when its grant lists it, plus its `model_audience`, `ai-gateway-llm`, when the grant lists that too, because model calls don't go through the tool gateway. A grant made before the runtime listed the gateway keeps its audiences until it ends, within 24 hours. Compose, Light and quickstart leave it off.
 
 ## Room admission
 

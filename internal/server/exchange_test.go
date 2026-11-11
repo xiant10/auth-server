@@ -37,6 +37,12 @@ func TestToolGatewayTokensAndExchange(t *testing.T) {
 	if got := audiences(t, run); !slices.Equal(got, []string{toolGateway}) {
 		t.Fatalf("a gated run's token is for %v", got)
 	}
+	// A grant that lists the model gateway keeps it beside the tool gateway,
+	// because model calls don't go through the tool gateway.
+	modelled := h.mint(gatedRuntime, h.grant(gatedRuntime, user, []string{"crm:read"}, []string{listedService, toolGateway, modelGateway}))
+	if got := audiences(t, modelled); !slices.Equal(got, []string{toolGateway, modelGateway}) {
+		t.Fatalf("a gated run's token with the model gateway is for %v", got)
+	}
 	// A runtime without a tool audience mints as before.
 	plain := h.mint(piRuntime, h.grant(piRuntime, user, []string{"crm:read"}, []string{listedService}))
 	if got := audiences(t, plain); !slices.Contains(got, listedService) {

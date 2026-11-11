@@ -36,6 +36,11 @@ type Runtime struct {
 	// The grant keeps its own audiences, which the gateway exchanges the token
 	// for. Elsewhere, as in Light, a token carries the grant's audiences.
 	ToolAudience string `yaml:"tool_audience" json:"tool_audience,omitempty"`
+	// ModelAudience is the model gateway's audience. A run's token goes there
+	// too, so ai-gateway-llm reads the tenant from it instead of a header. It
+	// stays on tokens beside ToolAudience, because model calls don't go through
+	// the tool gateway.
+	ModelAudience string `yaml:"model_audience" json:"model_audience,omitempty"`
 }
 
 // LoadExchangers reads which services may exchange a delegated token for one
@@ -102,6 +107,9 @@ func validateRuntimes(runtimes []Runtime) error {
 		// The gateway reads the grant's chain, so it has to be listed on it.
 		if r.ToolAudience != "" && !slices.Contains(r.Audiences, r.ToolAudience) {
 			return fmt.Errorf("runtime %s: tool_audience %q must also be one of its audiences", r.Name, r.ToolAudience)
+		}
+		if r.ModelAudience != "" && !slices.Contains(r.Audiences, r.ModelAudience) {
+			return fmt.Errorf("runtime %s: model_audience %q must also be one of its audiences", r.Name, r.ModelAudience)
 		}
 	}
 	return nil

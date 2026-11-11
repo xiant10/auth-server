@@ -35,7 +35,7 @@ Tools and modules keep reading `sub` and `tid`, so nothing in `t10-collab` chang
 
 **A person.** As today. A run a person starts interactively has trigger `user` or `voice`. A run started later on their behalf has trigger `schedule`, `event` or `webhook`, and descends from a standing grant the person created while signed in.
 
-**A tenant agent account.** A tenant admin creates one in `workbench`, such as "Lead triage". It's a membership of kind `agent` in `auth-server`, with role `member` and no sign-in. Modules apply its permissions exactly as they apply a person's, because they look up a membership either way, so a module needs no change to serve it. It's for work that belongs to the organisation rather than to a person: triaging a new lead, a nightly clean-up. It never holds a token. Only grants rooted in it do.
+**A tenant agent account.** A tenant admin creates one in `workbench`, such as "Lead triage". It's a membership of kind `agent` in `auth-server`, with role `member` and no sign-in. Modules apply its permissions exactly as they apply a person's, because they look up a membership either way, so a module needs no change to serve it. It's for work that belongs to the organisation rather than to a person: triaging a new lead, a nightly clean-up. It has a manager in the org, but can't be anyone's manager. It never holds a token. Only grants rooted in it do.
 
 A tenant agent account isn't a platform service account, and gives no path into other tenants. It also isn't a way to skip consent: creating an automation that runs as one needs a tenant admin's live token, and the grant chain records that admin.
 
@@ -51,6 +51,8 @@ A standing grant is a person's consent to future runs, recorded in `auth-server`
 | Holds | Actions and audiences, which must be within the runtime's list. Delete and export stay out, as they do for every unattended grant today |
 | Used by | `t10-automations` only, to create an ordinary 8-hour child grant per firing. Only the child's runtime can mint tokens |
 | Never | Mints a token itself, or extends past its own expiry |
+
+**An agent account's standing grant (proposed with agent teammates).** Renewal by sign-in can't keep one alive, because an agent account never signs in, and renewing it by its creating admin's sign-ins would stop it when that admin leaves. So a standing grant rooted in an agent account is the tenant's consent, not a person's: created by a tenant admin's live token as above, it has no 90-day lapse and lasts while the account's membership is active. Every child grant rechecks that. It records the admin who gave it, any tenant admin can revoke it and give it again, and suspending or removing the account ends it, as for a person. See [`t10-agent-control/docs/tenant-agents.md`](../../t10-agent-control/docs/tenant-agents.md), Part 2, "Creating one".
 
 The voice path already works this way: room admission creates a grant, and the voice worker's grant becomes the parent of `agent-pi`'s. A firing is the same chain with `t10-automations` in the voice worker's place.
 

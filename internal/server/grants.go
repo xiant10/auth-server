@@ -107,6 +107,9 @@ func (s *Server) handleCreateGrant(w http.ResponseWriter, r *http.Request, p ide
 		Standing     bool            `json:"standing"`
 		Trigger      string          `json:"trigger"`
 		Automation   string          `json:"automation"`
+		// Principal names an agent account for a standing grant: the tenant's
+		// consent, given with a tenant admin's live token.
+		Principal string `json:"principal"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "malformed grant request")
@@ -129,7 +132,21 @@ func (s *Server) handleCreateGrant(w http.ResponseWriter, r *http.Request, p ide
 			writeSubjectError(w, r, authErr)
 			return
 		}
-		grant, err = s.Agents.CreateRoot(r.Context(), caller(p), user.UserID, user.TenantID, asked)
+		if req.Principal != "" && req.Principal != user.UserID {
+			// Checked live, as every admin route is: a token says who, not what they may do now.
+			admin, adminErr := s.Directory.IsTenantAdmin(r.Context(), user.UserID, user.TenantID)
+			if adminErr != nil {
+				writeInternal(w, r, adminErr)
+				return
+			}
+			if !admin {
+				writeError(w, http.StatusForbidden, "forbidden", "only a tenant admin can consent for an agent account")
+				return
+			}
+			grant, err = s.Agents.CreateAgentStanding(r.Context(), caller(p), user.UserID, user.TenantID, req.Principal, asked)
+		} else {
+			grant, err = s.Agents.CreateRoot(r.Context(), caller(p), user.UserID, user.TenantID, asked)
+		}
 	}
 	if err != nil {
 		writeGrantError(w, r, err)

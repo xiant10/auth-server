@@ -2,6 +2,7 @@ package server
 
 import (
 	"cmp"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -188,4 +189,37 @@ func (s *Server) handleSetPlacements(w http.ResponseWriter, r *http.Request, p i
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleCreateAgentAccount adds a tenant agent account, such as an agent
+// teammate's, placed in the org like anyone. It has no sign-in; its runs come
+// only from a standing grant a tenant admin gives it.
+func (s *Server) handleCreateAgentAccount(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	var req directory.AgentAccount
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "malformed request")
+		return
+	}
+	member, err := s.Directory.CreateAgentAccount(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), req)
+	if err != nil {
+		writeDirectoryError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, member)
+}
+
+func (s *Server) handleRenameAgentAccount(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	var req struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "malformed request")
+		return
+	}
+	member, err := s.Directory.RenameAgentAccount(r.Context(), audit.ActorUser(p.UserID), r.PathValue("id"), r.PathValue("user"), req.DisplayName)
+	if err != nil {
+		writeDirectoryError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, member)
 }

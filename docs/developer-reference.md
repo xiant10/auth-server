@@ -571,7 +571,7 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 |---|---|---|---|
 | `POST` | `/v1/rooms/admission`| `accessUser` | Mint LiveKit room token & create voice agent grant. |
 | `GET` | `/v1/me` | `accessUser` | Current user profile, active tenant, and memberships. |
-| `GET` | `/v1/me/access` | `accessUser` | Effective platform and tenant admin rights. |
+| `GET` | `/v1/me/access` | `accessUser` | Effective platform and tenant admin rights, and `managed_agents`: the agent accounts the caller manages, whose runs' approvals they may decide. |
 | `GET` | `/v1/me/session` | `accessUser` | 200 while the session behind the token stands. Apps ask it to notice a sign-out elsewhere. |
 | `POST` | `/v1/me/browser-logout` | `accessUser` | A one-minute ticket that ends the browser sign-in behind this session, for a registered `/signed-out` return. |
 | `GET` | `/v1/me/permissions` | `accessUser` | Active business permissions in the active tenant. |
@@ -621,6 +621,8 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 | `PUT` / `DELETE`| `/v1/tenants/{id}/units/{unit}` | `accessTenantAdmin` | Update an org unit (name, kind, parent, lead) or delete it. `DELETE ?move=up` first moves its members and child units to its parent. |
 | `GET` / `PUT` | `/v1/tenants/{id}/members/{user}/placement` | `accessTenantAdmin` | Read or set member's unit and manager placement. |
 | `PUT` | `/v1/tenants/{id}/placements` | `accessTenantAdmin` | Place up to 500 members in one change, all or none, with an audit row each. |
+| `POST` | `/v1/tenants/{id}/agent-accounts` | `accessTenantAdmin` | Create a tenant agent account, with no sign-in, placed under an optional manager and unit. |
+| `PATCH` | `/v1/tenants/{id}/agent-accounts/{user}` | `accessTenantAdmin` | Rename an agent account. A person's name isn't an admin's to change. |
 | `GET` | `/v1/tenants/{id}/grants` | `accessTenantAdmin` | List running agent grants in the tenant. |
 | `POST` | `/v1/tenants/{id}/grants/{grant}/revoke` | `accessTenantAdmin` | Terminate an active agent grant. |
 | `GET` | `/v1/tenants/{id}/audit` | `accessTenantAdmin` | View tenant-scoped audit event log. |

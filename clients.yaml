@@ -85,7 +85,9 @@ runtimes:
   # optional component: a deployment without it needs no account.
   - name: agent-ti
     optional: true
-    actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
+    # work:send serves agent teammates only: t10-collab offers its send, accept,
+    # decline and claim tools only to runs whose principal is an agent account.
+    actions: [agent:use, work:read, work:write, work:send, knowledge:read, property:read, property:propose]
     audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
     tool_audience: ai-gateway-tools
   # The property agent agent-ti hosts beside ti. A runtime of its own, so a token
@@ -110,8 +112,9 @@ runtimes:
   # T10_AUTOMATIONS_SECRET.
   - name: t10-automations
     optional: true
-    actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
-    audiences: [ai-gateway, agent-pi, agent-sales, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
+    actions: [agent:use, work:read, work:write, work:send, knowledge:read, property:read, property:propose]
+    # agent-ti, for automations on ti, such as an agent teammate's intake.
+    audiences: [ai-gateway, agent-pi, agent-sales, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools]
 
 # Services that may exchange a run's token for one with another audience on
 # its grant: the tool gateway, which forwards each tool call to its module with

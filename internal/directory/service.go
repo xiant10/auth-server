@@ -349,6 +349,8 @@ type MemberDetail struct {
 	ManagerDisplayName string `json:"manager_display_name,omitempty"`
 	UnitID             string `json:"org_unit_id,omitempty"`
 	UnitName           string `json:"org_unit_name,omitempty"`
+	// Kind is person or agent. An agent account has no sign-in name.
+	Kind string `json:"kind"`
 }
 
 // ListMemberDetails returns a tenant's memberships for the admin UI.
@@ -361,7 +363,7 @@ func (s *Service) ListMemberDetails(ctx context.Context, tenantID string) ([]Mem
 		        COALESCE((SELECT i.value FROM auth.user_identifiers i
 		                  WHERE i.user_id = boss.user_id ORDER BY i.created_at, i.value LIMIT 1), ''),
 		        COALESCE((SELECT bu.display_name FROM auth.users bu WHERE bu.id = boss.user_id), ''),
-		        COALESCE(m.org_unit_id, ''), COALESCE(u.name, '')
+		        COALESCE(m.org_unit_id, ''), COALESCE(u.name, ''), mu.kind
 		 FROM auth.memberships m
 		 JOIN auth.users mu ON mu.id = m.user_id
 		 LEFT JOIN auth.memberships boss ON boss.tenant_id = m.tenant_id AND boss.id = m.manager_id
@@ -373,7 +375,7 @@ func (s *Service) ListMemberDetails(ctx context.Context, tenantID string) ([]Mem
 	members, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (MemberDetail, error) {
 		var m MemberDetail
 		err := row.Scan(&m.ID, &m.TenantID, &m.UserID, &m.Role, &m.Status, &m.JoinedAt, &m.Name,
-			&m.DisplayName, &m.UserStatus, &m.ManagerUserID, &m.ManagerName, &m.ManagerDisplayName, &m.UnitID, &m.UnitName)
+			&m.DisplayName, &m.UserStatus, &m.ManagerUserID, &m.ManagerName, &m.ManagerDisplayName, &m.UnitID, &m.UnitName, &m.Kind)
 		return m, err
 	})
 	if err != nil {

@@ -56,6 +56,8 @@ func validRoom(room string) bool {
 // Membership is the directory check admission depends on.
 type Membership interface {
 	CheckActive(ctx context.Context, userID, tenantID string) error
+	// AgentAccountIn reports an active agent account of the tenant.
+	AgentAccountIn(ctx context.Context, tenantID, userID string) (bool, error)
 }
 
 // Signer signs the participant assertion and delegated tokens.

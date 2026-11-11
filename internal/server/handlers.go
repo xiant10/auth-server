@@ -408,10 +408,19 @@ func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identi
 		writeInternal(w, r, err)
 		return
 	}
+	// managed_agents are the agent accounts this person manages, such as agent
+	// teammates, whose actions they may approve.
+	managed := []string{}
+	if p.TenantID != "" {
+		if managed, err = s.Directory.ManagedAgents(r.Context(), p.TenantID, p.UserID); err != nil {
+			writeInternal(w, r, err)
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": p.UserID, "active_tenant": p.TenantID, "tenant_admin": tenantAdmin,
 		"platform_admin": platform, "mfa": p.MFA, "platform_verified": verified, "tenant_verified": tenantVerified,
-		"modules": modules, "module_admin": moduleAdmin,
+		"modules": modules, "module_admin": moduleAdmin, "managed_agents": managed,
 	})
 }
 

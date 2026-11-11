@@ -32,6 +32,11 @@ const (
 	// standingRenewal is how stale a standing grant's expiry gets before a
 	// refresh renews it, so a busy person doesn't write on every refresh.
 	standingRenewal = 24 * time.Hour
+	// AgentStandingTTL is how long a tenant's consent for an agent account
+	// lasts. It has no lapse in practice: an agent account never signs in to
+	// renew it, so it ends only when revoked or when the account stops being an
+	// active member, which every firing checks.
+	AgentStandingTTL = 100 * 365 * 24 * time.Hour
 	// StandingRuntime is the only runtime that may hold a standing grant.
 	StandingRuntime = "t10-automations"
 )
@@ -80,12 +85,15 @@ type Grant struct {
 	Constraints json.RawMessage `json:"constraints"`
 	Depth       int             `json:"depth"`
 	// Trigger is why its run is running. A standing grant has none.
-	Trigger    string     `json:"trigger,omitempty"`
-	Automation string     `json:"automation,omitempty"`
-	Standing   bool       `json:"standing,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	ExpiresAt  time.Time  `json:"expires_at"`
-	RevokedAt  *time.Time `json:"-"`
+	Trigger    string `json:"trigger,omitempty"`
+	Automation string `json:"automation,omitempty"`
+	Standing   bool   `json:"standing,omitempty"`
+	// GivenBy is the tenant admin who gave an agent account's standing grant,
+	// the tenant's consent. Empty for a person's own.
+	GivenBy   string     `json:"given_by,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	RevokedAt *time.Time `json:"-"`
 }
 
 // GrantRequest is what a runtime asks for. Model output never supplies it.
@@ -167,6 +175,46 @@ func (s *Service) CreateRoot(ctx context.Context, caller Caller, userID, tenantI
 		g.Standing, g.Trigger, ttl = true, "", StandingGrantTTL
 	}
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return insertGrant(ctx, tx, g, ttl) })
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+// CreateAgentStanding records a tenant's consent to runs as one of its agent
+// accounts, such as an agent teammate's. The handler verified a live token of
+// a tenant admin, adminID. Unlike a person's consent, it doesn't depend on
+// anyone signing in again: it lasts while the account is an active member, and
+// any tenant admin can revoke it.
+func (s *Service) CreateAgentStanding(ctx context.Context, caller Caller, adminID, tenantID, accountID string, r GrantRequest) (*Grant, error) {
+	if tenantID == "" {
+		return nil, ErrNoTenant
+	}
+	if !r.Standing || caller.Name != StandingRuntime {
+		return nil, fmt.Errorf("%w: an agent account's grant is a standing grant held by %s", ErrGrantRequest, StandingRuntime)
+	}
+	if err := s.checkRuntime(caller, r); err != nil {
+		return nil, err
+	}
+	if r.Trigger != "" || r.Automation != "" {
+		return nil, fmt.Errorf("%w: only a standing grant's child names a trigger", ErrGrantRequest)
+	}
+	constraints, err := r.constraints()
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.membership.AgentAccountIn(ctx, tenantID, accountID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w: %s isn't an active agent account of this tenant", ErrGrantRequest, accountID)
+	}
+	g := &Grant{
+		ID: ids.New("grt"), RuntimeID: caller.ID, UserID: accountID, TenantID: tenantID,
+		Actions: r.Actions, Audiences: r.Audiences, Constraints: constraints, Depth: 1, Standing: true, GivenBy: adminID,
+	}
+	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return insertGrant(ctx, tx, g, AgentStandingTTL) })
 	if err != nil {
 		return nil, err
 	}
@@ -255,11 +303,11 @@ func insertGrant(ctx context.Context, tx pgx.Tx, g *Grant, ttl time.Duration) er
 	}
 	err := tx.QueryRow(ctx,
 		`INSERT INTO auth.agent_grants (id, parent_id, runtime_id, user_id, tenant_id, actions, audiences, constraints, depth,
-		                                trigger, automation, standing, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now() + make_interval(secs => $13))
+		                                trigger, automation, standing, given_by, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now() + make_interval(secs => $14))
 		 RETURNING created_at, expires_at`,
 		g.ID, parent, g.RuntimeID, g.UserID, g.TenantID, g.Actions, g.Audiences, string(g.Constraints), g.Depth,
-		g.Trigger, g.Automation, g.Standing, ttl.Seconds(),
+		g.Trigger, g.Automation, g.Standing, g.GivenBy, ttl.Seconds(),
 	).Scan(&g.CreatedAt, &g.ExpiresAt)
 	if err != nil {
 		return fmt.Errorf("insert grant: %w", err)
@@ -268,7 +316,7 @@ func insertGrant(ctx context.Context, tx pgx.Tx, g *Grant, ttl time.Duration) er
 		Actor: "service:" + g.RuntimeID, Scope: audit.ScopeTenant(g.TenantID), Action: "grant.create", Target: g.ID,
 		Outcome: audit.Success, Detail: map[string]any{
 			"user": g.UserID, "parent": g.ParentID, "actions": g.Actions, "audiences": g.Audiences,
-			"trigger": g.Trigger, "automation": g.Automation, "standing": g.Standing,
+			"trigger": g.Trigger, "automation": g.Automation, "standing": g.Standing, "given_by": g.GivenBy,
 		},
 	})
 }
@@ -512,7 +560,8 @@ func (s *Service) ListTenantGrants(ctx context.Context, tenantID string, limit i
 		`SELECT g.id, COALESCE(g.parent_id, ''), g.runtime_id, g.user_id, g.tenant_id, g.actions, g.audiences,
 		        g.depth, g.trigger, g.automation, g.standing, g.created_at, g.expires_at,
 		        COALESCE((SELECT i.value FROM auth.user_identifiers i
-		                  WHERE i.user_id = g.user_id ORDER BY i.created_at, i.value LIMIT 1), ''),
+		                  WHERE i.user_id = g.user_id ORDER BY i.created_at, i.value LIMIT 1),
+		                 (SELECT u.display_name FROM auth.users u WHERE u.id = g.user_id AND u.kind = 'agent'), ''),
 		        s.stopped
 		 FROM auth.agent_grants g
 		 CROSS JOIN LATERAL (

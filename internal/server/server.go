@@ -211,6 +211,8 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/tenants/{id}/members/{user}/placement", accessTenantAdmin, s.handleGetPlacement},
 		{"PUT", "/v1/tenants/{id}/members/{user}/placement", accessTenantAdmin, s.handleSetPlacement},
 		{"PUT", "/v1/tenants/{id}/placements", accessTenantAdmin, s.handleSetPlacements},
+		{"POST", "/v1/tenants/{id}/agent-accounts", accessTenantAdmin, s.handleCreateAgentAccount},
+		{"PATCH", "/v1/tenants/{id}/agent-accounts/{user}", accessTenantAdmin, s.handleRenameAgentAccount},
 		{"GET", "/v1/tenants/{id}/grants", accessTenantAdmin, s.handleTenantGrants},
 		{"POST", "/v1/tenants/{id}/grants/{grant}/revoke", accessTenantAdmin, s.handleTenantRevokeGrant},
 		{"GET", "/v1/tenants/{id}/audit", accessTenantAdmin, s.handleTenantAudit},

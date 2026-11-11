@@ -59,6 +59,8 @@ type OrgMember struct {
 	AssignedManagerUserID string `json:"assigned_manager_user_id,omitempty"`
 	OrgUnitID             string `json:"org_unit_id,omitempty"`
 	DisplayName           string `json:"display_name"`
+	// Kind is person or agent, so pickers can mark agent accounts.
+	Kind string `json:"kind"`
 }
 
 // orgMemberColumns reads an OrgMember from auth.memberships m and auth.users u.
@@ -73,10 +75,10 @@ const orgMemberColumns = `m.user_id, m.role, m.status, u.status,
 	SELECT up.user_id FROM up JOIN auth.users bu ON bu.id = up.user_id
 	WHERE up.status = 'active' AND bu.status = 'active' ORDER BY up.depth LIMIT 1), ''),
 	COALESCE((SELECT b.user_id FROM auth.memberships b WHERE b.tenant_id = m.tenant_id AND b.id = m.manager_id), ''),
-	COALESCE(m.org_unit_id, ''), u.display_name`
+	COALESCE(m.org_unit_id, ''), u.display_name, u.kind`
 
 func (m *OrgMember) scan(row pgx.Row) error {
-	return row.Scan(&m.UserID, &m.Role, &m.Status, &m.UserStatus, &m.ManagerUserID, &m.AssignedManagerUserID, &m.OrgUnitID, &m.DisplayName)
+	return row.Scan(&m.UserID, &m.Role, &m.Status, &m.UserStatus, &m.ManagerUserID, &m.AssignedManagerUserID, &m.OrgUnitID, &m.DisplayName, &m.Kind)
 }
 
 // MaxMemberPage is the most members one OrgMembers call returns.
@@ -247,7 +249,7 @@ func unitLead(ctx context.Context, tx pgx.Tx, tenantID, unitID, leadUserID strin
 	}
 	err = tx.QueryRow(ctx,
 		`SELECT m.id FROM auth.memberships m JOIN auth.users u ON u.id = m.user_id
-		 WHERE m.tenant_id = $1 AND m.user_id = $2 AND m.status = 'active' AND u.status = 'active'`,
+		 WHERE m.tenant_id = $1 AND m.user_id = $2 AND m.status = 'active' AND u.status = 'active' AND u.kind = 'person'`,
 		tenantID, leadUserID).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvalid
@@ -427,12 +429,12 @@ func place(ctx context.Context, tx pgx.Tx, actor, tenantID string, p Placement) 
 }
 
 // managerMembership finds an active manager and refuses a loop: walking up from
-// the new manager must never reach the member.
+// the new manager must never reach the member. An agent account manages nobody.
 func managerMembership(ctx context.Context, tx pgx.Tx, tenantID, memberID, managerUserID string) (string, error) {
 	var id string
 	err := tx.QueryRow(ctx,
 		`SELECT m.id FROM auth.memberships m JOIN auth.users u ON u.id = m.user_id
-		 WHERE m.tenant_id = $1 AND m.user_id = $2 AND m.status = 'active' AND u.status = 'active'`,
+		 WHERE m.tenant_id = $1 AND m.user_id = $2 AND m.status = 'active' AND u.status = 'active' AND u.kind = 'person'`,
 		tenantID, managerUserID).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrInvalid

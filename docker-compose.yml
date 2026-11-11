@@ -31,6 +31,9 @@ services:
       AGENT_PI_SECRET: "${AUTH_AGENT_PI_SECRET:-dev-only-agent-pi-service-secret-change-me}"
       AGENT_SALES_SECRET: "${AUTH_AGENT_SALES_SECRET:-dev-only-agent-sales-service-secret-change-me}"
       T10_COLLAB_SECRET: "${AUTH_T10_COLLAB_SECRET:-dev-only-t10-collab-service-secret-change-me}"
+      # ai-gateway-llm's account, for the run tokens on model calls. Set it to
+      # ai-gateway's AI_GATEWAY_LLM_CLIENT_SECRET; unset makes no account.
+      AI_GATEWAY_LLM_SECRET: "${AUTH_AI_GATEWAY_LLM_SECRET:-}"
     depends_on:
       postgres:
         condition: service_healthy

@@ -68,10 +68,11 @@ runtimes:
   - name: t10-livekit-agent
     # Room admission creates this runtime's grant for each call.
     voice: true
-    # A call's grant is the parent of agent-pi's, so it has to hold whatever a
-    # tool needs, or the tool disappears on calls.
+    # A call's grant is the parent of the agent's (agent-pi's, agent-ti's), so
+    # it has to hold whatever a tool needs, or the tool disappears on calls, and
+    # name every agent a call can reach, or that agent refuses its token.
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
-    audiences: [agent-pi, agent-sales, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    audiences: [agent-pi, agent-sales, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   - name: agent-pi
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
     audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]

@@ -156,6 +156,7 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/org/members", accessService, s.handleOrgMembers},
 		{"GET", "/v1/org/members/{id}", accessService, s.handleOrgMember},
 		{"GET", "/v1/org/members/{id}/reports", accessService, s.handleOrgReports},
+		{"GET", "/v1/users/{id}/preferences", accessService, s.handleUserPreferences},
 		{"GET", "/v1/entitlements", accessService, s.handleEntitlements},
 		{"GET", "/v1/module-roles", accessService, s.handleModuleRoles},
 

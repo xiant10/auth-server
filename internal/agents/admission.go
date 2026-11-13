@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
@@ -26,11 +27,43 @@ const RoomTokenTTL = 10 * time.Minute
 // Errors returned by Admit.
 var (
 	ErrInvalidRoom    = errors.New("invalid room name")
+	ErrInvalidClient  = errors.New("invalid client values")
 	ErrTenantMismatch = errors.New("tenant does not match the token")
 	ErrNoTenant       = errors.New("token has no active tenant")
 )
 
 var roomPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+// ClientAttribute prefixes what the client said about the call, such as the
+// screen it was started from and the caller's language and time zone. They sit
+// in the LiveKit-signed token, so the client can't change them after admission,
+// but they are still the client's word: the agent treats them as content
+// someone else wrote. See agent-ti's docs/greeting.md.
+const ClientAttribute = "t10.client."
+
+const (
+	maxClientValues     = 16
+	maxClientValueChars = 200
+)
+
+var clientKey = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{0,31}$`)
+
+// clientAttributes checks what a client sent and names it for the room token.
+func clientAttributes(client map[string]string) (map[string]string, error) {
+	if len(client) > maxClientValues {
+		return nil, ErrInvalidClient
+	}
+	out := make(map[string]string, len(client))
+	for key, value := range client {
+		if !clientKey.MatchString(key) || utf8.RuneCountInString(value) > maxClientValueChars || !utf8.ValidString(value) {
+			return nil, ErrInvalidClient
+		}
+		if value != "" {
+			out[ClientAttribute+key] = value
+		}
+	}
+	return out, nil
+}
 
 // conversationRoom starts the name of a call inside one person's conversation.
 const conversationRoom = "conv-"
@@ -126,8 +159,9 @@ type Admission struct {
 }
 
 // Admit lets a user into a room of their token's tenant. The tenant comes from
-// the token: a requested tenant may only repeat it.
-func (s *Service) Admit(ctx context.Context, userID, tokenTenant, requestedTenant, room string) (*Admission, error) {
+// the token: a requested tenant may only repeat it. client is what the client
+// says about the call, put in the token as t10.client.* attributes.
+func (s *Service) Admit(ctx context.Context, userID, tokenTenant, requestedTenant, room string, client map[string]string) (*Admission, error) {
 	if tokenTenant == "" {
 		return nil, ErrNoTenant
 	}
@@ -138,20 +172,23 @@ func (s *Service) Admit(ctx context.Context, userID, tokenTenant, requestedTenan
 	if !validRoom(room) {
 		return nil, ErrInvalidRoom
 	}
+	attributes, err := clientAttributes(client)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.membership.CheckActive(ctx, userID, tokenTenant); err != nil {
 		s.deny(ctx, userID, tokenTenant, room, "membership")
 		return nil, err
 	}
 
 	roomName := roomNameFor(tokenTenant, userID, room)
-	var attributes map[string]string
 	var grant *Grant
 	if voice, ok := s.voiceRuntime(); ok {
 		grant = &Grant{
 			ID: ids.New("grt"), RuntimeID: ServiceID(voice.Name), UserID: userID, TenantID: tokenTenant,
 			Actions: voice.Actions, Audiences: voice.Audiences, Constraints: []byte("{}"), Depth: 1, Trigger: TriggerVoice,
 		}
-		attributes = map[string]string{GrantAttribute: grant.ID}
+		attributes[GrantAttribute] = grant.ID
 	}
 	const canPublish = true
 	roomToken, expires, err := s.mintRoomToken(userID, roomName, canPublish, attributes)

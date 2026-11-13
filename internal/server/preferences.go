@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
+
 	"t10-auth-server/internal/identity"
 )
 
@@ -26,7 +28,23 @@ func (s *Server) handleSetMyPreferences(w http.ResponseWriter, r *http.Request, 
 	}
 	prefs, err := s.Identity.SetPreferences(r.Context(), p.UserID, change)
 	if errors.Is(err, identity.ErrInvalidPreference) {
-		writeError(w, http.StatusBadRequest, "invalid_request", "language is en or zh-Hans, and theme is system, light or dark")
+		writeError(w, http.StatusBadRequest, "invalid_request", "language is en or zh-Hans, theme is system, light or dark, and greeting is personal, simple or off")
+		return
+	}
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, prefs)
+}
+
+// handleUserPreferences lets a service read a person's preferences, such as an agent
+// runtime checking how they like to be greeted on a call. Nothing here is secret, and
+// a service can't change them.
+func (s *Server) handleUserPreferences(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
+	prefs, err := s.Identity.GetPreferences(r.Context(), r.PathValue("id"))
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "not_found", "no such user")
 		return
 	}
 	if err != nil {

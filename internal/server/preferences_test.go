@@ -94,3 +94,24 @@ func TestALanguageChosenOnTheSignInPageIsSaved(t *testing.T) {
 		t.Errorf("the mark stayed: %q", got)
 	}
 }
+
+func TestAServiceReadsHowAPersonLikesToBeGreeted(t *testing.T) {
+	h, id := adminFixture(t, false)
+	token, _ := h.redeem(h.signedIn("grace"))
+	status, prefs := h.do("PUT", "/v1/me/preferences", token, map[string]string{"greeting": "simple"})
+	h.wantStatus(status, prefs, http.StatusOK)
+	if status, body := h.do("PUT", "/v1/me/preferences", token, map[string]string{"greeting": "loud"}); status != http.StatusBadRequest {
+		t.Errorf("unknown greeting: %d %v", status, body)
+	}
+	status, prefs = h.do("GET", "/v1/users/"+id+"/preferences", h.serviceToken(otherService), nil)
+	h.wantStatus(status, prefs, http.StatusOK)
+	if prefs["greeting"] != "simple" {
+		t.Errorf("service read: %v", prefs)
+	}
+	if status, _ := h.do("GET", "/v1/users/"+id+"/preferences", token, nil); status != http.StatusUnauthorized && status != http.StatusForbidden {
+		t.Errorf("a user token reads only its own, at /v1/me: %d", status)
+	}
+	if status, _ := h.do("GET", "/v1/users/usr_nobody/preferences", h.serviceToken(otherService), nil); status != http.StatusNotFound {
+		t.Errorf("unknown user: %d", status)
+	}
+}

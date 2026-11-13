@@ -686,3 +686,33 @@ func TestAgentGrantTokenRequestAcceptsAForm(t *testing.T) {
 	})
 	h.wantStatus(status, body, http.StatusOK)
 }
+
+func TestAdmissionCarriesTheClientsValues(t *testing.T) {
+	h := newHarness(t, true)
+	h.tenant("ten_acme")
+	h.user("ada", map[string]string{"ten_acme": directory.RoleMember})
+	token := h.login("ada", "")
+	status, body := h.do("POST", "/v1/rooms/admission", token, map[string]any{
+		"room":   "r",
+		"client": map[string]string{"screen": "tasks", "locale": "zh-Hans", "empty": ""},
+	})
+	h.wantStatus(status, body, http.StatusOK)
+	attributes, _ := unverifiedClaims(t, body["room_token"].(string))["attributes"].(map[string]any)
+	if attributes["t10.client.screen"] != "tasks" || attributes["t10.client.locale"] != "zh-Hans" {
+		t.Errorf("client values missing: %v", attributes)
+	}
+	if _, ok := attributes["t10.client.empty"]; ok {
+		t.Errorf("an empty value is left out: %v", attributes)
+	}
+	if !strings.HasPrefix(fmt.Sprint(attributes[agents.GrantAttribute]), "grt_") {
+		t.Errorf("the grant is still there: %v", attributes)
+	}
+	for name, client := range map[string]map[string]string{
+		"bad key":    {"t10.grant": "x"},
+		"long value": {"screen": strings.Repeat("x", 201)},
+	} {
+		if status, body := h.do("POST", "/v1/rooms/admission", token, map[string]any{"room": "r", "client": client}); status != http.StatusBadRequest {
+			t.Errorf("%s: %d %v", name, status, body)
+		}
+	}
+}

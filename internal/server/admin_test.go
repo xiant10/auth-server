@@ -289,6 +289,69 @@ func TestTenantAdminStopsAgentsAndReadsActivityOverJSON(t *testing.T) {
 	}
 }
 
+func TestTenantGrantsComeInPagesRunningFirst(t *testing.T) {
+	h, _ := adminFixture(t, true)
+	const base = "/v1/tenants/ten_acme/grants"
+	root := h.grant(piRuntime, h.login("grace", ""), []string{"crm:read"}, []string{piRuntime})
+	ctx := context.Background()
+	// Copies of root: 60 live, 70 expired, and 5 live children of a revoked
+	// parent, which have ended though nothing revoked them.
+	_, err := h.pool.Exec(ctx, `
+		INSERT INTO auth.agent_grants (id, parent_id, runtime_id, user_id, tenant_id, actions, audiences, depth, created_at, expires_at, revoked_at)
+		SELECT g.id || '_' || k.state || i, CASE WHEN k.state = 'c' THEN g.id || '_r1' END, g.runtime_id, g.user_id, g.tenant_id,
+		       g.actions, g.audiences, CASE WHEN k.state = 'c' THEN 2 ELSE 1 END,
+		       now() - i * interval '1 minute', CASE WHEN k.state = 'x' THEN now() - interval '1 second' ELSE now() + interval '1 hour' END,
+		       CASE WHEN k.state = 'r' THEN now() END
+		FROM auth.agent_grants g,
+		     (VALUES ('l', 60), ('x', 70), ('r', 1), ('c', 5)) k(state, n), generate_series(1, k.n) i
+		WHERE g.id = $1`, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	boss := h.login("boss", "ten_acme")
+
+	var seen []map[string]any
+	next, pages := "", 0
+	for {
+		path := base
+		if next != "" {
+			path += "?after=" + url.QueryEscape(next)
+		}
+		status, body := h.do("GET", path, boss, nil)
+		h.wantStatus(status, body, http.StatusOK)
+		if body["valid"] != float64(61) {
+			t.Fatalf("valid: %v", body["valid"])
+		}
+		for _, g := range body["grants"].([]any) {
+			seen = append(seen, g.(map[string]any))
+		}
+		pages++
+		next, _ = body["next"].(string)
+		if next == "" {
+			break
+		}
+	}
+	if pages != 3 || len(seen) != 137 {
+		t.Fatalf("%d pages, %d grants", pages, len(seen))
+	}
+	ids := map[string]bool{}
+	for i, g := range seen {
+		ids[g["id"].(string)] = true
+		if running := g["running"] == true; running != (i < 61) {
+			t.Errorf("grant %d %s running %v", i, g["id"], running)
+		}
+		if i > 0 && i != 61 && g["created_at"].(string) > seen[i-1]["created_at"].(string) {
+			t.Errorf("grant %d %s is newer than the one before it", i, g["id"])
+		}
+	}
+	if len(ids) != len(seen) {
+		t.Errorf("%d grants repeat across pages", len(seen)-len(ids))
+	}
+	if status, _ := h.do("GET", base+"?after=nonsense", boss, nil); status != http.StatusBadRequest {
+		t.Errorf("a bad cursor: %d", status)
+	}
+}
+
 func TestTenantMembersCarryNamesAndPlacement(t *testing.T) {
 	h, member := adminFixture(t, true)
 	boss := h.login("boss", "ten_acme")

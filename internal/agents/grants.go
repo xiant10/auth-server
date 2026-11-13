@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -550,7 +552,8 @@ type GrantRow struct {
 	Grant
 	// Who is the user's first sign-in name.
 	Who string
-	// Stopped means this grant or an ancestor was revoked.
+	// Stopped means this grant or an ancestor was revoked. An expired grant's
+	// ancestors aren't looked at, since it can't run either way.
 	Stopped bool
 }
 
@@ -558,39 +561,111 @@ type GrantRow struct {
 // chain goes. A user or tenant check may stop it as well.
 func (g GrantRow) Running() bool { return !g.Stopped && g.ExpiresAt.After(time.Now()) }
 
-// ListTenantGrants returns a tenant's most recent grants, running ones first.
-func (s *Service) ListTenantGrants(ctx context.Context, tenantID string, limit int) ([]GrantRow, error) {
+// GrantPage is one page of a tenant's grants.
+type GrantPage struct {
+	Grants []GrantRow
+	// Valid counts the tenant's running grants, on this page or not.
+	Valid int
+	// Next continues the list after this page; nil on the last one.
+	Next *GrantCursor
+}
+
+// GrantCursor is the last grant of a page, in the list's order.
+type GrantCursor struct {
+	Running   bool
+	CreatedAt time.Time
+	ID        string
+}
+
+// String encodes the cursor for a query string.
+func (c GrantCursor) String() string {
+	state := "e"
+	if c.Running {
+		state = "v"
+	}
+	return fmt.Sprintf("%s.%d.%s", state, c.CreatedAt.UnixMicro(), c.ID)
+}
+
+// ParseGrantCursor reads what String wrote.
+func ParseGrantCursor(s string) (GrantCursor, error) {
+	state, rest, ok1 := strings.Cut(s, ".")
+	micros, id, ok2 := strings.Cut(rest, ".")
+	at, err := strconv.ParseInt(micros, 10, 64)
+	if !ok1 || !ok2 || (state != "v" && state != "e") || err != nil || id == "" {
+		return GrantCursor{}, fmt.Errorf("%w: bad cursor", ErrGrantRequest)
+	}
+	return GrantCursor{Running: state == "v", CreatedAt: time.UnixMicro(at), ID: id}, nil
+}
+
+// ListTenantGrants returns a page of a tenant's grants, running ones first,
+// then newest first. A child never outlives its parent, so only unexpired
+// grants need their chain walked; expired ones come straight off the index,
+// and the cost follows how many grants are live, not the tenant's history.
+func (s *Service) ListTenantGrants(ctx context.Context, tenantID string, after *GrantCursor, limit int) (GrantPage, error) {
+	var afterRunning *bool
+	var afterCreated *time.Time
+	var afterID string
+	if after != nil {
+		afterRunning, afterCreated, afterID = &after.Running, &after.CreatedAt, after.ID
+	}
 	rows, err := s.pool.Query(ctx,
-		`SELECT g.id, COALESCE(g.parent_id, ''), g.runtime_id, g.user_id, g.tenant_id, g.actions, g.audiences,
+		`WITH live AS (
+			SELECT g.id, g.created_at, s.stopped, NOT s.stopped AS running
+			FROM auth.agent_grants g
+			CROSS JOIN LATERAL (
+				WITH RECURSIVE up AS (
+					SELECT id, parent_id, revoked_at FROM auth.agent_grants WHERE id = g.id
+					UNION ALL
+					SELECT a.id, a.parent_id, a.revoked_at FROM auth.agent_grants a JOIN up ON a.id = up.parent_id
+				)
+				SELECT bool_or(revoked_at IS NOT NULL) AS stopped FROM up
+			) s
+			WHERE g.tenant_id = $1 AND g.expires_at > now()
+		 ), ended AS (
+			SELECT g.id, g.created_at, g.revoked_at IS NOT NULL AS stopped, false AS running
+			FROM auth.agent_grants g
+			WHERE g.tenant_id = $1 AND g.expires_at <= now()
+			  AND ($3::bool IS NULL OR $3 OR g.created_at < $4 OR (g.created_at = $4 AND g.id > $5))
+			ORDER BY g.created_at DESC, g.id LIMIT $2
+		 ), page AS (
+			SELECT * FROM (SELECT * FROM live UNION ALL SELECT * FROM ended) c
+			WHERE $3::bool IS NULL OR c.running < $3
+			   OR (c.running = $3 AND (c.created_at < $4 OR (c.created_at = $4 AND c.id > $5)))
+			ORDER BY c.running DESC, c.created_at DESC, c.id LIMIT $2
+		 )
+		 SELECT g.id, COALESCE(g.parent_id, ''), g.runtime_id, g.user_id, g.tenant_id, g.actions, g.audiences,
 		        g.depth, g.trigger, g.automation, g.standing, g.created_at, g.expires_at,
 		        COALESCE((SELECT i.value FROM auth.user_identifiers i
 		                  WHERE i.user_id = g.user_id ORDER BY i.created_at, i.value LIMIT 1),
 		                 (SELECT u.display_name FROM auth.users u WHERE u.id = g.user_id AND u.kind = 'agent'), ''),
-		        s.stopped
-		 FROM auth.agent_grants g
-		 CROSS JOIN LATERAL (
-			WITH RECURSIVE up AS (
-				SELECT id, parent_id, revoked_at FROM auth.agent_grants WHERE id = g.id
-				UNION ALL
-				SELECT a.id, a.parent_id, a.revoked_at FROM auth.agent_grants a JOIN up ON a.id = up.parent_id
-			)
-			SELECT bool_or(revoked_at IS NOT NULL) AS stopped FROM up
-		 ) s
-		 WHERE g.tenant_id = $1
-		 ORDER BY (NOT s.stopped AND g.expires_at > now()) DESC, g.created_at DESC, g.id LIMIT $2`, tenantID, limit)
+		        p.stopped, p.running, (SELECT count(*) FROM live WHERE running)
+		 FROM page p JOIN auth.agent_grants g USING (id)
+		 ORDER BY p.running DESC, g.created_at DESC, g.id`, tenantID, limit+1, afterRunning, afterCreated, afterID)
 	if err != nil {
-		return nil, fmt.Errorf("list grants: %w", err)
+		return GrantPage{}, fmt.Errorf("list grants: %w", err)
 	}
+	var page GrantPage
+	// The cursor takes running from the query, so the page boundary doesn't
+	// move if a grant expires between it and now.
+	var running []bool
 	grants, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (GrantRow, error) {
 		var g GrantRow
+		var r bool
 		err := row.Scan(&g.ID, &g.ParentID, &g.RuntimeID, &g.UserID, &g.TenantID, &g.Actions, &g.Audiences,
-			&g.Depth, &g.Trigger, &g.Automation, &g.Standing, &g.CreatedAt, &g.ExpiresAt, &g.Who, &g.Stopped)
+			&g.Depth, &g.Trigger, &g.Automation, &g.Standing, &g.CreatedAt, &g.ExpiresAt, &g.Who, &g.Stopped, &r, &page.Valid)
+		running = append(running, r)
 		return g, err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list grants: %w", err)
+		return GrantPage{}, fmt.Errorf("list grants: %w", err)
 	}
-	return grants, nil
+	if len(grants) > limit {
+		grants = grants[:limit]
+		last := grants[limit-1]
+		page.Next = &GrantCursor{Running: running[limit-1], CreatedAt: last.CreatedAt, ID: last.ID}
+	}
+	page.Grants = grants
+	return page, nil
 }
 
 // RevokeInTenant stops a grant for a tenant's admin. The tenant comes from the

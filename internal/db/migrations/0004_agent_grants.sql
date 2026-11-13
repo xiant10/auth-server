@@ -32,4 +32,6 @@ CREATE TABLE auth.agent_grants (
 );
 CREATE INDEX agent_grants_user_id ON auth.agent_grants (user_id);
 CREATE INDEX agent_grants_tenant_id ON auth.agent_grants (tenant_id, created_at DESC);
+-- The admin list walks only unexpired grants, so it finds them without the history.
+CREATE INDEX agent_grants_tenant_expires ON auth.agent_grants (tenant_id, expires_at);
 CREATE INDEX agent_grants_parent_id ON auth.agent_grants (parent_id);

@@ -223,17 +223,32 @@ type grantView struct {
 	Running bool   `json:"running"`
 }
 
+// handleTenantGrants pages through a tenant's grants, running ones first. A
+// page's "next" goes back as ?after= for the one after it.
 func (s *Server) handleTenantGrants(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
-	rows, err := s.Agents.ListTenantGrants(r.Context(), r.PathValue("id"), tenantGrantLimit)
+	var after *agents.GrantCursor
+	if raw := r.URL.Query().Get("after"); raw != "" {
+		cursor, err := agents.ParseGrantCursor(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "after is not a cursor from this list")
+			return
+		}
+		after = &cursor
+	}
+	page, err := s.Agents.ListTenantGrants(r.Context(), r.PathValue("id"), after, tenantGrantLimit)
 	if err != nil {
 		writeInternal(w, r, err)
 		return
 	}
-	grants := make([]grantView, 0, len(rows))
-	for _, g := range rows {
+	grants := make([]grantView, 0, len(page.Grants))
+	for _, g := range page.Grants {
 		grants = append(grants, grantView{Grant: g.Grant, Who: g.Who, Running: g.Running()})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"grants": grants})
+	body := map[string]any{"grants": grants, "valid": page.Valid}
+	if page.Next != nil {
+		body["next"] = page.Next.String()
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // handleTenantRevokeGrant stops a grant and everything under it. The tenant

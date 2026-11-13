@@ -569,7 +569,8 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 #### User APIs
 | Method | Route | Access | Purpose |
 |---|---|---|---|
-| `POST` | `/v1/rooms/admission`| `accessUser` | Mint LiveKit room token & create voice agent grant. |
+| `POST` | `/v1/rooms/admission`| `accessUser` | Mint LiveKit room token & create voice agent grant; `client` values become `t10.client.*` attributes. |
+| `GET` | `/v1/users/{id}/preferences`| `accessService` | A person's language, theme and greeting preference, for a service. |
 | `GET` | `/v1/me` | `accessUser` | Current user profile, active tenant, and memberships. |
 | `GET` | `/v1/me/access` | `accessUser` | Effective platform and tenant admin rights, and `managed_agents`: the agent accounts the caller manages, whose runs' approvals they may decide. |
 | `GET` | `/v1/me/session` | `accessUser` | 200 while the session behind the token stands. Apps ask it to notice a sign-out elsewhere. |

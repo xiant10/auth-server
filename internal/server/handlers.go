@@ -189,17 +189,21 @@ func (s *Server) handleAdmission(w http.ResponseWriter, r *http.Request, p ident
 	var req struct {
 		Room   string `json:"room"`
 		Tenant string `json:"tenant"`
+		// Client is what the client says about the call: its screen, language, time zone.
+		Client map[string]string `json:"client"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "malformed admission request")
 		return
 	}
-	admission, err := s.Agents.Admit(r.Context(), p.UserID, p.TenantID, req.Tenant, req.Room)
+	admission, err := s.Agents.Admit(r.Context(), p.UserID, p.TenantID, req.Tenant, req.Room, req.Client)
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, admission)
 	case errors.Is(err, agents.ErrInvalidRoom):
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid room name")
+	case errors.Is(err, agents.ErrInvalidClient):
+		writeError(w, http.StatusBadRequest, "invalid_request", "client holds at most 16 values, keys [a-zA-Z][a-zA-Z0-9_]{0,31}, values at most 200 characters")
 	case errors.Is(err, agents.ErrTenantMismatch), errors.Is(err, agents.ErrNoTenant), errors.Is(err, directory.ErrTenantDenied):
 		writeError(w, http.StatusForbidden, "forbidden", "room:"+req.Room+"#join not permitted")
 	default:

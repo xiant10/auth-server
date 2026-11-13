@@ -624,7 +624,7 @@ Every route's access level is checked by the server guard matrix in [`internal/s
 | `PUT` | `/v1/tenants/{id}/placements` | `accessTenantAdmin` | Place up to 500 members in one change, all or none, with an audit row each. |
 | `POST` | `/v1/tenants/{id}/agent-accounts` | `accessTenantAdmin` | Create a tenant agent account, with no sign-in, placed under an optional manager and unit. |
 | `PATCH` | `/v1/tenants/{id}/agent-accounts/{user}` | `accessTenantAdmin` | Rename an agent account. A person's name isn't an admin's to change. |
-| `GET` | `/v1/tenants/{id}/grants` | `accessTenantAdmin` | List running agent grants in the tenant. |
+| `GET` | `/v1/tenants/{id}/grants` | `accessTenantAdmin` | Page through the tenant's agent grants, running ones first, 50 at a time. The body has `grants`, `valid` (the running count) and, unless it is the last page, `next`; pass that back as `?after=`. |
 | `POST` | `/v1/tenants/{id}/grants/{grant}/revoke` | `accessTenantAdmin` | Terminate an active agent grant. |
 | `GET` | `/v1/tenants/{id}/audit` | `accessTenantAdmin` | View tenant-scoped audit event log. |
 | `GET` | `/v1/tenants/{id}/permission-catalog` | `accessTenantAdmin` | Deployed modules and available business permissions. |

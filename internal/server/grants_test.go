@@ -27,13 +27,16 @@ const (
 	modelGateway  = "ai-gateway-llm"
 	listedService = "crm-mcp"
 	otherService  = "deals"
+	// runnerRuntime is an external teammate's, which t10-automations holds.
+	runnerRuntime = "t10-runner"
 )
 
 var testRuntimes = []agents.Runtime{
 	{Name: voiceRuntime, Voice: true, Actions: []string{"agent:use"}, Audiences: []string{piRuntime}},
 	{Name: piRuntime, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, listedService}},
 	{Name: gatedRuntime, ToolAudience: toolGateway, ModelAudience: modelGateway, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{gatedRuntime, listedService, toolGateway, modelGateway}},
-	{Name: firingRuntime, Optional: true, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, listedService}},
+	{Name: firingRuntime, Optional: true, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, runnerRuntime, listedService, toolGateway}},
+	{Name: runnerRuntime, Optional: true, ToolAudience: toolGateway, Actions: []string{"crm:read"}, Audiences: []string{runnerRuntime, listedService, toolGateway}},
 }
 
 func serviceSecret(name string) string { return "test-secret-for-" + name + "-long-enough-to-pass" }

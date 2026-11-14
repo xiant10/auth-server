@@ -120,7 +120,19 @@ runtimes:
     optional: true
     actions: [agent:use, work:read, work:write, work:send, knowledge:read, property:read, property:propose]
     # agent-ti, for automations on ti, such as an agent teammate's intake.
-    audiences: [ai-gateway, agent-pi, agent-sales, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    # t10-runner, so an external teammate's firing can be its parent.
+    audiences: [ai-gateway, agent-pi, agent-sales, agent-ti, t10-runner, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+  # External agent teammates: their runs happen on a runner outside t10, such
+  # as a coding agent beside a repository. t10-automations holds this account
+  # and mints each firing's tokens as it, so a runner never holds a secret of
+  # auth-server's, only 5-minute tokens good at the tool gateway. No model
+  # audience: the runner pays for its own model. Optional, as automations is.
+  # See t10-agent-control's docs/external-teammates.md.
+  - name: t10-runner
+    optional: true
+    actions: [work:read, work:write, work:send]
+    audiences: [t10-runner, t10-collab, ai-gateway-tools]
+    tool_audience: ai-gateway-tools
 
 # Services that may exchange a run's token for one with another audience on
 # its grant: the tool gateway, which forwards each tool call to its module with

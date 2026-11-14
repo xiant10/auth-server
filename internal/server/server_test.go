@@ -156,7 +156,7 @@ func newHarness(t *testing.T, devMode bool) *harness {
 		WorkbenchURL: testWorkbenchURL,
 	})
 	ts.Config.Handler = srv.Handler()
-	for _, name := range []string{voiceRuntime, piRuntime, firingRuntime, gatedRuntime, toolGateway, listedService, otherService} {
+	for _, name := range []string{voiceRuntime, piRuntime, firingRuntime, gatedRuntime, runnerRuntime, toolGateway, listedService, otherService} {
 		if _, err := ids.AddServiceAccount(ctx, "test", name, serviceSecret(name)); err != nil {
 			t.Fatal(err)
 		}

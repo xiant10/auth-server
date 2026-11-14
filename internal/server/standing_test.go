@@ -172,3 +172,42 @@ func TestUsingT10RenewsStandingGrants(t *testing.T) {
 		t.Error("renewed again within a day")
 	}
 }
+
+// An external teammate's firing: t10-automations makes the firing, then, as
+// t10-runner, a child of it, whose tokens it hands the runner. They're good
+// only at the tool gateway, keep the firing's trigger, and stop with it.
+func TestRunnerTokensComeFromTheFiring(t *testing.T) {
+	h := newHarness(t, true)
+	h.tenant("ten_acme")
+	h.user("ada", map[string]string{"ten_acme": directory.RoleMember})
+	status, body := h.createGrant(firingRuntime, map[string]any{
+		"subject_token": h.login("ada", "ten_acme"), "standing": true, "actions": []string{"crm:read"},
+		"audiences": []string{runnerRuntime, listedService, toolGateway},
+	})
+	h.wantStatus(status, body, http.StatusCreated)
+	standing := body["id"].(string)
+	status, body = h.firing(standing, map[string]any{
+		"trigger": "event", "automation": "au_code", "actions": []string{"crm:read"}, "audiences": []string{runnerRuntime, listedService, toolGateway},
+	})
+	h.wantStatus(status, body, http.StatusCreated)
+	firing := body["id"].(string)
+	// The runner's runtime can't take the consent itself, only a firing.
+	if status, body := h.createGrant(runnerRuntime, map[string]any{
+		"parent_id": standing, "trigger": "event", "automation": "au_code", "actions": []string{"crm:read"}, "audiences": []string{runnerRuntime},
+	}); status != http.StatusBadRequest {
+		t.Errorf("the runner's runtime fired the consent: %d %v", status, body)
+	}
+	run := h.grant(runnerRuntime, h.mint(firingRuntime, firing), []string{"crm:read"}, []string{listedService, toolGateway})
+	claims := unverifiedClaims(t, h.mint(runnerRuntime, run))
+	if got := audiences(t, h.mint(runnerRuntime, run)); len(got) != 1 || got[0] != toolGateway {
+		t.Errorf("runner token audiences: %v", got)
+	}
+	if claims["trg"] != "event" || claims["automation"] != "au_code" {
+		t.Errorf("runner token: %v", claims)
+	}
+	// Stopping the firing stops the runner.
+	if status, body := h.do("POST", "/v1/grants/"+firing+"/revoke", h.serviceToken(firingRuntime), nil); status != http.StatusNoContent {
+		t.Fatalf("revoke: %d %v", status, body)
+	}
+	h.wantStopped(runnerRuntime, run)
+}

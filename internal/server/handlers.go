@@ -200,6 +200,8 @@ func (s *Server) handleAdmission(w http.ResponseWriter, r *http.Request, p ident
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, admission)
+	case errors.Is(err, agents.ErrNoVoice):
+		writeError(w, http.StatusServiceUnavailable, "voice_unavailable", "voice is not configured on this server")
 	case errors.Is(err, agents.ErrInvalidRoom):
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid room name")
 	case errors.Is(err, agents.ErrInvalidClient):

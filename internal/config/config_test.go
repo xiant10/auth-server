@@ -35,6 +35,16 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 }
 
+func TestLoad_WithoutLiveKit(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"LIVEKIT_URL": "", "LIVEKIT_API_KEY": "", "LIVEKIT_API_SECRET": ""}))
+	if err != nil {
+		t.Fatalf("Load without LiveKit: %v", err)
+	}
+	if cfg.LiveKitEnabled() {
+		t.Error("LiveKitEnabled with no LiveKit values")
+	}
+}
+
 func TestLoad_Rejects(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -50,6 +60,8 @@ func TestLoad_Rejects(t *testing.T) {
 		{"short TOTP key", map[string]string{"AUTH_TOTP_KEY": "AAAA"}, "AUTH_TOTP_KEY"},
 		{"example LiveKit secret outside dev", map[string]string{"LIVEKIT_API_SECRET": "change-me-to-a-32-plus-character-secret"}, "LIVEKIT_API_SECRET"},
 		{"short LiveKit secret outside dev", map[string]string{"LIVEKIT_API_SECRET": "short"}, "LIVEKIT_API_SECRET"},
+		{"LiveKit URL without its key", map[string]string{"LIVEKIT_API_KEY": "", "LIVEKIT_API_SECRET": ""}, "LIVEKIT_API_KEY"},
+		{"LiveKit secret without its URL", map[string]string{"LIVEKIT_URL": ""}, "LIVEKIT_URL"},
 		{"no database", map[string]string{"DATABASE_URL": ""}, "DATABASE_URL"},
 	}
 	for _, tt := range tests {

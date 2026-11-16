@@ -66,7 +66,8 @@ clients:
 # database: every entry needs `authctl service-add`, or the server won't start.
 runtimes:
   - name: t10-livekit-agent
-    # Room admission creates this runtime's grant for each call.
+    # Room admission creates this runtime's grant for each call. Without
+    # LIVEKIT_* voice is off, and this account isn't needed either.
     voice: true
     # A call's grant is the parent of the agent's (agent-pi's, agent-ti's), so
     # it has to hold whatever a tool needs, or the tool disappears on calls, and

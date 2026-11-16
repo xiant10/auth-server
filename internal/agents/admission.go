@@ -30,6 +30,7 @@ var (
 	ErrInvalidClient  = errors.New("invalid client values")
 	ErrTenantMismatch = errors.New("tenant does not match the token")
 	ErrNoTenant       = errors.New("token has no active tenant")
+	ErrNoVoice        = errors.New("voice is not configured")
 )
 
 var roomPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
@@ -107,12 +108,15 @@ type Delegation struct {
 	Trigger, Automation                         string
 }
 
-// LiveKit holds the only copy of the LiveKit API secret.
+// LiveKit holds the only copy of the LiveKit API secret. The zero value means
+// voice is off, and room admission answers ErrNoVoice.
 type LiveKit struct {
 	URL       string
 	APIKey    string
 	APISecret string
 }
+
+func (l LiveKit) enabled() bool { return l.URL != "" && l.APIKey != "" && l.APISecret != "" }
 
 // Service is the agents module.
 type Service struct {
@@ -162,6 +166,9 @@ type Admission struct {
 // the token: a requested tenant may only repeat it. client is what the client
 // says about the call, put in the token as t10.client.* attributes.
 func (s *Service) Admit(ctx context.Context, userID, tokenTenant, requestedTenant, room string, client map[string]string) (*Admission, error) {
+	if !s.liveKit.enabled() {
+		return nil, ErrNoVoice
+	}
 	if tokenTenant == "" {
 		return nil, ErrNoTenant
 	}

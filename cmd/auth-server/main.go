@@ -107,7 +107,8 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		if !exists && !r.Optional {
+		// The voice runtime is needed only where LiveKit is: without it, voice is off.
+		if !exists && !r.Optional && (!r.Voice || cfg.LiveKitEnabled()) {
 			return fmt.Errorf("runtime %s has no service account: run authctl service-add --name %s", r.Name, r.Name)
 		}
 	}

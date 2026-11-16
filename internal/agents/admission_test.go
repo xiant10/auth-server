@@ -1,6 +1,10 @@
 package agents
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"testing"
+)
 
 func TestAConversationRoomBelongsToOnePerson(t *testing.T) {
 	mine := roomNameFor("ten_acme", "usr_a", "conv-assistant.1.3")
@@ -32,5 +36,12 @@ func TestNoRoomNameReachesIntoSomeoneElsesConversation(t *testing.T) {
 		if !validRoom(room) {
 			t.Fatalf("%s was refused", room)
 		}
+	}
+}
+
+func TestAdmissionWithoutLiveKitSaysVoiceIsOff(t *testing.T) {
+	s := NewService(nil, nil, nil, LiveKit{}, nil)
+	if _, err := s.Admit(context.Background(), "usr_a", "ten_acme", "", "standup", nil); !errors.Is(err, ErrNoVoice) {
+		t.Fatalf("Admit = %v, want ErrNoVoice", err)
 	}
 }

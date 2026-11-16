@@ -102,16 +102,24 @@ func Load(getenv func(string) string) (Config, error) {
 
 func (c Config) validate() error {
 	required := map[string]string{
-		"AUTH_PUBLIC_URL":    c.PublicURL,
-		"DATABASE_URL":       c.DatabaseURL,
-		"AUTH_CLIENTS_FILE":  c.ClientsFile,
-		"LIVEKIT_URL":        c.LiveKitURL,
-		"LIVEKIT_API_KEY":    c.LiveKitAPIKey,
-		"LIVEKIT_API_SECRET": c.LiveKitAPISecret,
+		"AUTH_PUBLIC_URL":   c.PublicURL,
+		"DATABASE_URL":      c.DatabaseURL,
+		"AUTH_CLIENTS_FILE": c.ClientsFile,
 	}
 	for name, value := range required {
 		if value == "" {
 			return fmt.Errorf("%s is required", name)
+		}
+	}
+	// LiveKit is optional: without it the server runs with voice off. Part of it
+	// set is a mistake, not a choice.
+	if c.LiveKitURL != "" || c.LiveKitAPIKey != "" || c.LiveKitAPISecret != "" {
+		for name, value := range map[string]string{
+			"LIVEKIT_URL": c.LiveKitURL, "LIVEKIT_API_KEY": c.LiveKitAPIKey, "LIVEKIT_API_SECRET": c.LiveKitAPISecret,
+		} {
+			if value == "" {
+				return fmt.Errorf("%s is required when LiveKit is configured; set all three LIVEKIT_ values or none", name)
+			}
 		}
 	}
 	public, err := url.Parse(c.PublicURL)
@@ -133,10 +141,15 @@ func (c Config) validate() error {
 	if c.TOTPKey == nil {
 		return errors.New("AUTH_TOTP_KEY is required outside dev mode")
 	}
-	if len(c.LiveKitAPISecret) < 32 || strings.HasPrefix(c.LiveKitAPISecret, "change-me") {
+	if c.LiveKitEnabled() && (len(c.LiveKitAPISecret) < 32 || strings.HasPrefix(c.LiveKitAPISecret, "change-me")) {
 		return errors.New("LIVEKIT_API_SECRET must be a real secret of 32 or more characters outside dev mode")
 	}
 	return nil
+}
+
+// LiveKitEnabled reports whether voice is on: all three LiveKit values set.
+func (c Config) LiveKitEnabled() bool {
+	return c.LiveKitURL != "" && c.LiveKitAPIKey != "" && c.LiveKitAPISecret != ""
 }
 
 func isLocalhost(host string) bool {

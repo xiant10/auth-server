@@ -66,6 +66,8 @@ Where `AUTH_TOOL_GATEWAY=true`, a runtime with `tool_audience` in `clients.yaml`
 
 ## Room admission
 
+Voice is optional. With none of `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` set, the server starts with voice off: room admission answers `503 voice_unavailable`, and the `voice: true` runtime needs no service account. Set all three or none; part of them stops the server.
+
 When `clients.yaml` marks a runtime `voice: true`, room admission creates a grant for that runtime and puts its ID in the participant's `t10.grant` attribute. The attribute sits inside the LiveKit-signed token, so a client can't change it. The agent reads it from the participant, and exchanges it. A rejoin gets a new grant, and a call can't extend past its 8 hours, because no user token reaches the agent.
 
 An admission request can also carry `client`, what the client says about the call, such as `{"screen": "tasks", "locale": "zh-Hans", "timeZone": "Asia/Shanghai"}`: at most 16 values, keys `[a-zA-Z][a-zA-Z0-9_]{0,31}`, values at most 200 characters, else `400`. Each goes into the token as a `t10.client.<key>` attribute, so the client can't change it after admission, though it stays the client's word. The voice worker passes them to the agent's greeting ([`agent-ti/docs/greeting.md`](../../agent-ti/docs/greeting.md)).

@@ -15,7 +15,7 @@ node --test verifier/ts/verifier.test.ts
 - `docs/api.md`
 - `docs/guides/service-api.md`
 - `docs/agent-identity.md`
-- `docs/developer-reference.md`
+- `docs/development.md`
 
 ## Rules
 

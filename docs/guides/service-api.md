@@ -121,7 +121,7 @@ An empty result is `[]`, so it's safe to pass straight to `WHERE owner_id = ANY(
 
 ## Business roles
 
-Tenant admins build roles from the permissions that deployed modules declare, and assign them to members. A module checks them with the entitlement read below. None of this changes membership's `member` or `admin` role, and a role's name confers nothing. The design is [`proposals/auth-custom-roles.md`](../../../proposals/auth-custom-roles.md) in the workspace.
+Tenant admins build roles from the permissions that deployed modules declare, and assign them to members. A module checks them with the entitlement read below. None of this changes membership's `member` or `admin` role, and a role's name confers nothing. The design is in [design.md](../design.md#business-roles), "Business roles".
 
 **The catalog.** auth-server reads one `<module>.yaml` per deployed module from `AUTH_PERMISSIONS_DIR`, the overlay's catalog ConfigMap. Unset, no module has business roles. Each file holds the module's ID, its `prefix`, its catalog `version`, its `permissions` (each a `key` under the prefix, a `description` and a `lifecycle` of `active`, `deprecated` or `retired`) and its role `templates`. `service` names the only service that may read the module's entitlements, `t10-<module>` by default. auth-server refuses to start on a key outside the module's prefix, a file named for another module, or a template using a permission that isn't active.
 

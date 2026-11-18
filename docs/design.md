@@ -368,6 +368,24 @@ Modules read org facts through `/v1/org` endpoints, using a service token. `GET 
 
 Managers are a nullable self-reference on `memberships`, and org units are a parent-child tree. Composite foreign keys that include `tenant_id` make cross-tenant links impossible. Cycle checks use a recursive query under a per-tenant advisory lock, so two concurrent edits cannot create a cycle together.
 
+### Business roles
+
+Tenant admins compose business roles from permissions that modules declare, so a manager can act in a module without being a tenant admin. The original proposal, with its reasoning and required tests, is in [records/business-roles-proposal.md](records/business-roles-proposal.md). The routes and catalog format as built are in [service-api.md](guides/service-api.md), "Business roles".
+
+- **auth-server says which actions; the module says on what.** A role assignment has a stable ID. auth returns the granted actions with the assignment that grants each, and the module binds its own scope, such as buildings or a document set, to that ID. A module unions scopes only across the assignments that grant the requested action, and a missing binding means no access.
+- **Names confer nothing.** Tenant admin and platform admin stay built in, outside the catalog, with last-admin protection unchanged.
+- **The catalog comes from deployment config.** Each module's permissions sit in `AUTH_PERMISSIONS_DIR`, one namespace per module, which only that module's service may read. A module removed from the folder becomes unavailable: its permissions confer nothing, and roles and assignments are kept until a deliberate `authctl permissions-purge`. New permissions are never added to existing roles, and templates are offered, never pushed.
+- **Modules read entitlements uncached**, one read per request, which also returns membership and tenant status. Tokens carry no permission lists.
+
+Where it stands:
+
+| Phase | State |
+| --- | --- |
+| 1. Catalog, roles, assignments, audit, admin routes, entitlement read | Built |
+| 2. Property adoption and Workbench's Roles page | Built: Roles page in Workbench, `property:*` checks with assignment-bound scopes in `t10-property`. `t10-collab` also reads `work:admin` |
+| 3. Knowledge adoption: `knowledge:entry.*` with base scopes bound to assignments | Not started |
+| 4. Other modules, each migrated deliberately | Not started |
+
 ### Data model
 
 | Table | Key columns | Notes |

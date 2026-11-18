@@ -25,6 +25,7 @@ import (
 )
 
 func main() {
+	loadDocs()
 	if err := run(); err != nil {
 		slog.Error("auth-server stopped", "error", err)
 		os.Exit(1)
@@ -143,7 +144,7 @@ func run() error {
 
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr,
-		Handler:           srv.Handler(),
+		Handler:           ownDocs.Wrap(srv.Handler()),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

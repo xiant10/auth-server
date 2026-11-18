@@ -20,7 +20,6 @@ service() {
 }
 service t10-livekit-agent "${LIVEKIT_AGENT_SECRET:-}"
 service agent-pi "${AGENT_PI_SECRET:-}"
-service agent-sales "${AGENT_SALES_SECRET:-}"
 service agent-ti "${AGENT_TI_SECRET:-}"
 service agent-ti-property "${AGENT_TI_PROPERTY_SECRET:-}"
 service t10-collab "${T10_COLLAB_SECRET:-}"

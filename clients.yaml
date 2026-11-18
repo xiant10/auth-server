@@ -73,18 +73,13 @@ runtimes:
     # it has to hold whatever a tool needs, or the tool disappears on calls, and
     # name every agent a call can reach, or that agent refuses its token.
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
-    audiences: [agent-pi, agent-sales, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    audiences: [agent-pi, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   - name: agent-pi
     actions: [agent:use, work:read, work:write, knowledge:read, property:read, property:propose]
     audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
     # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateways.
     tool_audience: ai-gateway-tools
     # Its model calls carry the run's token, so ai-gateway-llm knows the tenant.
-    model_audience: ai-gateway-llm
-  - name: agent-sales
-    actions: [agent:use, work:read, work:write, knowledge:read]
-    audiences: [agent-sales, t10-collab, t10-knowledge, ai-gateway-tools, ai-gateway-llm]
-    tool_audience: ai-gateway-tools
     model_audience: ai-gateway-llm
   # The Rust harness, serving the `ti` pool. Optional, as agent-ti is an
   # optional component: a deployment without it needs no account.
@@ -122,7 +117,7 @@ runtimes:
     actions: [agent:use, work:read, work:write, work:send, knowledge:read, property:read, property:propose]
     # agent-ti, for automations on ti, such as an agent teammate's intake.
     # t10-runner, so an external teammate's firing can be its parent.
-    audiences: [ai-gateway, agent-pi, agent-sales, agent-ti, t10-runner, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    audiences: [ai-gateway, agent-pi, agent-ti, t10-runner, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   # External agent teammates: their runs happen on a runner outside t10, such
   # as a coding agent beside a repository. t10-automations holds this account
   # and mints each firing's tokens as it, so a runner never holds a secret of

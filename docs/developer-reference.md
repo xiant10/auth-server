@@ -49,7 +49,7 @@ flowchart TB
     subgraph Platform["Internal Deployment (Audience: t10)"]
         LK["t10-livekit-agent"]
         ToolGW["ai-gateway-tools"]
-        AgentHarness["agent-pi / agent-sales / agent-ti"]
+        AgentHarness["agent-pi / agent-ti"]
         Modules["Business Microservices (property, collab, etc.)"]
     end
 

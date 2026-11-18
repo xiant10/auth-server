@@ -23,6 +23,11 @@ spec:
           podSelector:
             matchLabels:
               t10.dev/auth-client: "true"
+        # t10-docs reads this image's /docs/mcp, which takes no token. Every other
+        # route here still needs one.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: t10-docs
       ports:
         - port: 18000
   egress:

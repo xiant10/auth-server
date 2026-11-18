@@ -233,3 +233,7 @@ Platform admin routes, used by `t10-console`.
 | 500 | `server_error` | Logged with the route; retry later |
 
 The mobile routes add their own codes, such as `device_approval_required` and `device_revoked`, listed in [`mobile-api.md`](guides/mobile-api.md).
+
+## Docs for coding agents
+
+`POST /docs/mcp` serves this repo's docs for people building on t10, over MCP and with no token, as the workspace's [docs contract](../../contracts/docs/README.md) describes. `auth-server docs <addr>` serves only that route, for the contract's suite.

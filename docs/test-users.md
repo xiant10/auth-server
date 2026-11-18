@@ -1,3 +1,11 @@
+---
+title: "Test users and account maintenance"
+audience: operator
+kind: guide
+status: current
+summary: "Sample accounts for local testing, and how each kind of user is created and managed."
+---
+
 # Test users and account maintenance
 
 Sample accounts for local testing, and how each kind of user is created and managed. The samples are temporary and only work in dev mode.

@@ -1,3 +1,11 @@
+---
+title: "Auth Server Developer Reference"
+audience: contributor
+kind: reference
+status: current
+summary: "auth-server internals: code layout, configuration, data model, token and key architecture, flows."
+---
+
 # Auth Server Developer Reference
 
 The `auth-server` is the sole identity authority and JWT issuer for the t10 platform. It manages accounts, credentials, multi-tenant memberships, organization structures, device keys, agent execution grants, and business role catalogs. Downstream services and client applications verify its tokens offline against its JSON Web Key Set (JWKS).

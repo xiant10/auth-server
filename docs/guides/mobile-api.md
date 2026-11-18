@@ -1,6 +1,14 @@
+---
+title: "Mobile API guide"
+audience: consumer
+kind: guide
+status: current
+summary: "Integrate a mobile app with auth-server: device keys, signing, and which call comes when."
+---
+
 # Mobile API guide
 
-How the t10 mobile app integrates with the auth service. [openapi.yaml](openapi.yaml) has every field. This guide covers what the spec cannot: keys, signing, and which call comes when.
+How the t10 mobile app integrates with the auth service. [openapi.yaml](../openapi.yaml) has every field. This guide covers what the spec cannot: keys, signing, and which call comes when.
 
 Use client ID `t10-mobile`. No other client may call `/v1/login`.
 

@@ -1,11 +1,19 @@
+---
+title: "auth-server API"
+audience: consumer
+kind: reference
+status: current
+summary: "Every auth-server route: tokens, app and device sign-in, accounts, service reads, tenant and platform administration."
+---
+
 # auth-server API
 
 The reference for every route `auth-server` serves: tokens, sign-in for apps and devices, the caller's own account, service reads, tenant administration and platform administration. Each route declares its access in one table in [`internal/server/server.go`](../internal/server/server.go), and a test fails if one has none.
 
 The flows have their own guides, which this page doesn't repeat:
 
-- [`service-api.md`](service-api.md): service tokens, agent grants, token exchange, room admission, verifying a token, org reads and business roles.
-- [`mobile-api.md`](mobile-api.md): device keys, request signing, and which call comes when in the mobile app and the WeChat mini-program.
+- [`service-api.md`](guides/service-api.md): service tokens, agent grants, token exchange, room admission, verifying a token, org reads and business roles.
+- [`mobile-api.md`](guides/mobile-api.md): device keys, request signing, and which call comes when in the mobile app and the WeChat mini-program.
 - [`sign-in-and-landing.md`](sign-in-and-landing.md): the hosted pages, the front door and the tenant picker.
 - [`openapi.yaml`](openapi.yaml): the machine-readable spec of the mobile and `/v1/me` routes.
 
@@ -58,7 +66,7 @@ Every refusal by a user route is written to the audit log, in the tenant when th
 | --- | --- | --- |
 | `authorization_code` | `code`, `redirect_uri`, `code_verifier`, `client_id`, and `client_secret` for a confidential client. Optional `tenant` | `access_token` and `refresh_token` |
 | `refresh_token` | `refresh_token`, `client_id`, `client_secret` when confidential. Optional `tenant`, to switch the session's tenant | New tokens; the refresh token rotates |
-| `device_refresh` | `client_id`, `session_id`, `challenge`, `signature`, optional `tenant` | A device session's access token. See [`mobile-api.md`](mobile-api.md#staying-signed-in) |
+| `device_refresh` | `client_id`, `session_id`, `challenge`, `signature`, optional `tenant` | A device session's access token. See [`mobile-api.md`](guides/mobile-api.md#staying-signed-in) |
 | `client_credentials` | `client_id`, `client_secret` | A service token |
 | `agent_grant` | `client_id`, `client_secret`, `grant_id` | A delegated token for an agent run |
 | `urn:ietf:params:oauth:grant-type:token-exchange` | `client_id`, `client_secret`, `subject_token`, `audience` | The same delegation, narrowed to one module |
@@ -99,7 +107,7 @@ These serve HTML. Web apps send people to `/v1/authorize` and redeem the code at
 
 ## Mobile and mini-program sign-in
 
-All Public. Each request is signed with the device's keys, as [`mobile-api.md`](mobile-api.md) explains, and only client `t10-mobile` may use `/v1/login`.
+All Public. Each request is signed with the device's keys, as [`mobile-api.md`](guides/mobile-api.md) explains, and only client `t10-mobile` may use `/v1/login`.
 
 | Method and path | Does |
 | --- | --- |
@@ -123,9 +131,9 @@ All Public. Each request is signed with the device's keys, as [`mobile-api.md`](
 | `GET /v1/me/homes` | User | Where they can go: tenants with Workbench links and apps, the console, the account page |
 | `GET`, `PUT /v1/me/preferences` | User | `language`, `theme` and `greeting`. `PUT` changes only the fields given |
 | `GET /v1/me/session` | User | `{"status": "ok"}` while the session behind the token is alive, else `401` |
-| `POST /v1/rooms/admission` | User | Join a call: `{room, tenant?, client?}`, answering `room_token`, `room_name`, `identity`, `assertion`, `server_url`, `expires_at`, `can_publish`. See [`service-api.md`](service-api.md#room-admission) |
+| `POST /v1/rooms/admission` | User | Join a call: `{room, tenant?, client?}`, answering `room_token`, `room_name`, `identity`, `assertion`, `server_url`, `expires_at`, `can_publish`. See [`service-api.md`](guides/service-api.md#room-admission) |
 
-Device routes change the account from the mobile app. Each needs a `challenge` and a `signature` made with the approval key for its action ([`mobile-api.md`](mobile-api.md#signing)).
+Device routes change the account from the mobile app. Each needs a `challenge` and a `signature` made with the approval key for its action ([`mobile-api.md`](guides/mobile-api.md#signing)).
 
 | Method and path | Body, beside the signature |
 | --- | --- |
@@ -140,7 +148,7 @@ Device routes change the account from the mobile app. Each needs a `challenge` a
 
 ## Service reads and grants
 
-Service routes take a service token. [`service-api.md`](service-api.md) explains each one.
+Service routes take a service token. [`service-api.md`](guides/service-api.md) explains each one.
 
 | Method and path | Does |
 | --- | --- |
@@ -224,4 +232,4 @@ Platform admin routes, used by `t10-console`.
 | 503 | `unavailable` | A dependency is down |
 | 500 | `server_error` | Logged with the route; retry later |
 
-The mobile routes add their own codes, such as `device_approval_required` and `device_revoked`, listed in [`mobile-api.md`](mobile-api.md).
+The mobile routes add their own codes, such as `device_approval_required` and `device_revoked`, listed in [`mobile-api.md`](guides/mobile-api.md).

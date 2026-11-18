@@ -80,7 +80,7 @@ This service has no admin screens. People administer t10 in two places, and both
 | `POST /v1/rooms/admission`, `GET /v1/me`, `GET /v1/me/access`, `POST /v1/logout` | Any user |
 | `/v1/challenges`, `/v1/login/*` | Public; the mobile app's sign-in |
 | `/v1/me/*`, `/v1/qr/{id}/*`, `POST /v1/devices/{id}/revoke` | Mobile app session |
-| `/v1/grants`, `/v1/grants/{id}/*`, `/v1/org/*` | Service token. See [docs/service-api.md](docs/service-api.md) |
+| `/v1/grants`, `/v1/grants/{id}/*`, `/v1/org/*` | Service token. See [docs/guides/service-api.md](docs/guides/service-api.md) |
 | `GET /admin`, `/admin/*` | Signed-in browser. Redirects to the console or workbench by role |
 | `POST /v1/tenants`, `.../suspend`, `.../activate`, `POST /v1/tenants/{id}/members`, `POST /v1/identifiers/release` | Platform admin with a second factor proved in the last 15 minutes |
 | `GET /v1/audit`, `GET /v1/tenants`, `GET /v1/runtimes`, `GET /v1/users`, `POST /v1/users/{user}/suspend`, `.../activate`, `PUT` and `DELETE /v1/users/{user}/platform-admin` | Platform admin with a second factor proved in the last 15 minutes |

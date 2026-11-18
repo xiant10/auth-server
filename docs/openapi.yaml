@@ -3,7 +3,7 @@ info:
   title: t10 auth mobile API
   version: 1.0.0
   description: >
-    The API the t10 mobile app uses. docs/mobile-api.md explains the flows and
+    The API the t10 mobile app uses. docs/guides/mobile-api.md explains the flows and
     exactly what to sign. Errors are always an `Error` body, and clients branch
     on `error`, never on `error_description`.
 servers:

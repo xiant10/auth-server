@@ -1,3 +1,11 @@
+---
+title: "Sign-in, landing and moving between apps"
+audience: consumer
+kind: design
+status: current
+summary: "Sign-in, the front door, the tenant picker and switcher, and one sign-out across t10 web apps."
+---
+
 # Sign-in, landing and moving between apps
 
 Nov 6, 2026, revised Nov 7 · Status: the front door, tenant picker and switcher (sections 1 to 3) built. One sign-out and the sign-in page changes (sections 5 and 7) built and merged Nov 8. Deep links and `max_auth_age` are proposed. Decided Nov 7, replacing Nov 6's app-only sign-out: Sign out from any web app ends every t10 web app in the browser. Decided Nov 6: the console asks for a password again after an hour away. Spans `auth-server`, `workbench`, `t10-console`, `t10-property` and the web kit in `t10-modkit`. It keeps the two addresses in "Admin surfaces" in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
@@ -242,7 +250,7 @@ Built with section 5.
 
 Each step ships on its own, and step 5 is small enough to go first. Step 2's migration is `0009_code_tenant.sql`. Deploy `auth-server` before the apps, because `workbench` and the console no longer have a page for a person who still needs to name a tenant.
 
-When built, update "Admin surfaces" in `ARCHITECTURE.md`, `workbench/docs/design.md` ("Sign-in names no tenant" in its table of differences), `t10-console/docs/console.md` and `auth-server/docs/service-api.md`.
+When built, update "Admin surfaces" in `ARCHITECTURE.md`, `workbench/docs/design.md` ("Sign-in names no tenant" in its table of differences), `t10-console/docs/console.md` and `auth-server/docs/guides/service-api.md`.
 
 ## Testing
 

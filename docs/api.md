@@ -47,8 +47,8 @@ Every refusal by a user route is written to the audit log, in the tenant when th
 
 - **JSON** both ways. `POST /v1/token` and `POST /v1/revoke` also take a form. Bodies are at most 64 KiB, and a request runs at most 20 seconds.
 - **Errors** look like OAuth's: `{"error": "<code>", "error_description": "<words>"}`. See [Error codes](#error-codes).
-- **IDs** carry a prefix: `usr_` people, `acc_` agent accounts, `ten_` tenants, `agnt_` grants, `unit_` org units, `role_` roles, `asgn_` role assignments, `dev_` devices, `ses_` sessions. [`developer-reference.md`](developer-reference.md#id-prefixes) has the full list.
-- **Tokens.** An access token lasts 5 minutes and names the person in `sub` and the tenant in `tid`. Replace one when under 60 seconds remain. [`developer-reference.md`](developer-reference.md) lists every claim.
+- **IDs** carry a prefix: `usr_` people, `acc_` agent accounts, `ten_` tenants, `mem_` memberships, `ses_` sessions, `dev_` devices, `grt_` grants, `org_` org units, `rol_` roles, `rla_` role assignments, `svc_` service accounts, `jti_` token IDs. Treat the rest as opaque.
+- **Tokens.** An access token lasts 5 minutes and names the person in `sub` and the tenant in `tid`. Replace one when under 60 seconds remain. [Token claims](#token-claims) lists every claim.
 - **The tenant** comes from the token, never from a body, except where a route says so.
 
 ## Tokens and keys
@@ -84,6 +84,34 @@ Content-Type: application/json
 ```
 
 A person in several tenants who doesn't name one gets `400 invalid_request`, and a tenant they don't belong to `403 forbidden`. A tenant that requires a second factor answers `403 mfa_required` until they enrol one.
+
+### Token claims
+
+Every token is a JWT signed with ES256; check it against the keys at `/.well-known/jwks.json`, by `kid`. Each lasts 5 minutes. Every kind has `iss` (the public auth URL), `sub`, `aud`, `iat`, `exp` and `jti`.
+
+| Kind | `sub` | `aud` | Also |
+| --- | --- | --- | --- |
+| A person's access token | The person, `usr_…` | `["t10"]` | `tid`, the active tenant (empty only for a platform admin with no tenant); `sid`, the session; `scope: "agent:use"` |
+| A delegated token, for an agent run | The person or agent account the run acts for | The services the grant names, never `t10` | `tid`; `scope`, the run's actions; `act.sub`, the runtime's `svc_…`; `grant`, the grant ID; `trg`, why it runs (`user`, `voice`, `schedule`, `event`, `webhook` or `agent`); `automation`, when an automation started it |
+| A service token | The service, `svc_…` | `["t10"]` | Nothing else: no tenant, session or scope, so no user route accepts it |
+
+```json
+{
+  "iss": "http://localhost:8081",
+  "sub": "usr_9a4f2b18c0e27189…",
+  "aud": ["t10-collab"],
+  "exp": 1793910000,
+  "iat": 1793909700,
+  "jti": "jti_4490cdb109af321e…",
+  "tid": "ten_acme",
+  "scope": "work:read",
+  "act": {"sub": "svc_agent-pi"},
+  "grant": "grt_98ac0145ba89fe21…",
+  "trg": "user"
+}
+```
+
+Don't authorize from `sub` yourself: a delegated token's rights are also bounded by its grant chain. Use the verifier, as [`service-api.md`](guides/service-api.md) shows.
 
 ## Browser sign-in
 

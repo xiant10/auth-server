@@ -1,3 +1,11 @@
+---
+title: "Deployment"
+audience: operator
+kind: guide
+status: current
+summary: "Running auth-server from one image in each environment, and the configuration that differs."
+---
+
 # Deployment
 
 t10 auth runs from one image in both environments, and the difference is only in configuration.
@@ -121,7 +129,7 @@ Use `http://auth-server.t10.svc.cluster.local:8081` for JWKS, tokens and grants,
 
 **Rotating a signing key:** the `auth-server` Secret holds `AUTH_SIGNING_KEY_NEXT`, and a pod reads it at startup, so run `kubectl -n t10 rollout restart deploy/auth-server` after each change. Follow the steps in [design.md](design.md#deployment-and-operations).
 
-**Rotating a service secret:** run `authctl` from a shell in a running pod, or from a Job. See [service-api.md](service-api.md).
+**Rotating a service secret:** run `authctl` from a shell in a running pod, or from a Job. See [service-api.md](guides/service-api.md).
 
 ## Not included
 

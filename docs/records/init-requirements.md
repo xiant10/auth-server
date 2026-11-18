@@ -1,3 +1,11 @@
+---
+title: "Initial requirements"
+audience: contributor
+kind: record
+status: record
+summary: "The original requirements for the shared identity and tenant service."
+---
+
 The shared service should provide **identity, tenant/organization management, and platform administration**, with clear logical boundaries. For simplicity, implement it initially as a **modular monolith with one deployment and a unified admin UI**.
 
 **1. Logical modules and ownership**

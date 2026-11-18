@@ -1,6 +1,14 @@
+---
+title: "Service API"
+audience: consumer
+kind: guide
+status: current
+summary: "How a t10 runtime or service talks to auth-server: service tokens, grants, verification and business roles."
+---
+
 # Service API
 
-How a t10 runtime or microservice talks to the auth service. [design.md](design.md) explains why it works this way.
+How a t10 runtime or microservice talks to the auth service. [design.md](../design.md) explains why it works this way.
 
 ## Register a service
 
@@ -70,7 +78,7 @@ Voice is optional. With none of `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_AP
 
 When `clients.yaml` marks a runtime `voice: true`, room admission creates a grant for that runtime and puts its ID in the participant's `t10.grant` attribute. The attribute sits inside the LiveKit-signed token, so a client can't change it. The agent reads it from the participant, and exchanges it. A rejoin gets a new grant, and a call can't extend past its 8 hours, because no user token reaches the agent.
 
-An admission request can also carry `client`, what the client says about the call, such as `{"screen": "tasks", "locale": "zh-Hans", "timeZone": "Asia/Shanghai"}`: at most 16 values, keys `[a-zA-Z][a-zA-Z0-9_]{0,31}`, values at most 200 characters, else `400`. Each goes into the token as a `t10.client.<key>` attribute, so the client can't change it after admission, though it stays the client's word. The voice worker passes them to the agent's greeting ([`agent-ti/docs/greeting.md`](../../agent-ti/docs/greeting.md)).
+An admission request can also carry `client`, what the client says about the call, such as `{"screen": "tasks", "locale": "zh-Hans", "timeZone": "Asia/Shanghai"}`: at most 16 values, keys `[a-zA-Z][a-zA-Z0-9_]{0,31}`, values at most 200 characters, else `400`. Each goes into the token as a `t10.client.<key>` attribute, so the client can't change it after admission, though it stays the client's word. The voice worker passes them to the agent's greeting ([`agent-ti/docs/greeting.md`](../../../agent-ti/docs/greeting.md)).
 
 ## Verifying a token
 
@@ -113,7 +121,7 @@ An empty result is `[]`, so it's safe to pass straight to `WHERE owner_id = ANY(
 
 ## Business roles
 
-Tenant admins build roles from the permissions that deployed modules declare, and assign them to members. A module checks them with the entitlement read below. None of this changes membership's `member` or `admin` role, and a role's name confers nothing. The design is [`proposals/auth-custom-roles.md`](../../proposals/auth-custom-roles.md) in the workspace.
+Tenant admins build roles from the permissions that deployed modules declare, and assign them to members. A module checks them with the entitlement read below. None of this changes membership's `member` or `admin` role, and a role's name confers nothing. The design is [`proposals/auth-custom-roles.md`](../../../proposals/auth-custom-roles.md) in the workspace.
 
 **The catalog.** auth-server reads one `<module>.yaml` per deployed module from `AUTH_PERMISSIONS_DIR`, the overlay's catalog ConfigMap. Unset, no module has business roles. Each file holds the module's ID, its `prefix`, its catalog `version`, its `permissions` (each a `key` under the prefix, a `description` and a `lifecycle` of `active`, `deprecated` or `retired`) and its role `templates`. `service` names the only service that may read the module's entitlements, `t10-<module>` by default. auth-server refuses to start on a key outside the module's prefix, a file named for another module, or a template using a permission that isn't active.
 
@@ -158,7 +166,7 @@ A role reports `active` (enabled, with at least one permission that confers some
 
 **For clients**, `GET /v1/me/access` adds `modules` and `module_admin`, and `GET /v1/me/permissions?module=<id>` returns the caller's own grants in their active tenant. Both are for showing what someone can do, never for enforcing it.
 
-**Places and tenants.** `GET /v1/me/homes` lists where a signed-in person can go: their tenants with `workbench` addresses, each tenant's `apps`, the `console` for a platform admin, and their `account`. It's only for showing links. An app is a catalog module with an `app` block (`path` under the tenant, `label`, `label_zh`, `description`, `description_zh`), which links to `AUTH_APP_URLS` (`module=url`, comma separated) when the module has its own web app. It's listed for someone holding a role in that module in that tenant, and for that tenant's admins. A catalog entry may also have an `agent` block (`server`, `audience`, `actions`) declaring its agent tools; it grants nothing, and the workspace's `make check` holds `clients.yaml` and the deployment to it. `GET /` sends a browser to the one place someone has, or shows a chooser grouped by tenant when any of their tenants has an app. A client in `clients.yaml` may set `tenant: required`, so `/v1/authorize` asks someone with several tenants to pick, and honours a `tenant` parameter naming one of theirs, or `tenant: none`, so its sessions hold no tenant. See [`sign-in-and-landing.md`](sign-in-and-landing.md).
+**Places and tenants.** `GET /v1/me/homes` lists where a signed-in person can go: their tenants with `workbench` addresses, each tenant's `apps`, the `console` for a platform admin, and their `account`. It's only for showing links. An app is a catalog module with an `app` block (`path` under the tenant, `label`, `label_zh`, `description`, `description_zh`), which links to `AUTH_APP_URLS` (`module=url`, comma separated) when the module has its own web app. It's listed for someone holding a role in that module in that tenant, and for that tenant's admins. A catalog entry may also have an `agent` block (`server`, `audience`, `actions`) declaring its agent tools; it grants nothing, and the workspace's `make check` holds `clients.yaml` and the deployment to it. `GET /` sends a browser to the one place someone has, or shows a chooser grouped by tenant when any of their tenants has an app. A client in `clients.yaml` may set `tenant: required`, so `/v1/authorize` asks someone with several tenants to pick, and honours a `tenant` parameter naming one of theirs, or `tenant: none`, so its sessions hold no tenant. See [`sign-in-and-landing.md`](../sign-in-and-landing.md).
 
 **Preferences.** `GET /v1/me/preferences` returns the caller's `language` (`en` or `zh-Hans`) and `theme` (`system`, `light` or `dark`), each left out until chosen. `PUT /v1/me/preferences` changes the fields it's given and keeps the others; an unknown value is `400`. Every web app reads them after sign-in and saves each change, so a choice in one app shows in all of them. `/v1/authorize` hands an app the saved language as `lang`. A language picked on a hosted page is saved at once when signed in, and when signed out, as on the sign-in page, it's saved by the sign-in that follows and wins over the saved one that once. With nothing saved, a language the app or page already had is saved. `greeting` (`personal`, `simple` or `off`) is how an agent greets the person when they start a call. A service reads a person's preferences with `GET /v1/users/{id}/preferences` and its own token; agent-ti does, before greeting.
 

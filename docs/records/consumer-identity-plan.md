@@ -1,3 +1,11 @@
+---
+title: "Consumer identity plan"
+audience: contributor
+kind: record
+status: record
+summary: "Consumer identity, deferred and not designed."
+---
+
 # Consumer identity plan
 
 Nov 2, 2026 · Deferred. Not scheduled, and nothing here is designed yet
@@ -29,6 +37,6 @@ These belong to the agent plane's enterprise prerequisites, so they should be do
 
 ## Notes for later
 
-- Plans could reuse the `entitlements` table in `t10-agent-control` ([`governance.md`](../../t10-agent-control/docs/governance.md)), and routes could send free users to a cheaper pool or model.
+- Plans could reuse the `entitlements` table in `t10-agent-control` ([`governance.md`](../../../t10-agent-control/docs/governance.md)), and routes could send free users to a cheaper pool or model.
 - One process per conversation is too costly at this scale, so a harness with `sessions: many` is the realistic choice.
 - Voice is the largest cost risk, so free users should get limited or no calls.

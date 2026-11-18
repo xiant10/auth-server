@@ -1,6 +1,14 @@
+---
+title: "Agent identity"
+audience: consumer
+kind: design
+status: current
+summary: "How agents, their runs and their triggers get identity: runtimes, principals, standing grants and agent accounts."
+---
+
 # Agent identity
 
-How agents, their runs and the things that start them get identity from `auth-server`. [`design.md`](design.md) explains grants, and [`service-api.md`](service-api.md) is their reference. This document adds what the agent plane needs on top.
+How agents, their runs and the things that start them get identity from `auth-server`. [`design.md`](design.md) explains grants, and [`service-api.md`](guides/service-api.md) is their reference. This document adds what the agent plane needs on top.
 
 Status: steps R1 and R4 are built: triggers on grants as `trg` and `automation` claims, standing grants, the `t10-automations` runtime, `tool_audience` behind `AUTH_TOOL_GATEWAY`, and token exchange for `exchangers` in `clients.yaml`, which is `ai-gateway-tools` alone. Tenant agent accounts and their standing grants, the tenant's consent, are built (step T1 of `t10-agent-control/docs/tenant-agents.md`): migration `0014_agent_accounts.sql`, `POST /v1/tenants/{id}/agent-accounts`, and `principal` on `POST /v1/grants`. `audience` narrowing and session reads are proposed; a manager reading an agent account's conversations waits for session reads, which wait for the harness side of "Viewing a run". Tenant agent accounts and 90-day standing grants are agreed. Today every root grant needs a live user token, lasts at most 24 hours from creation, and a `client_credentials` token has no tenant, so no run can start without a person present. That's the gap this closes.
 

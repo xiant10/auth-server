@@ -1,8 +1,16 @@
+---
+title: "Security review brief"
+audience: contributor
+kind: record
+status: record
+summary: "The brief for the external security review of rollout step 4."
+---
+
 # Security review brief
 
 For the external reviewers of rollout step 4. Public registration stays closed until this review is finished and its findings are resolved. Outside dev mode, accounts can only be created by invitation.
 
-[design.md](design.md) is the intended system, and this page lists where the code differs from it. [mobile-api.md](mobile-api.md) and [openapi.yaml](openapi.yaml) are the mobile contract.
+[design.md](../design.md) is the intended system, and this page lists where the code differs from it. [mobile-api.md](../guides/mobile-api.md) and [openapi.yaml](../openapi.yaml) are the mobile contract.
 
 ## Scope
 
@@ -33,7 +41,7 @@ The Mac client's loopback PKCE flow (`t10-mac-client/internal/room/oauth.go`) is
 
 `docker compose up --build` starts a seeded dev stack on `:8081`. Dev mode adds the password grant, open registration and waived platform MFA, and config refuses it unless the public URL is localhost. To test production behavior, set `AUTH_DEV_MODE=false`, an https `AUTH_PUBLIC_URL`, and real keys from `authctl gen-key` and `authctl gen-totp-key`.
 
-Tests are described in the [README](../README.md#test). `internal/server/review_test.go` holds the regressions for the findings below.
+Tests are described in the [README](../../README.md#test). `internal/server/review_test.go` holds the regressions for the findings below.
 
 ## Where to look hardest
 
@@ -117,7 +125,7 @@ This was an internal check, written by the same author as the code, so it doesn'
 | Suspension delay | A suspended user's API tokens stop at once on this server. Other services accept them until they expire, up to 5 minutes later, and a LiveKit room token already issued can open a connection for up to 10 minutes |
 | Service-token audit | Grant creation, extension and revocation are audited, but successful exchanges and org reads aren't, because of their volume |
 | Audit detail | Rows don't record the client IP |
-| Ingress assumptions | `AUTH_TRUST_PROXY` assumes exactly one proxy, which appends the client address. Reset and invitation tokens travel in query strings, so ingress logs must not keep them. [deployment.md](deployment.md) lists what the ingress must do |
+| Ingress assumptions | `AUTH_TRUST_PROXY` assumes exactly one proxy, which appends the client address. Reset and invitation tokens travel in query strings, so ingress logs must not keep them. [deployment.md](../deployment.md) lists what the ingress must do |
 | Hashing inside transactions | Registration and password changes run Argon2 while holding a connection. Limits and the request deadline bound this, but a load test should confirm it |
 
 ## Differences from the design

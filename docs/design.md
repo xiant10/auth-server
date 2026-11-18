@@ -1,3 +1,11 @@
+---
+title: "Auth Server Design Doc"
+audience: contributor
+kind: design
+status: current
+summary: "auth-server's design: identity, tenants, grants and tokens, and why."
+---
+
 # Auth Server Design Doc
 
 Oct 30, 2026 · @Felix Liang
@@ -463,7 +471,7 @@ The recommendation is to build credentials into the service, using vetted librar
 - [ ] **Where does it run?** Docker Compose locally and Kubernetes in production. The cloud and cluster are still open. A cloud with workload identity could replace service account secrets later.
 - [ ] **How long is audit data kept?** This depends on customer contracts. `contracts/audit/README.md` proposes one per-tenant retention setting for every service's records.
 - [ ] **Are the proposed limits right?** The session lifetimes, 5-minute token, 8-hour default grant, 24-hour cap, depth 4 and 60-second cache are starting values.
-- [ ] **Who does the external review?** A firm needs choosing and briefing with [security-review.md](security-review.md). Production infrastructure can't be assessed until "Where does it run?" is answered.
+- [ ] **Who does the external review?** A firm needs choosing and briefing with [security-review.md](records/security-review.md). Production infrastructure can't be assessed until "Where does it run?" is answered.
 - [ ] **What is the plan for public sign-up?** Registration stays invite-only until the CAPTCHA, new-tenant quotas and a real breached-password list exist. The hand-written blocklist has about 60 entries. Deciding the CAPTCHA before the review lets reviewers see it.
 - [ ] **Should the audit log get its own migration role?** The app's database role owns `audit_log` and runs migrations, so it could drop the triggers that block changes. A separate role fixes this and adds a credential to manage. The recommendation is to add it.
 - [ ] **Should org reads be limited per service?** Any active service account can read any tenant's org data by naming the tenant. That fits one trust zone, but a per-service allow-list would shrink what one compromised service can see.

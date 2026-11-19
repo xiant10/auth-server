@@ -99,6 +99,7 @@ func run() error {
 	ids := identity.NewService(identity.Options{
 		Pool: pool, Hasher: hasher, Issuer: issuer, Tenants: dir, Clients: clients,
 		Region: cfg.DefaultRegion, TOTPKey: totpKey, Limits: identity.DefaultLimits(),
+		Languages: cfg.Languages,
 	})
 	if appID, secret := os.Getenv("WECHAT_APP_ID"), os.Getenv("WECHAT_APP_SECRET"); appID != "" && secret != "" {
 		ids.UseWeChat(identity.WeChatAPI{AppID: appID, Secret: secret, BaseURL: "https://api.weixin.qq.com", HTTP: &http.Client{Timeout: 5 * time.Second}}, appID)

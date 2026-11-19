@@ -97,7 +97,9 @@ var (
 	hasher     *identity.Hasher
 )
 
-func newHarness(t *testing.T, devMode bool) *harness {
+// newHarness runs a server on a fresh schema. languages are the ones it offers, as
+// AUTH_LANGUAGES would set; none offers them all.
+func newHarness(t *testing.T, devMode bool, languages ...string) *harness {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
@@ -130,7 +132,7 @@ func newHarness(t *testing.T, devMode bool) *harness {
 	dir := directory.NewService(pool)
 	ids := identity.NewService(identity.Options{
 		Pool: pool, Hasher: hasher, Issuer: issuer, Tenants: dir, Clients: testClients(), Region: "CN",
-		TOTPKey: make([]byte, 32), Limits: identity.DefaultLimits(),
+		TOTPKey: make([]byte, 32), Limits: identity.DefaultLimits(), Languages: languages,
 	})
 	ts := httptest.NewServer(nil)
 	t.Cleanup(ts.Close)

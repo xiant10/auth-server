@@ -77,9 +77,11 @@ type pageData struct {
 	HasApps bool
 	// Places, Menu and Theme are the frame every t10 app draws, on the account page.
 	// BackURL and BackLabel go back to the app it was opened from.
-	Places             []frame.Place
-	Menu               frame.Menu
-	Theme              string
+	Places []frame.Place
+	Menu   frame.Menu
+	Theme  string
+	// Languages are the ones the account page offers; one means it's fixed.
+	Languages          []string
 	BackURL, BackLabel string
 	SignIns            []identity.SignIn
 	CurrentSignIn      string
@@ -112,14 +114,19 @@ func setPageHeaders(w http.ResponseWriter) {
 	h.Set("X-Content-Type-Options", "nosniff")
 }
 
-// render answers in the viewer's language. A page reached by GET offers the
-// language switch, which returns to the same address. An answer to a post offers
-// it only if it sets Here, because some of those show a secret just once.
+// render answers in the viewer's language. A signed-out page reached by GET offers
+// the language switch, which returns to the same address. An answer to a post
+// offers it only if it sets Here, because some of those show a secret just once.
+// Signed in, a person's language is the account's, so no page offers the switch;
+// and with one language there is nothing to switch.
 func render(w http.ResponseWriter, r *http.Request, status int, name string, data pageData) {
 	lang := requestLang(r)
 	data.Title, data.Error, data.Notice = translate(lang, data.Title), translate(lang, data.Error), translate(lang, data.Notice)
 	if data.Here == "" && r.Method == http.MethodGet {
 		data.Here = r.URL.RequestURI()
+	}
+	if pl := languageOf(r); pl.signedIn || len(pl.offered) < 2 {
+		data.Here = ""
 	}
 	execute(w, r, pagesFor(lang), status, name, data)
 }
@@ -201,55 +208,27 @@ func languageNext(next string) string {
 	return safeNext(next)
 }
 
+// handleLanguage is the switch on the signed-out pages. It changes only those pages
+// in this browser: a person saves their language on the account page.
 func (s *Server) handleLanguage(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
-	if lang := r.PostFormValue("lang"); validLang(lang) {
+	if lang := r.PostFormValue("lang"); offeredLang(r, lang) {
 		s.setLangCookie(w, lang)
-		// Signed in, it's saved with the account at once. Signed out, as on the sign-in
-		// page, it's marked as just chosen, and saved when the sign-in finishes.
-		p, ok, err := s.browserPrincipal(r)
-		switch {
-		case err != nil:
-			slog.Warn("language not saved", "error", err)
-		case ok:
-			if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Language: lang}); err != nil {
-				slog.Warn("language not saved", "error", err)
-			}
-		default:
-			http.SetCookie(w, &http.Cookie{Name: langChosenCookie, Value: "1", Path: "/", MaxAge: langChosenAge, HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
-		}
 	}
 	http.Redirect(w, r, languageNext(r.PostFormValue("next")), http.StatusSeeOther)
 }
 
-// accountLanguage is the language an app opens in after sign-in. One chosen on a page
-// just now wins and is saved with the account; otherwise the account's wins over
-// whatever this browser or the app last had; with neither, a language the person
-// chose before is saved, so the next app agrees.
-func (s *Server) accountLanguage(w http.ResponseWriter, r *http.Request, p identity.Principal, lang string) string {
-	if _, err := r.Cookie(langChosenCookie); err == nil && validLang(lang) {
-		http.SetCookie(w, &http.Cookie{Name: langChosenCookie, Value: "", Path: "/", MaxAge: -1})
-		if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Language: lang}); err != nil {
-			slog.Warn("language not saved", "error", err)
-		}
-		return lang
-	}
+// accountLanguage is the language the person chose on the account page, or "" if
+// they haven't. This browser's pages show it from now on.
+func (s *Server) accountLanguage(w http.ResponseWriter, r *http.Request, p identity.Principal) string {
 	saved, err := s.Identity.GetPreferences(r.Context(), p.UserID)
 	if err != nil {
 		slog.Warn("language not read", "error", err)
-		return lang
+		return ""
 	}
 	if saved.Language != "" {
-		if saved.Language != lang {
-			s.setLangCookie(w, saved.Language)
-		}
-		return saved.Language
+		s.setLangCookie(w, saved.Language)
 	}
-	if validLang(lang) {
-		if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Language: lang}); err != nil {
-			slog.Warn("language not saved", "error", err)
-		}
-	}
-	return lang
+	return saved.Language
 }
 
 func (s *Server) setLangCookie(w http.ResponseWriter, lang string) {
@@ -367,21 +346,18 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 		writeInternal(w, r, err)
 		return
 	}
-	// The app's language counts once, on the way in. It's dropped from what comes
-	// back here, so a choice made on the sign-in page isn't overwritten.
-	lang := ""
-	if c, err := r.Cookie(langCookie); err == nil && validLang(c.Value) {
-		lang = c.Value
-	}
-	if asked := q.Get("ui_locales"); validLang(asked) {
-		lang = asked
+	// The app's language shows on the sign-in page, if it's offered. It's dropped from
+	// what comes back here, so a choice made on the sign-in page isn't overwritten.
+	if asked := q.Get("ui_locales"); offeredLang(r, asked) {
 		s.setLangCookie(w, asked)
 	}
 	q.Del("ui_locales")
 	reason := q.Get("reason")
 	q.Del("reason")
+	lang := ""
 	if ok {
-		lang = s.accountLanguage(w, r, p, lang)
+		lang = s.accountLanguage(w, r, p)
+		languageOf(r).chosen = lang
 	}
 	if !ok {
 		target := url.Values{"next": {"/v1/authorize?" + q.Encode()}}
@@ -432,7 +408,8 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request, _ ident
 		return
 	}
 	params := url.Values{"code": {code}}
-	// An app shows the language chosen here, including one changed on the sign-in page.
+	// An app shows the language chosen on the account page. Without one it shows the
+	// browser's, so a guess made here never reads as a choice.
 	if lang != "" {
 		params.Set("lang", lang)
 	}
@@ -823,6 +800,7 @@ func (s *Server) renderAccount(w http.ResponseWriter, r *http.Request, p identit
 	s.framed(r, p, found, name, &data)
 	data.SignIns, data.CurrentSignIn = signIns, p.SessionID
 	data.Title, data.Account, data.Wide, data.Here = "Your account", account, true, accountPath
+	data.Languages = languageOf(r).offered
 	render(w, r, status, "account", data)
 }
 
@@ -857,6 +835,24 @@ func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request, p identit
 	case "display_name":
 		err = s.Identity.SetDisplayName(ctx, p.UserID, r.PostFormValue("display_name"))
 		notice = "Name saved."
+	case "language":
+		lang := r.PostFormValue("lang")
+		err = identity.ErrInvalidPreference
+		if lang == "" {
+			break
+		}
+		if _, err = s.Identity.SetPreferences(ctx, p.UserID, identity.Preferences{Language: lang}); err == nil {
+			// The page that answers shows it at once, and so do this browser's signed-out pages.
+			s.setLangCookie(w, lang)
+			languageOf(r).chosen = lang
+		}
+		notice = "Language saved."
+	case "theme":
+		err = identity.ErrInvalidPreference
+		if theme := r.PostFormValue("theme"); theme != "" {
+			_, err = s.Identity.SetPreferences(ctx, p.UserID, identity.Preferences{Theme: theme})
+		}
+		notice = "Theme saved."
 	case "signin_end":
 		// Another browser of this person's. This one signs out with Sign out.
 		if id := r.PostFormValue("signin"); id != p.SessionID {
@@ -929,6 +925,8 @@ func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request, p identit
 		s.renderAccount(w, r, p, http.StatusBadRequest, pageData{Error: "Keep at least one sign-in name."})
 	case errors.Is(err, identity.ErrDeviceRevoked):
 		s.renderAccount(w, r, p, http.StatusBadRequest, pageData{Error: "That device is already removed."})
+	case errors.Is(err, identity.ErrInvalidPreference), errors.Is(err, identity.ErrLanguageNotOffered):
+		s.renderAccount(w, r, p, http.StatusBadRequest, pageData{Error: "That choice isn't available."})
 	case errors.Is(err, identity.ErrMFAMandatory):
 		s.renderAccount(w, r, p, http.StatusForbidden, pageData{Error: "Your role or tenant requires an authenticator."})
 	default:

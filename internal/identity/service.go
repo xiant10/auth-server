@@ -85,6 +85,9 @@ type Options struct {
 	// TOTPKey is the 32-byte AES key for stored TOTP secrets.
 	TOTPKey []byte
 	Limits  Limits
+	// Languages are the ones the deployment offers, from ParseLanguages. Nil offers
+	// them all.
+	Languages []string
 }
 
 // Service is the identity module.
@@ -97,6 +100,8 @@ type Service struct {
 	region  string
 	totpKey []byte
 	limits  Limits
+	// languages are the ones the deployment offers, its default first.
+	languages []string
 	// wechat and wechatApp are set in a deployment with a mini-program.
 	wechat    WeChatIdentity
 	wechatApp string
@@ -104,6 +109,10 @@ type Service struct {
 
 // NewService builds the module.
 func NewService(o Options) *Service {
+	languages := o.Languages
+	if len(languages) == 0 {
+		languages = Languages
+	}
 	clients := make(map[string]Client, len(o.Clients))
 	for _, c := range o.Clients {
 		clients[c.ID] = c
@@ -111,6 +120,7 @@ func NewService(o Options) *Service {
 	return &Service{
 		pool: o.Pool, hasher: o.Hasher, issuer: o.Issuer, tenants: o.Tenants,
 		clients: clients, region: o.Region, totpKey: o.TOTPKey, limits: o.Limits,
+		languages: languages,
 	}
 }
 

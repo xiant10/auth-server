@@ -178,9 +178,18 @@ func TestAcceptedLang(t *testing.T) {
 		"zh;q=bad":                   langEN,
 		"zh;q=0":                     langEN,
 	} {
-		if got := acceptedLang(header); got != want {
+		if got := acceptedLang(header, []string{langEN, langZH}); got != want {
 			t.Errorf("acceptedLang(%q) = %q, want %q", header, got, want)
 		}
+	}
+	// Only what the deployment offers, and else its default.
+	for header, want := range map[string]string{"": langZH, "en-US,en;q=0.9": langZH, "en, zh;q=0.1": langZH} {
+		if got := acceptedLang(header, []string{langZH, langEN}[:1]); got != want {
+			t.Errorf("Chinese only: acceptedLang(%q) = %q, want %q", header, got, want)
+		}
+	}
+	if got := acceptedLang("fr", []string{langZH, langEN}); got != langZH {
+		t.Errorf("the default is the first offered, got %q", got)
 	}
 }
 
@@ -225,25 +234,41 @@ func (b *browser) choose(t *testing.T, lang, next string) string {
 	return location
 }
 
-func TestLanguageChoiceBeatsTheBrowser(t *testing.T) {
+func TestTheAccountsLanguageBeatsTheBrowser(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("boss")
 	const page = "/v1/account"
 	status, body := b.getIn(t, page, "en")
-	wantPage(t, status, body, http.StatusOK, `name="next" value="/v1/account"`)
+	wantPage(t, status, body, http.StatusOK, `name="action" value="language"`, `name="lang" value="zh-Hans"`)
+	if strings.Contains(body, `action="/v1/language"`) {
+		t.Error("a signed-in page offers the signed-out switch")
+	}
 
-	if location := b.choose(t, langZH, page); location != page {
-		t.Errorf("sent to %q", location)
+	if status, body := b.chooseOnAccount(t, langZH); status != http.StatusOK || !strings.Contains(body, `<html lang="zh-Hans">`) || !strings.Contains(body, "语言已保存。") {
+		t.Errorf("the answer isn't in the new language: %d", status)
 	}
 	status, body = b.getIn(t, page, "en")
 	wantPage(t, status, body, http.StatusOK, `<html lang="zh-Hans">`, "修改密码")
-	b.choose(t, langEN, page)
+	b.chooseOnAccount(t, langEN)
 	status, body = b.getIn(t, page, "zh")
 	wantPage(t, status, body, http.StatusOK, `<html lang="en">`, "Change password")
 
-	b.choose(t, "klingon", page)
-	status, body = b.getIn(t, page, "en")
+	if status, _ := b.chooseOnAccount(t, "klingon"); status != http.StatusBadRequest {
+		t.Errorf("unknown language: %d", status)
+	}
+	status, body = b.getIn(t, page, "zh")
 	wantPage(t, status, body, http.StatusOK, `<html lang="en">`)
+}
+
+func TestTheSignedOutSwitchChangesOnlyThosePages(t *testing.T) {
+	h, _ := adminFixture(t, false)
+	b := h.signedIn("boss")
+	b.chooseOnAccount(t, langEN)
+	// Pressed while signed in, it changes this browser's signed-out pages, not the account.
+	b.choose(t, langZH, "/v1/signin")
+	if _, body := b.getIn(t, "/v1/account", "zh"); !strings.Contains(body, `<html lang="en">`) {
+		t.Error("the switch changed the account's language")
+	}
 }
 
 func TestLanguageSwitchStaysOnTheSite(t *testing.T) {

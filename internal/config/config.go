@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"t10-auth-server/internal/identity"
 )
 
 // Config is the validated service configuration.
@@ -47,6 +49,9 @@ type Config struct {
 	// AppURLs is AUTH_APP_URLS, module=url comma separated: modules with their own
 	// web app, for the landing page. Any other app link goes through workbench.
 	AppURLs map[string]string
+	// Languages is AUTH_LANGUAGES, comma separated, the default first: the only ones
+	// people can choose. Unset offers every language t10 has.
+	Languages []string
 
 	LiveKitURL       string
 	LiveKitAPIKey    string
@@ -87,6 +92,11 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 		cfg.TOTPKey = key
 	}
+	languages, err := identity.ParseLanguages(getenv("AUTH_LANGUAGES"))
+	if err != nil {
+		return Config{}, fmt.Errorf("AUTH_LANGUAGES: %w", err)
+	}
+	cfg.Languages = languages
 	switch getenv("AUTH_DEV_MODE") {
 	case "", "false":
 	case "true":

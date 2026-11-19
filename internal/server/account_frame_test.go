@@ -11,11 +11,11 @@ func TestTheAccountPageWearsTheFrame(t *testing.T) {
 	h, _ := adminFixture(t, false)
 	b := h.signedIn("grace")
 	status, _, body := b.get(accountPath)
-	wantPage(t, status, body, http.StatusOK, `class="sidebar"`, `data-testid="rail-apps"`, `href="`+testWorkbenchURL+`/t/ten_acme/"`, `action="/v1/theme"`, `action="/v1/signout"`)
+	wantPage(t, status, body, http.StatusOK, `class="sidebar"`, `data-testid="rail-apps"`, `href="`+testWorkbenchURL+`/t/ten_acme/"`, `name="theme" value="dark"`, `action="/v1/signout"`)
 	if strings.Contains(body, `data-theme="`) {
 		t.Errorf("no theme chosen, yet one is set")
 	}
-	b.post("/v1/theme", url.Values{"theme": {"dark"}, "next": {accountPath}})
+	b.post(accountPath, url.Values{"action": {"theme"}, "theme": {"dark"}})
 	if _, _, body = b.get(accountPath); !strings.Contains(body, `data-theme="dark"`) {
 		t.Errorf("the saved theme isn't drawn")
 	}

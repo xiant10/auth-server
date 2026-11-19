@@ -125,6 +125,7 @@ Configuration is parsed in [`internal/config/config.go`](../internal/config/conf
 | `AUTH_CONSOLE_URL` | No | - | Base URL for `t10-console` (platform admin redirection). |
 | `AUTH_WORKBENCH_URL` | No | - | Base URL for `workbench` (tenant admin redirection). |
 | `AUTH_APP_URLS` | No | - | Modules with their own web app, as `module=url` pairs separated by commas, for the landing page. Any other app link goes through Workbench. |
+| `AUTH_LANGUAGES` | No | every language (`en,zh-Hans`) | The languages people can choose, comma separated, the default first. `zh-Hans` gives everyone Simplified Chinese with no choice. An unknown or repeated one stops the server. See [languages.md](languages.md). |
 | `AUTH_TOOL_GATEWAY` | No | `false` | When `true`, runtimes with `tool_audience` in `clients.yaml` receive tokens valid only at `ai-gateway-tools`, and at `ai-gateway-llm` for a runtime with `model_audience`. |
 | `LIVEKIT_URL` | Yes | - | URL of the LiveKit server instance. |
 | `LIVEKIT_API_KEY` | Yes | - | LiveKit API Key used for room token generation. |

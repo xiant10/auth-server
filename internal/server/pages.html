@@ -196,6 +196,8 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <button class="quiet" name="lang" value="zh-Hans" lang="zh-Hans" aria-pressed="{{if eq lang "zh-Hans"}}true{{else}}false{{end}}">中文</button>
 </form>{{end}}
 
+{{define "language-name"}}{{if eq . "zh-Hans"}}简体中文{{else}}English{{end}}{{end}}
+
 {{define "foot"}}</main></body></html>{{end}}
 
 {{define "foot_wide"}}</main></div></div></body></html>{{end}}
@@ -407,6 +409,23 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <button>{{t "Save"}}</button>
 </form>
 </details>
+</section>
+<section class="card" aria-labelledby="look-head">
+<h2 id="look-head">{{t "Language and theme"}}</h2>
+<p class="hint">{{t "Every t10 app shows these."}}</p>
+<div class="setting"><span class="setting-text">{{t "Language"}}{{if eq (len .Languages) 1}}<span class="hint">{{t "Set for this deployment"}}</span>{{end}}</span>
+{{if eq (len .Languages) 1}}<span class="setting-side" data-testid="language-fixed">{{template "language-name" index .Languages 0}}</span>
+{{else}}<form class="frame-seg setting-side" method="post" action="/v1/account#profile" role="group" aria-label="{{t "Language"}}">
+<input type="hidden" name="action" value="language">
+{{range .Languages}}<button name="lang" value="{{.}}" lang="{{.}}" aria-pressed="{{eq lang .}}">{{template "language-name" .}}</button>{{end}}
+</form>{{end}}</div>
+<div class="setting"><span class="setting-text">{{t "Theme"}}</span>
+<form class="frame-seg setting-side" method="post" action="/v1/account#profile" role="group" aria-label="{{t "Theme"}}">
+<input type="hidden" name="action" value="theme">
+<button name="theme" value="system" aria-pressed="{{or (eq .Theme "system") (eq .Theme "")}}">{{t "System"}}</button>
+<button name="theme" value="light" aria-pressed="{{eq .Theme "light"}}">{{t "Light"}}</button>
+<button name="theme" value="dark" aria-pressed="{{eq .Theme "dark"}}">{{t "Dark"}}</button>
+</form></div>
 </section>
 <section class="card" aria-labelledby="names">
 <h2 id="names">{{t "Sign-in names"}}</h2>

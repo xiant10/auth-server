@@ -127,8 +127,8 @@ These serve HTML. Web apps send people to `/v1/authorize` and redeem the code at
 | `GET`, `POST /v1/signout` | Page | The sign-out page, which signs the browser out of every web app |
 | `GET /v1/signout/complete` | Page | The last step of signing out, from a one-time `ticket` |
 | `POST /v1/me/browser-logout` | User | A ticket for that step: `{client_id, return_to}` |
-| `POST /v1/language` | Page | Choose the pages' language |
-| `GET`, `POST /v1/account`, `POST /v1/theme` | Browser | The account page: profile, sign-in names, security, devices and sessions |
+| `POST /v1/language` | Page | Choose the signed-out pages' language in this browser. It saves nothing, and isn't offered with one language |
+| `GET`, `POST /v1/account` | Browser | The account page: profile, language and theme (`action=language` with `lang`, `action=theme` with `theme`), sign-in names, security, devices and sessions |
 | `GET`, `POST /v1/join` | Browser | Accept an invitation |
 | `GET /` | Browser | The front door: one place to go, or a chooser |
 | `GET /admin`, `/admin/…` | Browser | Sends people to the console or Workbench |
@@ -157,7 +157,7 @@ All Public. Each request is signed with the device's keys, as [`mobile-api.md`](
 | `GET /v1/me/access` | User | What this token can do: `tenant_admin`, `platform_admin`, `platform_verified`, `tenant_verified`, `modules`, `module_admin`, `managed_agents`. For showing, not enforcing |
 | `GET /v1/me/permissions?module=<id>` | User | The caller's business-role grants in that module, in their active tenant |
 | `GET /v1/me/homes` | User | Where they can go: tenants with Workbench links and apps, the console, the account page |
-| `GET`, `PUT /v1/me/preferences` | User | `language`, `theme` and `greeting`. `PUT` changes only the fields given |
+| `GET`, `PUT /v1/me/preferences` | User | `language`, `theme` and `greeting`, and the `languages` the deployment offers (`AUTH_LANGUAGES`). `PUT` changes only the fields given, and refuses a language not offered |
 | `GET /v1/me/session` | User | `{"status": "ok"}` while the session behind the token is alive, else `401` |
 | `POST /v1/rooms/admission` | User | Join a call: `{room, tenant?, client?}`, answering `room_token`, `room_name`, `identity`, `assertion`, `server_url`, `expires_at`, `can_publish`. See [`service-api.md`](guides/service-api.md#room-admission) |
 

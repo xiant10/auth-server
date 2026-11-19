@@ -139,7 +139,6 @@ func (s *Server) routes() []route {
 
 		{"GET", "/v1/account", accessBrowser, s.handleAccountPage},
 		{"POST", "/v1/account", accessBrowser, s.handleAccount},
-		{"POST", "/v1/theme", accessBrowser, s.handleTheme},
 		{"GET", "/v1/join", accessBrowser, s.handleJoinPage},
 		{"POST", "/v1/join", accessBrowser, s.handleJoin},
 		{"GET", "/{$}", accessBrowser, s.handleFrontDoor},
@@ -273,6 +272,8 @@ func (s *Server) guard(rt route) http.Handler {
 				writeError(w, http.StatusForbidden, "forbidden", "cross-origin request")
 				return
 			}
+			lang := &pageLanguage{offered: s.Identity.Languages()}
+			r = withPageLanguage(r, lang)
 			if rt.access == accessPage {
 				rt.handler(w, r, identity.Principal{})
 				return
@@ -285,6 +286,12 @@ func (s *Server) guard(rt route) http.Handler {
 			if !ok {
 				http.Redirect(w, r, "/v1/signin?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
 				return
+			}
+			lang.signedIn = true
+			if prefs, err := s.Identity.GetPreferences(r.Context(), p.UserID); err == nil {
+				lang.chosen = prefs.Language
+			} else {
+				slog.Warn("language not read", "error", err)
 			}
 			rt.handler(w, r, p)
 			return

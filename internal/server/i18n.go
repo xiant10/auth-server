@@ -1,12 +1,16 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"t10-auth-server/internal/identity"
 )
 
 // The pages' languages. English strings are the keys of each catalog, so
@@ -16,32 +20,59 @@ const (
 	langZH = "zh-Hans"
 )
 
-// langCookie holds an explicit choice, which beats Accept-Language. It is not
-// sensitive.
+// langCookie holds a choice made on a signed-out page, or the account's language
+// from the last sign-in, which beats Accept-Language. It is not sensitive.
 const langCookie = "t10_locale"
 
 const langCookieAge = 365 * 24 * 60 * 60
 
-// langChosenCookie marks a language chosen while signed out, so the sign-in that
-// follows saves it with the account. It holds no value of its own.
-const langChosenCookie = "t10_locale_chosen"
-
-const langChosenAge = 30 * 60
-
-func validLang(lang string) bool { return lang == langEN || lang == langZH }
-
-// requestLang is the language to answer a page in.
-func requestLang(r *http.Request) string {
-	if c, err := r.Cookie(langCookie); err == nil && validLang(c.Value) {
-		return c.Value
-	}
-	return acceptedLang(r.Header.Get("Accept-Language"))
+// pageLanguage is what a page request knows about its language: the ones the
+// deployment offers, the default first, and on a signed-in page the account's
+// choice, which wins.
+type pageLanguage struct {
+	offered  []string
+	signedIn bool
+	chosen   string
 }
 
-// acceptedLang picks the header's most preferred language that the UI has. Every
-// Chinese tag gets Simplified, the only Chinese catalog.
-func acceptedLang(header string) string {
-	best, bestQ := langEN, 0.0
+type pageLanguageKey struct{}
+
+func withPageLanguage(r *http.Request, pl *pageLanguage) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), pageLanguageKey{}, pl))
+}
+
+// languageOf is the request's pageLanguage. A request that didn't come through a
+// page route offers every language.
+func languageOf(r *http.Request) *pageLanguage {
+	if pl, ok := r.Context().Value(pageLanguageKey{}).(*pageLanguage); ok {
+		return pl
+	}
+	return &pageLanguage{offered: identity.Languages}
+}
+
+// offeredLang reports whether the deployment offers lang.
+func offeredLang(r *http.Request, lang string) bool {
+	return slices.Contains(languageOf(r).offered, lang)
+}
+
+// requestLang is the language to answer a page in: the account's, then one
+// chosen in this browser, then the browser's, each only if it's offered.
+func requestLang(r *http.Request) string {
+	pl := languageOf(r)
+	if slices.Contains(pl.offered, pl.chosen) {
+		return pl.chosen
+	}
+	if c, err := r.Cookie(langCookie); err == nil && slices.Contains(pl.offered, c.Value) {
+		return c.Value
+	}
+	return acceptedLang(r.Header.Get("Accept-Language"), pl.offered)
+}
+
+// acceptedLang picks the header's most preferred language that is offered, or
+// else the first offered. Every Chinese tag gets Simplified, the only Chinese
+// catalog.
+func acceptedLang(header string, offered []string) string {
+	best, bestQ := offered[0], 0.0
 	for part := range strings.SplitSeq(header, ",") {
 		tag, params, _ := strings.Cut(part, ";")
 		tag = strings.ToLower(strings.TrimSpace(tag))
@@ -52,6 +83,9 @@ func acceptedLang(header string) string {
 		case tag == "en" || strings.HasPrefix(tag, "en-"):
 			lang = langEN
 		default:
+			continue
+		}
+		if !slices.Contains(offered, lang) {
 			continue
 		}
 		q := 1.0
@@ -162,6 +196,12 @@ var zhText = map[string]string{
 	"Your name":                              "您的姓名",
 	"Name teammates see":                     "同事看到的姓名",
 	"Name saved.":                            "姓名已保存。",
+	"Language and theme":                     "语言和主题",
+	"Every t10 app shows these.":             "所有 t10 应用都使用这些设置。",
+	"Set for this deployment":                "由本系统统一设置",
+	"Language saved.":                        "语言已保存。",
+	"Theme saved.":                           "主题已保存。",
+	"That choice isn't available.":           "该选项不可用。",
 	"Use a name of 100 characters or fewer.": "姓名不能超过 100 个字符。",
 	"Save":                                   "保存",
 	"Cancel":                                 "取消",

@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/xiant10/t10-modkit/frame"
 
@@ -95,23 +94,6 @@ func (s *Server) framed(r *http.Request, p identity.Principal, found homes, name
 	}
 	data.Theme = prefs.Theme
 	data.Places = frame.Places(h, "", frame.Account, lang == langZH)
-	data.Menu = frame.Menu{
-		Name: name, Lang: lang, Theme: prefs.Theme, Here: accountPath,
-		LanguageAction: "/v1/language", ThemeAction: "/v1/theme", SignOutAction: "/v1/signout",
-	}
+	data.Menu = frame.Menu{Name: name, Theme: prefs.Theme, SignOutAction: "/v1/signout"}
 	data.BackURL, data.BackLabel = s.back(r, lang)
-}
-
-// handleTheme saves the person's theme, so every t10 app shows it, and goes back.
-func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request, p identity.Principal) {
-	if theme := r.PostFormValue("theme"); frame.ValidTheme(theme) {
-		if _, err := s.Identity.SetPreferences(r.Context(), p.UserID, identity.Preferences{Theme: theme}); err != nil {
-			slog.Warn("theme not saved", "error", err)
-		}
-	}
-	next := safeNext(r.PostFormValue("next"))
-	if !strings.HasPrefix(next, "/v1/") {
-		next = accountPath
-	}
-	http.Redirect(w, r, next, http.StatusSeeOther)
 }

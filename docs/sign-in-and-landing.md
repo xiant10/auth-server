@@ -211,7 +211,7 @@ Built with section 5.
 - **A browser already signed in skips it,** except when it's asking again on purpose (step-up).
 - **It says why it's here:** after a sign-out, or after the session ended elsewhere.
 - **One workspace question per browser.** The workspace someone picks or opens is remembered in an `auth-server` cookie, and used next time if they're still a member and meet its second-factor rule. Each app switches workspace in its own menu, so nobody is asked again by each app. "Tenant" is "workspace" on these pages.
-- **Language follows the person.** An app sends the language someone chose as `ui_locales`, and `auth-server` sends the page's language back as `lang` on the code redirect, which the app's callback hands to the page once.
+- **Language follows the person.** An app sends the language it shows as `ui_locales`, which the sign-in page shows if it's offered, and `auth-server` sends the account's language back as `lang` on the code redirect, which the app's callback hands to the page once. With none chosen on the account page it sends none, and the app shows the browser's language. See [languages.md](languages.md).
 
 ## Security
 

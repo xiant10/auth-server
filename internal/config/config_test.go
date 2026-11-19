@@ -87,3 +87,20 @@ func TestLoad_DevModeOnLocalhost(t *testing.T) {
 		t.Error("DevMode not set")
 	}
 }
+
+func TestLoad_Languages(t *testing.T) {
+	for list, want := range map[string]string{"": "en,zh-Hans", "zh-Hans": "zh-Hans", " zh-Hans , en ": "zh-Hans,en"} {
+		cfg, err := Load(env(map[string]string{"AUTH_LANGUAGES": list}))
+		if err != nil {
+			t.Fatalf("%q: %v", list, err)
+		}
+		if got := strings.Join(cfg.Languages, ","); got != want {
+			t.Errorf("%q offers %q, want %q", list, got, want)
+		}
+	}
+	for _, list := range []string{"fr", "zh", "en,en", "en,"} {
+		if _, err := Load(env(map[string]string{"AUTH_LANGUAGES": list})); err == nil || !strings.Contains(err.Error(), "AUTH_LANGUAGES") {
+			t.Errorf("%q: %v", list, err)
+		}
+	}
+}

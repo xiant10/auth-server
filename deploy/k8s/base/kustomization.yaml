@@ -20,6 +20,8 @@ configMapGenerator:
       - AUTH_LISTEN_ADDR=:18000
       - AUTH_TRUST_PROXY=true
       - AUTH_PERMISSIONS_DIR=/etc/auth-server/permissions
+      # The languages people can choose, comma separated, the default first. Unset
+      # offers all of them; an overlay sets AUTH_LANGUAGES=zh-Hans to fix one.
   # The permission catalog: empty here, and each deployed module with business
   # roles merges its <module>.yaml into it from a kustomize component.
   - name: auth-server-permissions

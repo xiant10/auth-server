@@ -190,8 +190,10 @@ func TestLanguageGoesThroughSignIn(t *testing.T) {
 	}
 	status, _, body := b.get(location)
 	wantPage(t, status, body, http.StatusOK, "登录工作台", "您已退出此浏览器上的所有 t10 应用。")
+	// The app gets no language until one is chosen on the account page: it shows the
+	// browser's.
 	b.register("ada", "")
-	if _, target, _ := b.get(authorizeFor(testWebClient, "")); !strings.Contains(target, "lang=zh-Hans") {
+	if _, target, _ := b.get(authorizeFor(testWebClient, "")); strings.Contains(target, "lang=") {
 		t.Fatalf("back to the app: %s", target)
 	}
 }

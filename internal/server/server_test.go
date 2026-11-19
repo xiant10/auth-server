@@ -103,6 +103,10 @@ func newHarness(t *testing.T, devMode bool, languages ...string) *harness {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
+		// CI has a database, so a test that needs one fails there instead of passing unrun.
+		if os.Getenv("CI") != "" {
+			t.Fatal("TEST_DATABASE_URL not set")
+		}
 		t.Skip("TEST_DATABASE_URL not set")
 	}
 	ctx := context.Background()

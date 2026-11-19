@@ -28,6 +28,10 @@ func tightPool(t *testing.T) {
 	t.Helper()
 	base := os.Getenv("TEST_DATABASE_URL")
 	if base == "" {
+		// CI has a database, so a test that needs one fails there instead of passing unrun.
+		if os.Getenv("CI") != "" {
+			t.Fatal("TEST_DATABASE_URL not set")
+		}
 		t.Skip("TEST_DATABASE_URL not set")
 	}
 	sep := "?"

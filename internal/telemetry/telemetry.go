@@ -1,59 +1,28 @@
-// Package telemetry exports request traces over OTLP. Spans carry routes and
-// statuses only, never a query string or a body, because those hold people's
-// words. With no endpoint it does nothing.
+// Package telemetry exports request traces over OTLP, with t10-modkit's
+// telemetry. What's this service's own is here: its name.
 package telemetry
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 	"net/http"
-	"net/url"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	shared "github.com/xiant10/t10-modkit/telemetry"
 )
 
 const serviceName = "auth-server"
 
 // Setup starts the exporter and returns a shutdown that flushes it.
 func Setup(ctx context.Context, endpoint string) (func(context.Context) error, error) {
-	// Without this, otelhttp drops an incoming traceparent.
-	otel.SetTextMapPropagator(propagation.TraceContext{})
-	if endpoint == "" {
-		return func(context.Context) error { return nil }, nil
-	}
-	target, err := url.Parse(endpoint)
-	if err != nil || (target.Scheme != "http" && target.Scheme != "https") || target.Host == "" {
-		// Tracing never stops a service, but this has to be visible.
-		slog.Error("traces are off: OTEL_EXPORTER_OTLP_ENDPOINT must be a URL such as http://collector:4318")
-		return func(context.Context) error { return nil }, nil
-	}
-	res, err := resource.New(ctx, resource.WithAttributes(attribute.String("service.name", serviceName)))
-	if err != nil {
-		return nil, fmt.Errorf("build otel resource: %w", err)
-	}
-	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(target.JoinPath("v1/traces").String()))
-	if err != nil {
-		return nil, fmt.Errorf("dial otlp exporter at %q: %w", endpoint, err)
-	}
-	provider := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exporter), sdktrace.WithResource(res))
-	otel.SetTracerProvider(provider)
-	return provider.Shutdown, nil
+	return shared.Setup(ctx, serviceName, endpoint)
 }
 
-// Wrap traces one route, named by its pattern so that IDs stay out of the name.
+// Wrap traces one route, named by its pattern, and marks its chat session.
 func Wrap(pattern string, next http.Handler) http.Handler {
-	return otelhttp.NewHandler(next, pattern)
+	return shared.Wrap(pattern, next)
 }
 
 // Inject puts the trace on ctx into an outgoing request's headers as a W3C
-// traceparent, so a call to auth-server joins this request's trace.
+// traceparent, so the service it calls joins this request's trace.
 func Inject(ctx context.Context, h http.Header) {
-	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(h))
+	shared.Inject(ctx, h)
 }

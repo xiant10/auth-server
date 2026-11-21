@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"t10-auth-server/internal/roles"
+	"auth-server/internal/roles"
 )
 
 // dealsModule is a module whose service is otherService. Version 2 changes the

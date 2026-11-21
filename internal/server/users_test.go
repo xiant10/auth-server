@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 // platformFixture is adminFixture plus one platform admin with a token.

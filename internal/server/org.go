@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/audit"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 // orgTenant is the tenant an org read names. A service token has none of its

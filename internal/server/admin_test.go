@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/roles"
+	"auth-server/internal/directory"
+	"auth-server/internal/roles"
 )
 
 // The harness's console and workbench, which /admin and the account page name.

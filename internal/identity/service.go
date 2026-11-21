@@ -16,10 +16,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/db"
-	"t10-auth-server/internal/ids"
+	"auth-server/internal/agents"
+	"auth-server/internal/audit"
+	"auth-server/internal/db"
+	"auth-server/internal/ids"
 )
 
 const (

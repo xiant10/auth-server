@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"t10-auth-server/internal/db"
+	"auth-server/internal/db"
 )
 
 // Outcomes recorded on an entry.

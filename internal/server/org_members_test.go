@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"t10-auth-server/internal/directory"
+	"auth-server/internal/directory"
 )
 
 func (h *harness) leave(user string) {

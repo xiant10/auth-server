@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 
-	"t10-auth-server/internal/audit"
+	"auth-server/internal/audit"
 )
 
 const browserLogoutAudience = "t10:browser-logout"

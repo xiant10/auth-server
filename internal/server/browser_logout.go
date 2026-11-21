@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 // Only a registered web client's exact callback origin can receive the result.

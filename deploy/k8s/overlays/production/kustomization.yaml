@@ -6,7 +6,7 @@ resources:
   - ../../base
 
 images:
-  - name: t10/auth-server
+  - name: auth-server
     newName: registry.example.com/t10/auth-server
     newTag: 0.1.0
 

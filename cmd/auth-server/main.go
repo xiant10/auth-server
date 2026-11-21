@@ -2,6 +2,7 @@
 package main
 
 import (
+	"auth-server/internal/telemetry"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -12,16 +13,15 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
-	"t10-auth-server/internal/telemetry"
 	"time"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/config"
-	"t10-auth-server/internal/db"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
-	"t10-auth-server/internal/roles"
-	"t10-auth-server/internal/server"
+	"auth-server/internal/agents"
+	"auth-server/internal/config"
+	"auth-server/internal/db"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
+	"auth-server/internal/roles"
+	"auth-server/internal/server"
 )
 
 func main() {

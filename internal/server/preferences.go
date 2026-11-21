@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 // A person's language and theme live here, so every app shows the ones they chose.

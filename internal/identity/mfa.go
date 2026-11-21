@@ -15,8 +15,8 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/ids"
+	"auth-server/internal/audit"
+	"auth-server/internal/ids"
 )
 
 const (

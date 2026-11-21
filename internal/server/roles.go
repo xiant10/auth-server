@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/identity"
-	"t10-auth-server/internal/roles"
+	"auth-server/internal/audit"
+	"auth-server/internal/identity"
+	"auth-server/internal/roles"
 )
 
 // Business roles. Tenant admins build roles from the permissions the deployed

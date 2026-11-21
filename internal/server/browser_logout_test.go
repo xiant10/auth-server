@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 func TestBrowserLogoutRedirect(t *testing.T) {

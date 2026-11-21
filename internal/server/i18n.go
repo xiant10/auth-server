@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 // The pages' languages. English strings are the keys of each catalog, so

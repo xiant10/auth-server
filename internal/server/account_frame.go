@@ -8,7 +8,7 @@ import (
 
 	"github.com/xiant10/t10-modkit/frame"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 // The account page wears the frame every t10 app draws: the same Apps list and

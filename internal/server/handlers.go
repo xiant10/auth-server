@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/agents"
+	"auth-server/internal/audit"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request, _ identity.Principal) {

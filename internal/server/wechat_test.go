@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 const (

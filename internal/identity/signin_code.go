@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"t10-auth-server/internal/audit"
+	"auth-server/internal/audit"
 )
 
 const signInCodeAudience = "t10:signin-code"

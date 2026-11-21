@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	qrcode "github.com/skip2/go-qrcode"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/audit"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 // decodeJSON reads a request body, refusing unknown fields so a mistyped field

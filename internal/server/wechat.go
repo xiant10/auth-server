@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 func writeWeChatTokens(w http.ResponseWriter, tokens identity.DeviceTokens) {

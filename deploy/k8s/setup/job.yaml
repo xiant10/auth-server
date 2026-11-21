@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: setup
-          image: t10/auth-server
+          image: auth-server
           imagePullPolicy: IfNotPresent
           command: ["auth-setup"]
           envFrom:

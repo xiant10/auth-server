@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/roles"
+	"auth-server/internal/directory"
+	"auth-server/internal/roles"
 )
 
 func authorizeFor(client, tenant string) string {

@@ -56,7 +56,7 @@ spec:
             name: auth-server-permissions
       containers:
         - name: auth-server
-          image: t10/auth-server
+          image: auth-server
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

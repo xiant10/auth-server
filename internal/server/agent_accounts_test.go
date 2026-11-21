@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/directory"
+	"auth-server/internal/agents"
+	"auth-server/internal/directory"
 )
 
 // agentAccount creates "Lead desk" in ten_acme as its admin, managed by manager.

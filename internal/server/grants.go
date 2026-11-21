@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/agents"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 func caller(p identity.Principal) agents.Caller {

@@ -18,8 +18,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 // app plays the mobile app: two P-256 keys, DER signatures, base64url text.

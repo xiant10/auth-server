@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/directory"
+	"auth-server/internal/agents"
+	"auth-server/internal/directory"
 )
 
 // standing makes ada's consent to future runs, as t10-automations does while

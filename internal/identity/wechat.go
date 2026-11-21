@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/ids"
+	"auth-server/internal/audit"
+	"auth-server/internal/ids"
 )
 
 var (

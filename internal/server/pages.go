@@ -19,9 +19,9 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 	"github.com/xiant10/t10-modkit/frame"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/audit"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
 )
 
 //go:embed pages.html

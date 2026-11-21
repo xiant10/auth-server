@@ -3,6 +3,7 @@
 package server
 
 import (
+	"auth-server/internal/telemetry"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,16 +13,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"t10-auth-server/internal/telemetry"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
-	"t10-auth-server/internal/roles"
+	"auth-server/internal/agents"
+	"auth-server/internal/audit"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
+	"auth-server/internal/roles"
 )
 
 const (

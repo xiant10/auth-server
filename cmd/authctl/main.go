@@ -15,13 +15,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"t10-auth-server/internal/audit"
-	"t10-auth-server/internal/config"
-	"t10-auth-server/internal/db"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
-	"t10-auth-server/internal/roles"
-	"t10-auth-server/internal/samples"
+	"auth-server/internal/audit"
+	"auth-server/internal/config"
+	"auth-server/internal/db"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
+	"auth-server/internal/roles"
+	"auth-server/internal/samples"
 )
 
 const usage = `usage: authctl <command> [flags]

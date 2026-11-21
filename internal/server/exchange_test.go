@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"t10-auth-server/internal/directory"
+	"auth-server/internal/directory"
 )
 
 func (h *harness) tokenExchange(caller, subject, audience string) (int, map[string]any) {

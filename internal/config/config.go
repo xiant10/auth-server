@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"t10-auth-server/internal/identity"
+	"auth-server/internal/identity"
 )
 
 // Config is the validated service configuration.

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"t10-auth-server/internal/identity"
-	"t10-auth-server/verifier"
+	"auth-server/internal/identity"
+	"auth-server/verifier"
 )
 
 func (h *harness) verifier(name string) *verifier.Verifier {

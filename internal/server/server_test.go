@@ -17,11 +17,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/db"
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/identity"
-	"t10-auth-server/internal/roles"
+	"auth-server/internal/agents"
+	"auth-server/internal/db"
+	"auth-server/internal/directory"
+	"auth-server/internal/identity"
+	"auth-server/internal/roles"
 )
 
 const (

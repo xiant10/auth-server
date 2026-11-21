@@ -1,4 +1,4 @@
-module t10-auth-server
+module auth-server
 
 go 1.26.1
 

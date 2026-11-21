@@ -12,7 +12,7 @@ t10 auth runs from one image in both environments, and the difference is only in
 
 | | Local | Production |
 | --- | --- | --- |
-| Tool | Docker Compose, `docker-compose.yml` | Kubernetes with Kustomize, `deploy/k8s/` |
+| Tool | Docker Compose, `compose.yml` | Kubernetes with Kustomize, `deploy/k8s/` |
 | Mode | `AUTH_DEV_MODE=true`, seeded users, open registration | `AUTH_DEV_MODE=false`, registration by invitation |
 | Postgres | A container | Managed, outside the cluster |
 | Replicas | 1 | 2 |

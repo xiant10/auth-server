@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"t10-auth-server/internal/audit"
+	"auth-server/internal/audit"
 )
 
 const (

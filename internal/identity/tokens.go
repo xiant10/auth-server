@@ -7,8 +7,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"t10-auth-server/internal/agents"
-	"t10-auth-server/internal/ids"
+	"auth-server/internal/agents"
+	"auth-server/internal/ids"
 )
 
 const (

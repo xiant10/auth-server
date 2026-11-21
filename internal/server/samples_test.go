@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"testing"
 
-	"t10-auth-server/internal/directory"
-	"t10-auth-server/internal/samples"
+	"auth-server/internal/directory"
+	"auth-server/internal/samples"
 )
 
 func (h *harness) sampleBrowser(name string) *browser {

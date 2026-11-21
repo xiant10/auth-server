@@ -135,6 +135,10 @@ TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/auth_test?sslmode=di
 node --test verifier/ts/verifier.test.ts
 ```
 
+## Contact
+
+Questions, feedback or commercial enquiries: [hi@tacten.ai](mailto:hi@tacten.ai).
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

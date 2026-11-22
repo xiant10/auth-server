@@ -82,6 +82,8 @@ type Deps struct {
 	DevMode bool
 	// WaivePlatformMFA waives the second factor for platform and tenant admins, and only that.
 	WaivePlatformMFA bool
+	// SupportEmail is shown on the sign-in page, and empty shows nothing.
+	SupportEmail string
 	// PublicURL is the origin pages must post from.
 	PublicURL string
 	// ConsoleURL is the platform console, and WorkbenchURL the tenant admins'
@@ -236,7 +238,14 @@ func (s *Server) Handler() http.Handler {
 		key := rt.method + " " + rt.pattern
 		mux.Handle(key, telemetry.Wrap(key, s.guard(rt)))
 	}
-	return wrap(mux)
+	return wrap(s.withClientIP(mux))
+}
+
+// withClientIP records the client address on the request, for the audit log.
+func (s *Server) withClientIP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(audit.WithClientIP(r.Context(), s.clientIP(r))))
+	})
 }
 
 // wrap puts the deadline outside the log: it copies the request, and the mux

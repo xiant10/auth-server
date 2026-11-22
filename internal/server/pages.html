@@ -219,6 +219,7 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <button>{{t "Sign in"}}</button>
 </form>
 <p class="links"><a href="/v1/register?next={{.Next}}">{{t "Create an account"}}</a> · <a href="/v1/recover">{{t "Lost your password?"}}</a></p>
+{{if .SupportEmail}}<p class="hint">{{t "Need help? Write to"}} <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
 <section id="qr" class="qr" hidden data-next="{{.Next}}">
 <h2>{{t "Or scan with the t10 app"}}</h2>
 <img id="qr-image" alt="{{t "QR code to sign in with the t10 app"}}" width="220" height="220">

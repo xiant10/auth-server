@@ -124,3 +124,19 @@ func TestLoad_WaivePlatformMFA(t *testing.T) {
 		}
 	}
 }
+
+func TestLoad_SupportEmail(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil || cfg.SupportEmail != "" {
+		t.Fatalf("none by default: %q, %v", cfg.SupportEmail, err)
+	}
+	cfg, err = Load(env(map[string]string{"AUTH_SUPPORT_EMAIL": " hi@example.com "}))
+	if err != nil || cfg.SupportEmail != "hi@example.com" {
+		t.Fatalf("an address is kept, trimmed: %q, %v", cfg.SupportEmail, err)
+	}
+	for _, v := range []string{"not an email", "a@b@c", `x"@y.com`, "<a@b.com>"} {
+		if _, err := Load(env(map[string]string{"AUTH_SUPPORT_EMAIL": v})); err == nil {
+			t.Errorf("%q should be refused", v)
+		}
+	}
+}

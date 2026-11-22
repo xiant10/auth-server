@@ -29,6 +29,8 @@ type Config struct {
 	// without a second factor, as dev mode does, and changes nothing else. For a demo whose
 	// admin has no authenticator: anyone with that password has every tenant and user.
 	WaivePlatformMFA bool
+	// SupportEmail is AUTH_SUPPORT_EMAIL, an address the sign-in page offers for help. Unset, it shows none.
+	SupportEmail string
 
 	// SigningKeyCurrent and SigningKeyNext are PEM-encoded P-256 private keys.
 	SigningKeyCurrent string
@@ -114,6 +116,10 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.WaivePlatformMFA = true
 	default:
 		return Config{}, errors.New(`AUTH_WAIVE_PLATFORM_MFA must be "demo" or unset`)
+	}
+	cfg.SupportEmail = strings.TrimSpace(getenv("AUTH_SUPPORT_EMAIL"))
+	if cfg.SupportEmail != "" && (strings.ContainsAny(cfg.SupportEmail, " \t\r\n<>\"'") || strings.Count(cfg.SupportEmail, "@") != 1) {
+		return Config{}, errors.New("AUTH_SUPPORT_EMAIL must be one email address")
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

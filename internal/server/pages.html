@@ -80,6 +80,7 @@ form > button { width: 100%; margin-top: 1.15rem; }
 .tag { color: var(--muted); font-size: .8rem; }
 :lang(zh-Hans) h1 { letter-spacing: 0; }
 .links { font-size: .875rem; margin: 1rem 0 0; text-align: center; }
+.support { margin: .5rem 0 0; text-align: center; }
 .qr { text-align: center; }
 .qr h2 { margin-bottom: .75rem; }
 .qr img { display: block; margin: 0 auto; background: #fff; border-radius: 8px; max-width: 100%; height: auto; }
@@ -219,7 +220,7 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <button>{{t "Sign in"}}</button>
 </form>
 <p class="links"><a href="/v1/register?next={{.Next}}">{{t "Create an account"}}</a> · <a href="/v1/recover">{{t "Lost your password?"}}</a></p>
-{{if .SupportEmail}}<p class="hint">{{t "Need help? Write to"}} <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
+{{if .SupportEmail}}<p class="hint support">{{t "Need help? Write to"}} <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
 <section id="qr" class="qr" hidden data-next="{{.Next}}">
 <h2>{{t "Or scan with the t10 app"}}</h2>
 <img id="qr-image" alt="{{t "QR code to sign in with the t10 app"}}" width="220" height="220">

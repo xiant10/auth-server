@@ -282,11 +282,13 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <input type="hidden" name="next" value="{{.Next}}">
 <input type="hidden" name="invite" value="{{.Invite}}">
 <label for="display-name">{{t "Your name, as teammates will see it"}}</label>
-<input id="display-name" name="display_name" autocomplete="name" maxlength="100" required autofocus>
+<input id="display-name" name="display_name" value="{{.DisplayName}}" autocomplete="name" maxlength="100" required{{if not .DisplayName}} autofocus{{end}}>
 <label for="name">{{t "Username, phone or email"}}</label>
-<input id="name" name="name" autocomplete="username" required>
+<input id="name" name="name" value="{{.SignInName}}" autocomplete="username" required>
 <label for="password">{{t "Password (10 characters or more)"}}</label>
-<input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+<input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required{{if .DisplayName}} autofocus{{end}}>
+<label for="password-again">{{t "Password again"}}</label>
+<input id="password-again" name="password_again" type="password" autocomplete="new-password" minlength="10" required>
 <button>{{t "Create account"}}</button>
 </form>
 <p class="hint">{{t "Sign-in names are not verified, and we never use them to contact you. Keep the recovery codes shown next: they are how you get back in."}}</p>
@@ -312,6 +314,8 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <input id="second" name="second_code" autocomplete="off">
 <label for="password">{{t "New password"}}</label>
 <input id="password" name="new_password" type="password" autocomplete="new-password" minlength="10" required>
+<label for="password-again">{{t "New password again"}}</label>
+<input id="password-again" name="new_password_again" type="password" autocomplete="new-password" minlength="10" required>
 <button>{{t "Reset password"}}</button>
 </form>
 <p class="hint">{{t "Resetting signs you out everywhere."}}</p>
@@ -322,6 +326,8 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 <input type="hidden" name="token" value="{{.Token}}">
 <label for="password">{{t "New password"}}</label>
 <input id="password" name="new_password" type="password" autocomplete="new-password" minlength="10" required>
+<label for="password-again">{{t "New password again"}}</label>
+<input id="password-again" name="new_password_again" type="password" autocomplete="new-password" minlength="10" required>
 <button>{{t "Set password"}}</button>
 </form>
 {{template "foot"}}{{end}}
@@ -458,6 +464,8 @@ button.quiet.danger:hover { background: var(--danger-soft); }
 {{template "reauth" "pw"}}
 <label for="new-password">{{t "New password"}}</label>
 <input id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="10" required>
+<label for="new-password-again">{{t "New password again"}}</label>
+<input id="new-password-again" name="new_password_again" type="password" autocomplete="new-password" minlength="10" required>
 <button>{{t "Change password"}}</button>
 </form>
 </details>

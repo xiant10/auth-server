@@ -30,6 +30,12 @@ commands:
   gen-key     print a new ES256 signing key as PEM
   bootstrap   create the first platform admin and their tenant
   add-user    create a user and add them to a tenant
+  tenant-add  create a tenant with no members (--if-missing to allow an existing one)
+  invite      print a 7-day, single-use link to register into a tenant, or join it
+  tenant-suspend   stop sign-in to a tenant and its invitations
+  tenant-activate  open it again
+  demo-link   print a signed link that starts a prospect's demo tenant (DEMO_START_KEY)
+  demo-start  serve those links: /demo/start makes the tenant when the prospect presses Start
   gen-totp-key  print a new AUTH_TOTP_KEY
   service-add      register a runtime or microservice and print its secret
   service-rotate   add a second secret and print it
@@ -71,6 +77,18 @@ func run(args []string) error {
 		return bootstrap(ctx, args[1:])
 	case "add-user":
 		return addUser(ctx, args[1:])
+	case "tenant-add":
+		return tenantAdd(ctx, args[1:])
+	case "invite":
+		return invite(ctx, args[1:])
+	case "tenant-suspend":
+		return tenantStatus(ctx, directory.TenantSuspended, args[1:])
+	case "tenant-activate":
+		return tenantStatus(ctx, directory.TenantActive, args[1:])
+	case "demo-link":
+		return demoLink(args[1:])
+	case "demo-start":
+		return demoStart(ctx, args[1:])
 	case "wechat-unbind":
 		return wechatUnbind(ctx, args[1:])
 	case "service-add":

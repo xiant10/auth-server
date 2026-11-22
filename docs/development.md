@@ -281,7 +281,19 @@ authctl wechat-unbind --user-id usr_…   # Removes a person's WeChat binding
 # 7. Sample Data (Dev Mode Only)
 authctl samples-add          # Seeds test tenants, users, and org units
 authctl samples-remove       # Cleans up test fixtures
+
+# 8. Tenants and invitations
+authctl tenant-add --tenant-id ten_contoso --tenant-name Contoso [--if-missing]
+authctl invite --tenant-id ten_contoso --role admin   # prints invite_url (register) and join_url, 7 days, single use
+authctl tenant-suspend --tenant-id ten_contoso         # no sign-in to it, its invitations stop working
+authctl tenant-activate --tenant-id ten_contoso
+
+# 9. Demo start links (a demo only; needs DEMO_START_KEY, 32+ characters)
+authctl demo-link --tenant-id ten_contoso-x7k2 --company Contoso --name "Jane Doe" --days 30
+authctl demo-start --domain demo.example     # serves /demo/start on :8090
 ```
+
+**Demo start links.** For a public demo, an outreach email carries a link signed with `DEMO_START_KEY` that names a tenant still to be made. `demo-start` serves it: opening the link only shows a Start button, because mail scanners open every link in a message. Start makes the tenant and five teammates (`bob@<tenant>.<domain>` and the rest, members, with random passwords shown once), then sends the prospect to register as its admin with an invitation. Starting again before registering gives a new invitation; after, it points to sign-in; a suspended tenant shows that the demo has ended. `invite` and `tenant-suspend` work without it. The workspace's `deploy/edge/demo` runs it behind the auth host's `/demo/` path.
 
 
 ## Running it locally

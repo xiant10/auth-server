@@ -70,7 +70,9 @@ func TestStandingGrantFiresScheduledRuns(t *testing.T) {
 	h.wantStatus(status, body, http.StatusCreated)
 	run := body["id"].(string)
 	expires, _ := time.Parse(time.RFC3339Nano, body["expires_at"].(string))
-	if left := time.Until(expires); left > agents.DefaultGrantTTL || left < agents.DefaultGrantTTL-time.Minute {
+	// Postgres sets the expiry by its own clock, which can run a little ahead of
+	// this one, as it does in a Docker VM.
+	if left := time.Until(expires); left > agents.DefaultGrantTTL+time.Second || left < agents.DefaultGrantTTL-time.Minute {
 		t.Errorf("a firing lasts %v", left)
 	}
 

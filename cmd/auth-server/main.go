@@ -101,7 +101,7 @@ func run() error {
 		Region: cfg.DefaultRegion, TOTPKey: totpKey, Limits: identity.DefaultLimits(),
 		Languages: cfg.Languages,
 	})
-	if appID, secret := os.Getenv("WECHAT_APP_ID"), os.Getenv("WECHAT_APP_SECRET"); appID != "" && secret != "" {
+	if appID, secret := cfg.WeChatAppID, cfg.WeChatAppSecret; appID != "" && secret != "" {
 		ids.UseWeChat(identity.WeChatAPI{AppID: appID, Secret: secret, BaseURL: "https://api.weixin.qq.com", HTTP: &http.Client{Timeout: 5 * time.Second}}, appID)
 	}
 	for _, r := range runtimes {

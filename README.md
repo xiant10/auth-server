@@ -127,11 +127,11 @@ They share the password `t10-sample-password`, so both commands refuse to run ou
 
 ## Test
 
-Postgres-backed tests skip unless `TEST_DATABASE_URL` is set. They drop and rebuild the `auth` schema, so never point it at a real database.
+`make test` needs nothing running, and Postgres-backed tests skip. `make test-db` runs them too, against `TEST_DATABASE_URL`, which defaults to `make db-up`'s. They drop and rebuild the `auth` schema, so never point it at a real database.
 
 ```sh
-docker run -d --rm --name auth-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=auth_test -p 55432:5432 postgres:17-alpine
-TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/auth_test?sslmode=disable' go test -p 1 ./...
+make db-up     # a throwaway Postgres on 55432, shared by every t10 repo's tests
+make test-db   # every test against it, one package at a time
 node --test verifier/ts/verifier.test.ts
 ```
 

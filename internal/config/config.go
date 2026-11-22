@@ -62,6 +62,10 @@ type Config struct {
 	LiveKitURL       string
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
+
+	// WeChatAppID and WeChatAppSecret turn on sign-in from the WeChat mini-program.
+	// Both, or neither.
+	WeChatAppID, WeChatAppSecret string
 }
 
 // Load reads and validates the configuration through getenv.
@@ -84,6 +88,8 @@ func Load(getenv func(string) string) (Config, error) {
 		LiveKitURL:        getenv("LIVEKIT_URL"),
 		LiveKitAPIKey:     getenv("LIVEKIT_API_KEY"),
 		LiveKitAPISecret:  getenv("LIVEKIT_API_SECRET"),
+		WeChatAppID:       getenv("WECHAT_APP_ID"),
+		WeChatAppSecret:   getenv("WECHAT_APP_SECRET"),
 	}
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = ":8081"

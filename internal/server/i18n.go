@@ -296,6 +296,7 @@ var zhText = map[string]string{
 	"Already have an account?":            "已有账户？",
 	"Or scan with the t10 app":            "或使用 t10 应用扫码",
 	"QR code to sign in with the t10 app": "用于通过 t10 应用登录的二维码",
+	"Need help? Write to":                 "需要帮助？请写信至",
 	"Check the request in the app before you approve it.": "批准前，请先在应用中核对登录请求。",
 	"Approve the sign-in in the app.":                     "请在应用中批准此次登录。",
 	"Your name, as teammates will see it":                 "您的姓名（同事将看到此名称）",

@@ -213,7 +213,7 @@ Tenant admin routes, under `/v1/tenants/{id}`.
 | `PATCH /agent-accounts/{user}` | Rename it: `{display_name}` |
 | `GET /grants?after=` | Agent grants, running ones first, with `valid` and a `next` cursor |
 | `POST /grants/{grant}/revoke` | Stop a grant in this tenant |
-| `GET /audit` | The tenant's newest audit `records`: `at`, `actor`, `action`, `target`, `outcome` |
+| `GET /audit` | The tenant's newest audit `records`: `at`, `actor`, `action`, `target`, `outcome`, and when known `name` (the actor's sign-in name) and `ip` (the address the request came from) |
 | `GET /permission-catalog` | Deployed modules' permissions and templates |
 | `GET`, `POST /roles`; `GET`, `PATCH /roles/{role}` | Business roles. A change needs the `revision` read (`409 stale_revision`) |
 | `GET`, `POST /members/{user}/role-assignments` | A member's role assignments, or assign `role_id` |

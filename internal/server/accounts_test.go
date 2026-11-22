@@ -933,3 +933,20 @@ func TestRequestLogHoldsNoIDs(t *testing.T) {
 		t.Errorf("logs lack the route: %s", logs.String())
 	}
 }
+
+func TestAuditRecordsTheClientAddress(t *testing.T) {
+	h := newHarness(t, true)
+	h.user("ada", nil)
+	b := h.browser()
+	b.post("/v1/signin", url.Values{"name": {"ada"}, "password": {"wrong password"}, "next": {"/"}})
+	b.post("/v1/signin", url.Values{"name": {"ada"}, "password": {testPassword}, "next": {"/"}})
+	for _, outcome := range []string{"denied", "success"} {
+		var ip string
+		err := h.pool.QueryRow(context.Background(),
+			`SELECT detail->>'ip' FROM auth.audit_log WHERE action = 'session.create' AND outcome = $1 ORDER BY id DESC LIMIT 1`,
+			outcome).Scan(&ip)
+		if err != nil || ip != "127.0.0.1" {
+			t.Errorf("%s sign-in recorded ip %q (%v), want the client's 127.0.0.1", outcome, ip, err)
+		}
+	}
+}

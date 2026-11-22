@@ -72,6 +72,8 @@ type pageData struct {
 	// SignInName keeps what was typed after a wrong password, and CodeTicket carries
 	// a right password through to the authenticator step.
 	SignInName, CodeTicket string
+	// SupportEmail is the address the sign-in page offers for help, empty for none.
+	SupportEmail string
 	// HasApps groups the front door by tenant, because someone has more than one
 	// place in a tenant.
 	HasApps bool
@@ -498,7 +500,7 @@ func (s *Server) renderSignIn(w http.ResponseWriter, r *http.Request, status int
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'none'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; script-src 'nonce-"+encoded+"'")
 	render(w, r, status, "signin", pageData{
-		Title: s.signInTitle(r, next), Next: next, Error: problem, Notice: notice, Nonce: encoded, SignInName: name,
+		Title: s.signInTitle(r, next), Next: next, Error: problem, Notice: notice, Nonce: encoded, SignInName: name, SupportEmail: s.SupportEmail,
 		Here: "/v1/signin?next=" + url.QueryEscape(next),
 	})
 }

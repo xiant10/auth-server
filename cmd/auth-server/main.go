@@ -136,6 +136,7 @@ func run() error {
 		Issuer:           issuer,
 		DevMode:          cfg.DevMode,
 		WaivePlatformMFA: cfg.WaivePlatformMFA,
+		SupportEmail:     cfg.SupportEmail,
 		PublicURL:        cfg.PublicURL,
 		ConsoleURL:       cfg.ConsoleURL,
 		WorkbenchURL:     cfg.WorkbenchURL,

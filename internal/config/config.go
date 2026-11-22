@@ -141,11 +141,12 @@ func (c Config) validate() error {
 	// LiveKit is optional: without it the server runs with voice off. Part of it
 	// set is a mistake, not a choice.
 	if c.LiveKitURL != "" || c.LiveKitAPIKey != "" || c.LiveKitAPISecret != "" {
-		for name, value := range map[string]string{
-			"LIVEKIT_URL": c.LiveKitURL, "LIVEKIT_API_KEY": c.LiveKitAPIKey, "LIVEKIT_API_SECRET": c.LiveKitAPISecret,
+		// In order, so the error names the same one every time.
+		for _, v := range [...]struct{ name, value string }{
+			{"LIVEKIT_URL", c.LiveKitURL}, {"LIVEKIT_API_KEY", c.LiveKitAPIKey}, {"LIVEKIT_API_SECRET", c.LiveKitAPISecret},
 		} {
-			if value == "" {
-				return fmt.Errorf("%s is required when LiveKit is configured; set all three LIVEKIT_ values or none", name)
+			if v.value == "" {
+				return fmt.Errorf("%s is required when LiveKit is configured; set all three LIVEKIT_ values or none", v.name)
 			}
 		}
 	}

@@ -80,6 +80,8 @@ type Deps struct {
 	// registration waits on the security review and a CAPTCHA, so outside dev
 	// mode only an invitation can create an account.
 	DevMode bool
+	// WaivePlatformMFA waives the second factor for platform and tenant admins, and only that.
+	WaivePlatformMFA bool
 	// PublicURL is the origin pages must post from.
 	PublicURL string
 	// ConsoleURL is the platform console, and WorkbenchURL the tenant admins'
@@ -362,7 +364,7 @@ func (s *Server) allowed(r *http.Request, a access, p identity.Principal) (bool,
 }
 
 func (s *Server) isPlatformAdmin(r *http.Request, p identity.Principal) (bool, error) {
-	if !p.MFARecent && !s.DevMode {
+	if !p.MFARecent && !s.DevMode && !s.WaivePlatformMFA {
 		return false, nil
 	}
 	return s.Directory.IsPlatformAdmin(r.Context(), p.UserID)

@@ -25,6 +25,10 @@ type Config struct {
 	// DevMode enables the password grant. It is refused unless PublicURL is
 	// localhost.
 	DevMode bool
+	// WaivePlatformMFA is AUTH_WAIVE_PLATFORM_MFA=demo. It lets a platform or tenant admin act
+	// without a second factor, as dev mode does, and changes nothing else. For a demo whose
+	// admin has no authenticator: anyone with that password has every tenant and user.
+	WaivePlatformMFA bool
 
 	// SigningKeyCurrent and SigningKeyNext are PEM-encoded P-256 private keys.
 	SigningKeyCurrent string
@@ -103,6 +107,13 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.DevMode = true
 	default:
 		return Config{}, errors.New("AUTH_DEV_MODE must be true or false")
+	}
+	switch getenv("AUTH_WAIVE_PLATFORM_MFA") {
+	case "":
+	case "demo":
+		cfg.WaivePlatformMFA = true
+	default:
+		return Config{}, errors.New(`AUTH_WAIVE_PLATFORM_MFA must be "demo" or unset`)
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

@@ -122,6 +122,7 @@ Configuration is parsed in [`internal/config/config.go`](../internal/config/conf
 | `AUTH_PERMISSIONS_DIR` | No | - | Directory containing `<module>.yaml` catalog files defining business permissions and templates. |
 | `AUTH_DEFAULT_REGION` | No | `CN` | Default ISO 3166-1 alpha-2 region for parsing phone numbers without country code. |
 | `AUTH_TRUST_PROXY` | No | `false` | When `true`, takes client IP from the rightmost `X-Forwarded-For` entry added by an ingress reverse proxy. |
+| `AUTH_WAIVE_PLATFORM_MFA` | No | unset | `demo` lets a platform or tenant admin act without a second factor, as dev mode does, and changes nothing else. For a demo whose admin has no authenticator: anyone with that password has every tenant and user. Any other value is refused. It logs a warning at startup. Never set it in production |
 | `AUTH_CONSOLE_URL` | No | - | Base URL for `t10-console` (platform admin redirection). |
 | `AUTH_WORKBENCH_URL` | No | - | Base URL for `workbench` (tenant admin redirection). |
 | `AUTH_APP_URLS` | No | - | Modules with their own web app, as `module=url` pairs separated by commas, for the landing page. Any other app link goes through Workbench. |

@@ -104,3 +104,23 @@ func TestLoad_Languages(t *testing.T) {
 		}
 	}
 }
+
+func TestLoad_WaivePlatformMFA(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil || cfg.WaivePlatformMFA {
+		t.Fatalf("off by default: %v, %v", cfg.WaivePlatformMFA, err)
+	}
+	cfg, err = Load(env(map[string]string{"AUTH_WAIVE_PLATFORM_MFA": "demo"}))
+	if err != nil || !cfg.WaivePlatformMFA {
+		t.Fatalf(`"demo" turns it on: %v, %v`, cfg.WaivePlatformMFA, err)
+	}
+	// It is not dev mode: the public https URL stays, and dev mode stays off.
+	if cfg.DevMode {
+		t.Error("the waiver must not turn on dev mode")
+	}
+	for _, v := range []string{"true", "1", "yes", "false"} {
+		if _, err := Load(env(map[string]string{"AUTH_WAIVE_PLATFORM_MFA": v})); err == nil {
+			t.Errorf("%q should be refused: only \"demo\" enables it", v)
+		}
+	}
+}

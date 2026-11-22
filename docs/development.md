@@ -315,10 +315,11 @@ This spins up:
 ### Tests
 
 ```sh
-cd auth-server
-go test -v ./...
+make test      # needs nothing running
+make db-up     # a throwaway Postgres on 55432, shared by every t10 repo's tests
+make test-db   # every test against it, one package at a time
 ```
-Tests that need Postgres run only with `TEST_DATABASE_URL` set. Each rebuilds the `auth` schema there, so never point it at a real database. Without it they skip, and the rest still run. The TypeScript verifier has its own: `node --test verifier/ts/verifier.test.ts`.
+Tests that need Postgres run only under `make test-db`, or with `TEST_DATABASE_URL` set. Each rebuilds the `auth` schema there, so never point it at a real database. Without it they skip, and the rest still run. The TypeScript verifier has its own: `node --test verifier/ts/verifier.test.ts`.
 
 ## Troubleshooting
 

@@ -406,7 +406,7 @@ func (s *Server) handleMeAccess(w http.ResponseWriter, r *http.Request, p identi
 	}
 	// tenant_verified is the same rule for a tenant's admins: a factor from the
 	// last 15 minutes, waived in dev mode, for changes such as tenant policy.
-	tenantVerified := tenantAdmin && (p.MFARecent || s.DevMode)
+	tenantVerified := tenantAdmin && (p.MFARecent || s.DevMode || s.WaivePlatformMFA)
 	// modules and module_admin come from business roles, for navigation only:
 	// each module checks its own entitlements.
 	modules, moduleAdmin, err := s.Roles.Access(r.Context(), p.TenantID, p.UserID, tenantAdmin)

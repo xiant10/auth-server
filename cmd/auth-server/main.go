@@ -128,18 +128,19 @@ func run() error {
 		return err
 	}
 	srv := server.New(server.Deps{
-		Pool:         pool,
-		Identity:     ids,
-		Directory:    dir,
-		Agents:       agentService,
-		Roles:        roleService,
-		Issuer:       issuer,
-		DevMode:      cfg.DevMode,
-		PublicURL:    cfg.PublicURL,
-		ConsoleURL:   cfg.ConsoleURL,
-		WorkbenchURL: cfg.WorkbenchURL,
-		AppURLs:      cfg.AppURLs,
-		TrustProxy:   cfg.TrustProxy,
+		Pool:             pool,
+		Identity:         ids,
+		Directory:        dir,
+		Agents:           agentService,
+		Roles:            roleService,
+		Issuer:           issuer,
+		DevMode:          cfg.DevMode,
+		WaivePlatformMFA: cfg.WaivePlatformMFA,
+		PublicURL:        cfg.PublicURL,
+		ConsoleURL:       cfg.ConsoleURL,
+		WorkbenchURL:     cfg.WorkbenchURL,
+		AppURLs:          cfg.AppURLs,
+		TrustProxy:       cfg.TrustProxy,
 	})
 	go purgeLoop(ctx, ids)
 
@@ -153,6 +154,9 @@ func run() error {
 	}
 	errs := make(chan error, 1)
 	go func() { errs <- httpServer.ListenAndServe() }()
+	if cfg.WaivePlatformMFA {
+		slog.Warn("AUTH_WAIVE_PLATFORM_MFA=demo: platform and tenant admins act without a second factor. Not for production")
+	}
 	slog.Info("auth-server listening", "addr", cfg.ListenAddr, "issuer", cfg.PublicURL, "dev_mode", cfg.DevMode)
 
 	select {

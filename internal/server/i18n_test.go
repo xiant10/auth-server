@@ -159,7 +159,7 @@ func TestLanguageSwitchLeavesSignedOutPagesOnTheSite(t *testing.T) {
 
 func TestNoLanguageSwitchBesideRecoveryCodes(t *testing.T) {
 	h, _ := adminFixture(t, true)
-	status, _, body := h.browser().post("/v1/register", url.Values{"name": {"newcomer"}, "password": {testPassword}})
+	status, _, body := h.browser().post("/v1/register", url.Values{"name": {"newcomer"}, "password": {testPassword}, "password_again": {testPassword}})
 	wantPage(t, status, body, http.StatusOK, "Save these recovery codes")
 	if strings.Contains(body, `action="/v1/language"`) {
 		t.Error("switch offered beside recovery codes")

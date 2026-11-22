@@ -371,7 +371,7 @@ func TestAuthenticatorLinkSurvivesTheTemplate(t *testing.T) {
 
 func TestPasswordLengthCountsCharacters(t *testing.T) {
 	h := newHarness(t, true)
-	status, _, _ := h.browser().post("/v1/register", url.Values{"name": {"ada"}, "password": {"密码密码密码"}})
+	status, _, _ := h.browser().post("/v1/register", url.Values{"name": {"ada"}, "password": {"密码密码密码"}, "password_again": {"密码密码密码"}})
 	if status != http.StatusBadRequest {
 		t.Errorf("six-character password: %d", status)
 	}

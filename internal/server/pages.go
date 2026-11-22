@@ -72,6 +72,8 @@ type pageData struct {
 	// SignInName keeps what was typed after a wrong password, and CodeTicket carries
 	// a right password through to the authenticator step.
 	SignInName, CodeTicket string
+	// DisplayName keeps what was typed on the register page after an error.
+	DisplayName string
 	// SupportEmail is the address the sign-in page offers for help, empty for none.
 	SupportEmail string
 	// HasApps groups the front door by tenant, because someone has more than one
@@ -607,6 +609,16 @@ func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request, _ identit
 	http.Redirect(w, r, "/v1/signin?reason=signedout", http.StatusSeeOther)
 }
 
+// passwordsDiffer answers a form whose new password and its repeat differ.
+const passwordsDiffer = "The two passwords don't match. Type them again."
+
+// typedTwice reports whether a page's new password matches the copy typed
+// under it, in field+"_again", so a typo doesn't become the password. The JSON
+// routes take a password once.
+func typedTwice(r *http.Request, field string) bool {
+	return r.PostFormValue(field) == r.PostFormValue(field+"_again")
+}
+
 func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	q := r.URL.Query()
 	invite := q.Get("invite")
@@ -618,7 +630,8 @@ func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request, _ id
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	ctx := r.Context()
 	invite, next := r.PostFormValue("invite"), safeNext(r.PostFormValue("next"))
-	data := pageData{Title: "Create account", Next: next, Invite: invite, Open: true}
+	data := pageData{Title: "Create account", Next: next, Invite: invite, Open: true,
+		SignInName: r.PostFormValue("name"), DisplayName: r.PostFormValue("display_name")}
 	fail := func(status int, msg string) {
 		data.Error = msg
 		render(w, r, status, "register", data)
@@ -626,6 +639,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ identi
 	if invite == "" && !s.DevMode {
 		data.Open = false
 		render(w, r, http.StatusForbidden, "register", data)
+		return
+	}
+	if !typedTwice(r, "password") {
+		fail(http.StatusBadRequest, passwordsDiffer)
 		return
 	}
 	if err := s.Identity.AllowRegistration(ctx, s.clientIP(r)); errors.Is(err, identity.ErrRateLimited) {
@@ -703,6 +720,10 @@ func (s *Server) handleRecoverPage(w http.ResponseWriter, r *http.Request, _ ide
 }
 
 func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
+	if !typedTwice(r, "new_password") {
+		render(w, r, http.StatusBadRequest, "recover", pageData{Title: "Recover account", Error: passwordsDiffer})
+		return
+	}
 	err := s.Identity.Recover(r.Context(), identity.Recovery{
 		Name: r.PostFormValue("name"), Code: r.PostFormValue("recovery_code"), SecondCode: r.PostFormValue("second_code"),
 		TOTP: r.PostFormValue("code"), NewPassword: r.PostFormValue("new_password"), IP: s.clientIP(r),
@@ -731,6 +752,10 @@ func (s *Server) handleResetPage(w http.ResponseWriter, r *http.Request, _ ident
 
 func (s *Server) handleReset(w http.ResponseWriter, r *http.Request, _ identity.Principal) {
 	token := r.PostFormValue("token")
+	if !typedTwice(r, "new_password") {
+		render(w, r, http.StatusBadRequest, "reset", pageData{Title: "Set a new password", Token: token, Error: passwordsDiffer})
+		return
+	}
 	err := s.Identity.ResetPassword(r.Context(), token, r.PostFormValue("new_password"))
 	data := pageData{Title: "Set a new password", Token: token}
 	switch {
@@ -862,6 +887,10 @@ func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request, p identit
 		}
 		notice = "That browser is signed out."
 	case "password":
+		if !typedTwice(r, "new_password") {
+			s.renderAccount(w, r, p, http.StatusBadRequest, pageData{Error: passwordsDiffer})
+			return
+		}
 		err = s.Identity.ChangePassword(ctx, p.UserID, p.SessionID, r.PostFormValue("new_password"), reauth)
 		notice = "Password changed. Your other sessions have ended."
 	case "name_add":

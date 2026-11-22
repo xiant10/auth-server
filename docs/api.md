@@ -131,6 +131,8 @@ These serve HTML. Web apps send people to `/v1/authorize` and redeem the code at
 | `GET`, `POST /v1/account` | Browser | The account page: profile, language and theme (`action=language` with `lang`, `action=theme` with `theme`), sign-in names, security, devices and sessions |
 | `GET`, `POST /v1/join` | Browser | Accept an invitation |
 | `GET /` | Browser | The front door: one place to go, or a chooser |
+
+The pages that set a password (register, recover, reset and the account page's password change) ask for it twice. The form sends the repeat as `password_again` or `new_password_again`. If the two differ, the page answers `400` and changes nothing, so the invitation, the reset link or the recovery code still works. The JSON routes below take it once: a client that sets a password asks for the repeat itself.
 | `GET /admin`, `/admin/…` | Browser | Sends people to the console or Workbench |
 
 ## Mobile and mini-program sign-in

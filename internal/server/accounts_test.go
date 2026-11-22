@@ -126,7 +126,7 @@ var (
 // register signs up through the page and returns the recovery codes.
 func (b *browser) register(name, invite string) []string {
 	b.h.t.Helper()
-	status, _, body := b.post("/v1/register", url.Values{"name": {name}, "password": {testPassword}, "invite": {invite}})
+	status, _, body := b.post("/v1/register", url.Values{"name": {name}, "password": {testPassword}, "password_again": {testPassword}, "invite": {invite}})
 	if status != http.StatusOK {
 		b.h.t.Fatalf("register %s: %d %s", name, status, body)
 	}
@@ -449,7 +449,7 @@ func TestRegistrationNeedsInvitationOutsideDevMode(t *testing.T) {
 	h.tenant("ten_acme")
 	b := h.browser()
 
-	status, _, _ := b.post("/v1/register", url.Values{"name": {"ada"}, "password": {testPassword}})
+	status, _, _ := b.post("/v1/register", url.Values{"name": {"ada"}, "password": {testPassword}, "password_again": {testPassword}})
 	if status != http.StatusForbidden {
 		t.Fatalf("open registration: %d", status)
 	}
@@ -467,12 +467,66 @@ func TestRegistrationNeedsInvitationOutsideDevMode(t *testing.T) {
 	}
 
 	// Single use, and a failed registration leaves no account behind.
-	status, _, _ = h.browser().post("/v1/register", url.Values{"name": {"eve"}, "password": {testPassword}, "invite": {invite}})
+	status, _, _ = h.browser().post("/v1/register", url.Values{"name": {"eve"}, "password": {testPassword}, "password_again": {testPassword}, "invite": {invite}})
 	if status != http.StatusBadRequest {
 		t.Errorf("reused invitation: %d", status)
 	}
 	if st := h.browser().signIn("eve", testPassword, ""); st != http.StatusUnauthorized {
 		t.Errorf("rolled-back account signed in: %d", st)
+	}
+}
+
+// Every page that sets a password asks for it twice. A mismatch changes
+// nothing: the invitation, the reset link and the old password still work.
+func TestNewPasswordTypedTwice(t *testing.T) {
+	h := newHarness(t, false)
+	h.tenant("ten_acme")
+	invite, err := h.dir.CreateInvitation(context.Background(), "test", "ten_acme", directory.RoleMember)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := h.browser()
+	status, _, body := b.post("/v1/register", url.Values{"display_name": {"Ada Lovelace"}, "name": {"ada"},
+		"password": {testPassword}, "password_again": {testPassword + "x"}, "invite": {invite}})
+	if status != http.StatusBadRequest || !strings.Contains(body, "The two passwords don&#39;t match") {
+		t.Fatalf("mismatched register: %d %s", status, body)
+	}
+	if !strings.Contains(body, `value="Ada Lovelace"`) || !strings.Contains(body, `value="ada"`) {
+		t.Error("the register page lost what was typed")
+	}
+	if st := h.browser().signIn("ada", testPassword, ""); st != http.StatusUnauthorized {
+		t.Errorf("a mismatched register made an account: %d", st)
+	}
+	b.register("ada", invite)
+
+	const newPassword = "a-brand-new-long-password"
+	change := url.Values{"action": {"password"}, "password": {testPassword}, "new_password": {newPassword}, "new_password_again": {"something-else-long"}}
+	if status, _, _ := b.post("/v1/account", change); status != http.StatusBadRequest {
+		t.Errorf("mismatched change: %d", status)
+	}
+	if st := h.browser().signIn("ada", testPassword, ""); st != http.StatusSeeOther {
+		t.Errorf("the old password stopped working: %d", st)
+	}
+
+	var userID string
+	if err := h.pool.QueryRow(context.Background(), "SELECT user_id FROM auth.user_identifiers WHERE value = 'ada'").Scan(&userID); err != nil {
+		t.Fatal(err)
+	}
+	token, err := h.id.IssueReset(context.Background(), "test", "platform", userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reset := url.Values{"token": {token}, "new_password": {newPassword}, "new_password_again": {""}}
+	if status, _, _ := h.browser().post("/v1/reset", reset); status != http.StatusBadRequest {
+		t.Errorf("reset without the repeat: %d", status)
+	}
+	reset.Set("new_password_again", newPassword)
+	if status, _, body := h.browser().post("/v1/reset", reset); status != http.StatusOK {
+		t.Errorf("the link stopped working after a mismatch: %d %s", status, body)
+	}
+
+	if status, _, _ := h.browser().post("/v1/recover", url.Values{"name": {"ada"}, "recovery_code": {"x"}, "new_password": {newPassword}}); status != http.StatusBadRequest {
+		t.Errorf("recover without the repeat: %d", status)
 	}
 }
 
@@ -486,7 +540,7 @@ func TestExpiredInvitation(t *testing.T) {
 	if _, err := h.pool.Exec(context.Background(), "UPDATE auth.invitations SET expires_at = now() - interval '1 minute'"); err != nil {
 		t.Fatal(err)
 	}
-	status, _, _ := h.browser().post("/v1/register", url.Values{"name": {"ada"}, "password": {testPassword}, "invite": {invite}})
+	status, _, _ := h.browser().post("/v1/register", url.Values{"name": {"ada"}, "password": {testPassword}, "password_again": {testPassword}, "invite": {invite}})
 	if status != http.StatusBadRequest {
 		t.Errorf("expired invitation: %d", status)
 	}
@@ -528,7 +582,7 @@ func TestRegistrationValidation(t *testing.T) {
 		{"grace", "password123", http.StatusBadRequest},
 	}
 	for _, tt := range tests {
-		status, _, _ := h.browser().post("/v1/register", url.Values{"name": {tt.name}, "password": {tt.password}})
+		status, _, _ := h.browser().post("/v1/register", url.Values{"name": {tt.name}, "password": {tt.password}, "password_again": {tt.password}})
 		if status != tt.want {
 			t.Errorf("%s/%s: %d", tt.name, tt.password, status)
 		}
@@ -691,7 +745,7 @@ func TestRecovery(t *testing.T) {
 	_, secret := h.redeem(b)
 
 	const newPassword = "a-brand-new-long-password"
-	form := url.Values{"name": {"ada"}, "recovery_code": {codes[0]}, "new_password": {newPassword}}
+	form := url.Values{"name": {"ada"}, "recovery_code": {codes[0]}, "new_password": {newPassword}, "new_password_again": {newPassword}}
 	if status, _, body := h.browser().post("/v1/recover", form); status != http.StatusOK {
 		t.Fatalf("recover: %d %s", status, body)
 	}
@@ -719,13 +773,13 @@ func TestRecoveryWithMFA(t *testing.T) {
 	const newPassword = "a-brand-new-long-password"
 
 	// One code is not enough, and the refusal does not spend it.
-	one := url.Values{"name": {"ada"}, "recovery_code": {codes[0]}, "new_password": {newPassword}}
+	one := url.Values{"name": {"ada"}, "recovery_code": {codes[0]}, "new_password": {newPassword}, "new_password_again": {newPassword}}
 	if status, _, _ := h.browser().post("/v1/recover", one); status != http.StatusUnauthorized {
 		t.Fatalf("one code: %d", status)
 	}
 
 	// With TOTP, the factor stays.
-	withTOTP := url.Values{"name": {"ada"}, "recovery_code": {codes[0]}, "code": {totpAt(t, secret, 1)}, "new_password": {newPassword}}
+	withTOTP := url.Values{"name": {"ada"}, "recovery_code": {codes[0]}, "code": {totpAt(t, secret, 1)}, "new_password": {newPassword}, "new_password_again": {newPassword}}
 	if status, _, body := h.browser().post("/v1/recover", withTOTP); status != http.StatusOK {
 		t.Fatalf("with TOTP: %d %s", status, body)
 	}
@@ -734,7 +788,7 @@ func TestRecoveryWithMFA(t *testing.T) {
 	}
 
 	// With a second code, the lost factor goes.
-	two := url.Values{"name": {"ada"}, "recovery_code": {codes[1]}, "second_code": {codes[2]}, "new_password": {testPassword}}
+	two := url.Values{"name": {"ada"}, "recovery_code": {codes[1]}, "second_code": {codes[2]}, "new_password": {testPassword}, "new_password_again": {testPassword}}
 	if status, _, body := h.browser().post("/v1/recover", two); status != http.StatusOK {
 		t.Fatalf("two codes: %d %s", status, body)
 	}
@@ -780,7 +834,7 @@ func TestAdminResetLinks(t *testing.T) {
 	token := link.Query().Get("token")
 
 	const newPassword = "a-brand-new-long-password"
-	form := url.Values{"token": {token}, "new_password": {newPassword}}
+	form := url.Values{"token": {token}, "new_password": {newPassword}, "new_password_again": {newPassword}}
 	if status, _, body := h.browser().post("/v1/reset", form); status != http.StatusOK {
 		t.Fatalf("reset: %d %s", status, body)
 	}
@@ -841,7 +895,7 @@ func TestChangePasswordKeepsOnlyThisSession(t *testing.T) {
 	other.signIn("ada", testPassword, "")
 
 	const newPassword = "a-brand-new-long-password"
-	form := url.Values{"action": {"password"}, "password": {testPassword}, "new_password": {newPassword}}
+	form := url.Values{"action": {"password"}, "password": {testPassword}, "new_password": {newPassword}, "new_password_again": {newPassword}}
 	if status, _, body := b.post("/v1/account", form); status != http.StatusOK {
 		t.Fatalf("change: %d %s", status, body)
 	}

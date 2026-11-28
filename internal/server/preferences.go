@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"auth-server/internal/agents"
 	"auth-server/internal/identity"
 )
 
@@ -58,4 +59,47 @@ func (s *Server) handleUserPreferences(w http.ResponseWriter, r *http.Request, _
 		return
 	}
 	writeJSON(w, http.StatusOK, prefs)
+}
+
+// handleMyAutoApply answers the modules, by action prefix, the person lets
+// their assistant act in without asking, in their current tenant.
+func (s *Server) handleMyAutoApply(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	if p.TenantID == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "choose a tenant first")
+		return
+	}
+	modules, err := s.Agents.AutoApply(r.Context(), p.UserID, p.TenantID)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"modules": modules})
+}
+
+// handleSetMyAutoApply replaces that choice. Only a person's own session can:
+// an agent's token has none, so an agent can never widen what it may do.
+func (s *Server) handleSetMyAutoApply(w http.ResponseWriter, r *http.Request, p identity.Principal) {
+	var req struct {
+		Modules *[]string `json:"modules"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Modules == nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "modules is required")
+		return
+	}
+	modules, err := s.Agents.SetAutoApply(r.Context(), p.UserID, p.TenantID, *req.Modules)
+	switch {
+	case errors.Is(err, agents.ErrInvalidPrefix):
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	case errors.Is(err, agents.ErrNoTenant):
+		writeError(w, http.StatusBadRequest, "invalid_request", "choose a tenant first")
+		return
+	case err != nil:
+		writeInternal(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"modules": modules})
 }

@@ -72,11 +72,13 @@ runtimes:
     # A call's grant is the parent of the agent's (agent-pi's, agent-ti's), so
     # it has to hold whatever a tool needs, or the tool disappears on calls, and
     # name every agent a call can reach, or that agent refuses its token. A call
-    # reaches assistants, which draft in collab and never write directly.
-    actions: [agent:use, work:read, work:propose, work:act, knowledge:read, property:read, property:propose]
+    # reaches assistants, which draft in collab and never write directly, unless
+    # the person let them act without asking (work:apply, which auth-server keeps
+    # on a chain only while the person chooses it).
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, knowledge:read, property:read, property:propose]
     audiences: [agent-pi, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   - name: agent-pi
-    actions: [agent:use, work:read, work:propose, work:act, knowledge:read, property:read, property:propose]
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, knowledge:read, property:read, property:propose]
     audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
     # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateways.
     tool_audience: ai-gateway-tools
@@ -86,10 +88,11 @@ runtimes:
   # optional component: a deployment without it needs no account.
   - name: agent-ti
     optional: true
-    # Ti, an assistant, drafts in collab (work:propose, work:act). work:write and
+    # Ti, an assistant, drafts in collab (work:propose, work:act), and applies
+    # without a draft where the person lets it (work:apply). work:write and
     # work:send serve agent teammates only: t10-collab's own write and send tools
     # serve only runs whose principal is an agent account.
-    actions: [agent:use, work:read, work:propose, work:act, work:write, work:send, knowledge:read, property:read, property:propose]
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, work:write, work:send, knowledge:read, property:read, property:propose]
     audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
     tool_audience: ai-gateway-tools
     model_audience: ai-gateway-llm
@@ -117,8 +120,9 @@ runtimes:
   - name: t10-automations
     optional: true
     # A person's automation runs an assistant, which drafts (work:propose,
-    # work:act); an agent account's runs a teammate (work:write, work:send).
-    actions: [agent:use, work:read, work:propose, work:act, work:write, work:send, knowledge:read, property:read, property:propose]
+    # work:act, and work:apply where the person lets it act without asking); an
+    # agent account's runs a teammate (work:write, work:send).
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, work:write, work:send, knowledge:read, property:read, property:propose]
     # agent-ti, for automations on ti, such as an agent teammate's intake.
     # t10-runner, so an external teammate's firing can be its parent.
     audiences: [ai-gateway, agent-pi, agent-ti, t10-runner, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]

@@ -463,9 +463,14 @@ func (s *Service) TokenExchange(ctx context.Context, caller Caller, grantID stri
 	return s.signer.MintDelegated(s.delegation(g, []string{audience}), ttl)
 }
 
-// Chain returns a live grant's ancestors for a target service to enforce.
+// Chain returns a live grant's ancestors for a target service to enforce,
+// each without the <prefix>:apply actions its person hasn't chosen.
 func (s *Service) Chain(ctx context.Context, caller Caller, grantID string) ([]Grant, error) {
-	return s.liveChain(ctx, caller, grantID)
+	chain, err := s.liveChain(ctx, caller, grantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.narrowApply(ctx, chain)
 }
 
 // Extend renews a grant for a new user request: the handler proved a live token

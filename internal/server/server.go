@@ -169,6 +169,8 @@ func (s *Server) routes() []route {
 		{"GET", "/v1/me/homes", accessUser, s.handleMyHomes},
 		{"GET", "/v1/me/preferences", accessUser, s.handleMyPreferences},
 		{"PUT", "/v1/me/preferences", accessUser, s.handleSetMyPreferences},
+		{"GET", "/v1/me/auto-apply", accessUser, s.handleMyAutoApply},
+		{"PUT", "/v1/me/auto-apply", accessUser, s.handleSetMyAutoApply},
 		{"GET", "/v1/me/session", accessUser, s.handleSessionAlive},
 		{"GET", "/v1/me/permissions", accessUser, s.handleMyPermissions},
 		{"PATCH", "/v1/me", accessUser, s.handleUpdateMe},

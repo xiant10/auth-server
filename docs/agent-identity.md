@@ -84,6 +84,10 @@ Proposed. A tenant admin may read any conversation in their tenant, a person's o
 
 The owner sees each read: `GET /v1/me/session-reads` lists who opened which of their conversations, when and why, and `workbench` shows it in the conversation's details. Platform admins can't ask for a read token, because they hold no tenant membership.
 
+### Auto-apply
+
+A person may let their assistant apply a module's propose actions without asking, per module and per tenant (`PUT /v1/me/auto-apply`, from Workbench's Settings). The grant action is `<prefix>:apply`. A runtime asks for it like any action, within its `clients.yaml` list, and the grant keeps it. The chain a module reads (`GET /v1/grants/{id}/chain`) carries it only while the chain's principal is a person who chose that module, so turning it on or off reaches a running agent within the verifier's 60-second chain cache, with no new grant. Narrowing on read, not on creation, is deliberate: a child grant must be a subset of its parent, so a grant made while the switch was off could never gain it otherwise. A tenant agent account's chain never carries it: agent teammates act as themselves. See the workspace's `contracts/ontology/README.md`, "Auto-apply".
+
 ## Changes to `auth-server`
 
 | Change | For |

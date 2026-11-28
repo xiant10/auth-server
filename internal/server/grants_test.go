@@ -33,9 +33,9 @@ const (
 
 var testRuntimes = []agents.Runtime{
 	{Name: voiceRuntime, Voice: true, Actions: []string{"agent:use"}, Audiences: []string{piRuntime}},
-	{Name: piRuntime, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, listedService}},
+	{Name: piRuntime, Actions: []string{"agent:use", "crm:read", "crm:act", "crm:apply", "deals:apply"}, Audiences: []string{piRuntime, listedService}},
 	{Name: gatedRuntime, ToolAudience: toolGateway, ModelAudience: modelGateway, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{gatedRuntime, listedService, toolGateway, modelGateway}},
-	{Name: firingRuntime, Optional: true, Actions: []string{"agent:use", "crm:read"}, Audiences: []string{piRuntime, runnerRuntime, listedService, toolGateway}},
+	{Name: firingRuntime, Optional: true, Actions: []string{"agent:use", "crm:read", "crm:apply"}, Audiences: []string{piRuntime, runnerRuntime, listedService, toolGateway}},
 	{Name: runnerRuntime, Optional: true, ToolAudience: toolGateway, Actions: []string{"crm:read"}, Audiences: []string{runnerRuntime, listedService, toolGateway}},
 }
 

@@ -159,6 +159,7 @@ All Public. Each request is signed with the device's keys, as [`mobile-api.md`](
 | `GET /v1/me/access` | User | What this token can do: `tenant_admin`, `platform_admin`, `platform_verified`, `tenant_verified`, `modules`, `module_admin`, `managed_agents`. For showing, not enforcing |
 | `GET /v1/me/permissions?module=<id>` | User | The caller's business-role grants in that module, in their active tenant |
 | `GET /v1/me/homes` | User | Where they can go: tenants with Workbench links and apps, the console, the account page |
+| `GET`, `PUT /v1/me/auto-apply` | User | `{modules}`: the modules, by action prefix such as `work`, whose propose actions the person lets their assistant apply without asking, in the token's tenant. Empty by default. `PUT` replaces the list and is audited (`auto_apply.set`). An agent's token has no session, so it can never change this |
 | `GET`, `PUT /v1/me/preferences` | User | `language`, `theme` and `greeting`, and the `languages` the deployment offers (`AUTH_LANGUAGES`). `PUT` changes only the fields given, and refuses a language not offered |
 | `GET /v1/me/session` | User | `{"status": "ok"}` while the session behind the token is alive, else `401` |
 | `POST /v1/rooms/admission` | User | Join a call: `{room, tenant?, client?}`, answering `room_token`, `room_name`, `identity`, `assertion`, `server_url`, `expires_at`, `can_publish`. See [`service-api.md`](guides/service-api.md#room-admission) |
@@ -183,7 +184,7 @@ Service routes take a service token. [`service-api.md`](guides/service-api.md) e
 | Method and path | Does |
 | --- | --- |
 | `POST /v1/grants` | Create a grant, a standing grant, or one firing of a standing grant |
-| `GET /v1/grants/{id}/chain` | A live grant and its ancestors, root first |
+| `GET /v1/grants/{id}/chain` | A live grant and its ancestors, root first. Each link holds a `<prefix>:apply` only while the chain's principal is a person whose auto-apply choice lists `<prefix>`; a tenant agent account's never does. The grants keep what was asked for, so a change of choice reaches live grants |
 | `POST /v1/grants/{id}/extend` | Renew it for a person's new request: `{subject_token}` |
 | `POST /v1/grants/{id}/revoke` | Stop it and everything under it |
 | `GET /v1/org/units?tenant=` | Units with their members and leads |

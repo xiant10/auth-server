@@ -170,13 +170,3 @@ Removal deletes the sample accounts, both sample tenants, and what they gathered
 
 - **Deleting real users or tenants:** only the samples can be deleted. Real users and tenants can be suspended.
 - **Removing a lost authenticator:** this is still an open decision in the design.
-
-## Property demo users
-
-The local property seed adds `property-steward`, `property-customer-service`,
-`property-maintenance`, `property-manager`, and `property-finance` to Sample Acme
-(`ten_sample-acme`). Password: `t10-sample-password`. These are ordinary members
-with auth business roles and property-owned scope bindings. See
-[`t10-property/README.md`](../../t10-property/README.md) for scopes and seed commands.
-They are created separately from `samples-add`; reseed property after rebuilding
-sample tenants. Property screens are in workbench; the API is at localhost port 18075.

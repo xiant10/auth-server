@@ -382,7 +382,7 @@ Where it stands:
 | Phase | State |
 | --- | --- |
 | 1. Catalog, roles, assignments, audit, admin routes, entitlement read | Built |
-| 2. Property adoption and Workbench's Roles page | Built: Roles page in Workbench, `property:*` checks with assignment-bound scopes in `t10-property`. `t10-collab` also reads `work:admin` |
+| 2. Property adoption and Workbench's Roles page | Built: Roles page in Workbench, `property:*` checks with assignment-bound scopes in `t10-property` (since Nov 28 in its own project, outside the workspace). `t10-collab` also reads `work:admin` |
 | 3. Knowledge adoption: `knowledge:entry.*` with base scopes bound to assignments | Not started |
 | 4. Other modules, each migrated deliberately | Not started |
 

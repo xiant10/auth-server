@@ -204,7 +204,7 @@ Step-up doesn't change. Publishing and identity pages still need a second factor
 
 Built with section 5.
 
-- **It names the app.** "Sign in to Workbench", from `name` in `clients.yaml`, read from the authorize request in `next`. The names are now "Workbench", "Property" and "Platform console".
+- **It names the app.** "Sign in to Workbench", from `name` in `clients.yaml`, read from the authorize request in `next`. The names are now "Workbench" and "Platform console", and a project's own app adds its own, such as "Property".
 - **A code only when there is one.** The page asks for name and password. An account with an authenticator gets a second step asking for the code alone, carried by a 5-minute signed ticket that's no use without the code. A wrong code stays on that step and counts toward the lockout, as before.
 - **It keeps the name after a wrong password**, and puts the cursor in the password field.
 - **No QR code on a phone,** which can't scan its own screen. Wider screens keep it.

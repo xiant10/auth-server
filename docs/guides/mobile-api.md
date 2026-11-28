@@ -134,7 +134,7 @@ Five wrong passwords or codes lock an account for 30 seconds, doubling up to an 
 
 ## The WeChat mini-program
 
-The mini-program has no hardware keys, so it uses client ID `t10-miniprogram` and these routes instead of the ones above. Each takes a fresh code from `wx.login`, which works once.
+The mini-program has no hardware keys, so it uses a client with `wechat: true` and these routes instead of the ones above. auth-server's own `clients.yaml` lists none: a project that ships a mini-program adds its client, as property's project does with `t10-miniprogram`. Each takes a fresh code from `wx.login`, which works once.
 
 | Route | Does |
 | --- | --- |

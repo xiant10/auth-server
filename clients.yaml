@@ -14,14 +14,6 @@ clients:
     # The only client allowed to take a password itself.
     direct_login: true
     idle_ttl: 2160h
-  # The property employee mini-program. It proves who it is with WeChat's login code,
-  # and a week without use comes back to the password.
-  - id: t10-miniprogram
-    name: 物业员工端
-    type: public
-    wechat: true
-    wechat_demo: true
-    idle_ttl: 168h
   - id: t10-workbench
     name: Workbench
     type: confidential
@@ -34,16 +26,6 @@ clients:
     # The hash of the dev secret in workbench's .env.example. Replace it outside
     # local development.
     secret_sha256: 3b2a1c8150447544142ed749be66a8a5cc8c4c25a0fb17e9b5e596313775cd11
-    idle_ttl: 12h
-    absolute_ttl: 168h
-  - id: t10-property-web
-    name: Property
-    type: confidential
-    tenant: required
-    redirect_uris:
-      - http://127.0.0.1:18075/auth/callback
-    # The hash of a dev secret, "t10-property-web-dev-secret". Replace it outside local development.
-    secret_sha256: 989c446dbbbd589c7365d8a21f8ba12bc20d4e76b42efe92eadfae4056755826
     idle_ttl: 12h
     absolute_ttl: 168h
   - id: t10-console
@@ -75,11 +57,11 @@ runtimes:
     # reaches assistants, which draft in collab and never write directly, unless
     # the person let them act without asking (work:apply, which auth-server keeps
     # on a chain only while the person chooses it).
-    actions: [agent:use, work:read, work:propose, work:act, work:apply, knowledge:read, property:read, property:propose]
-    audiences: [agent-pi, agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, knowledge:read]
+    audiences: [agent-pi, agent-ti, t10-collab, t10-knowledge, ai-gateway-tools, ai-gateway-llm]
   - name: agent-pi
-    actions: [agent:use, work:read, work:propose, work:act, work:apply, knowledge:read, property:read, property:propose]
-    audiences: [agent-pi, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, knowledge:read]
+    audiences: [agent-pi, t10-collab, t10-knowledge, ai-gateway-tools, ai-gateway-llm]
     # Where AUTH_TOOL_GATEWAY is on, its tokens are good only at the gateways.
     tool_audience: ai-gateway-tools
     # Its model calls carry the run's token, so ai-gateway-llm knows the tenant.
@@ -92,27 +74,10 @@ runtimes:
     # without a draft where the person lets it (work:apply). work:write and
     # work:send serve agent teammates only: t10-collab's own write and send tools
     # serve only runs whose principal is an agent account.
-    actions: [agent:use, work:read, work:propose, work:act, work:apply, work:write, work:send, knowledge:read, property:read, property:propose]
-    audiences: [agent-ti, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, work:write, work:send, knowledge:read]
+    audiences: [agent-ti, t10-collab, t10-knowledge, ai-gateway-tools, ai-gateway-llm]
     tool_audience: ai-gateway-tools
     model_audience: ai-gateway-llm
-  # The property agent agent-ti hosts beside ti. A runtime of its own, so a token
-  # names exactly one agent, and the gateways apply property's tool lists and
-  # policy to its runs, not ti's. Optional, as agent-ti is.
-  - name: agent-ti-property
-    optional: true
-    actions: [agent:use, knowledge:read, property:read, property:propose]
-    audiences: [agent-ti-property, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
-    tool_audience: ai-gateway-tools
-    model_audience: ai-gateway-llm
-  # Property's assistant: it turns a person's live token into a grant for their
-  # conversation, after checking and cleaning what they typed. Its account is the
-  # service account it already has.
-  - name: t10-property
-    optional: true
-    actions: [agent:use, knowledge:read, property:read, property:propose]
-    # agent-ti-property, so the property agent's runtime may build on its grants.
-    audiences: [ai-gateway, agent-ti, agent-ti-property, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
   # Fires automations: it holds a person's standing grant, and makes one child
   # per firing for the harness it calls, through ai-gateway-agent, which has to
   # accept the firing's token. Its account exists only where setup has
@@ -122,10 +87,10 @@ runtimes:
     # A person's automation runs an assistant, which drafts (work:propose,
     # work:act, and work:apply where the person lets it act without asking); an
     # agent account's runs a teammate (work:write, work:send).
-    actions: [agent:use, work:read, work:propose, work:act, work:apply, work:write, work:send, knowledge:read, property:read, property:propose]
+    actions: [agent:use, work:read, work:propose, work:act, work:apply, work:write, work:send, knowledge:read]
     # agent-ti, for automations on ti, such as an agent teammate's intake.
     # t10-runner, so an external teammate's firing can be its parent.
-    audiences: [ai-gateway, agent-pi, agent-ti, t10-runner, t10-collab, t10-knowledge, t10-property, ai-gateway-tools, ai-gateway-llm]
+    audiences: [ai-gateway, agent-pi, agent-ti, t10-runner, t10-collab, t10-knowledge, ai-gateway-tools, ai-gateway-llm]
   # External agent teammates: their runs happen on a runner outside t10, such
   # as a coding agent beside a repository. t10-automations holds this account
   # and mints each firing's tokens as it, so a runner never holds a secret of
